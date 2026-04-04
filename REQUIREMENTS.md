@@ -73,7 +73,7 @@ The tool covers:
 
 | ID | Requirement | Priority |
 |---|---|---|
-| REQ-020 | Each requirement shall have a project-unique, human-readable identifier (e.g., `SYS-042`) | Must |
+| REQ-020 | Each requirement shall have a project-unique, human-readable identifier (e.g., `REQ-SYS-042`) | Must |
 | REQ-021 | Each requirement shall have a **type**: `functional`, `non-functional`, `constraint`, `safety`, `interface` | Must |
 | REQ-022 | Each requirement shall have a **status**: `draft`, `review`, `approved`, `implemented`, `verified`, `rejected` | Must |
 | REQ-023 | Each requirement shall have a **priority**: `critical`, `high`, `medium`, `low` | Must |
@@ -98,7 +98,7 @@ The tool covers:
 | ID | Requirement | Priority |
 |---|---|---|
 | REQ-040 | The tool shall support defining an external normative source (e.g., EN ISO 13849, EU Machinery Directive 2006/42/EC) as a first-class document in the repository | Must |
-| REQ-041 | Specific clauses or articles of a normative source shall be referenceable so that derived requirements can declare their origin precisely (e.g., `source: EN-ISO-13849:2023/clause:4.5.2`) | Must |
+| REQ-041 | Specific clauses or articles of a normative source shall be referenceable so that derived requirements can declare their origin precisely (e.g., `source: EN-ISO-13849-2023:clause:4.5.2`) | Must |
 | REQ-042 | The CLI shall be able to report which requirements are derived from a given standard or directive and flag any that are not yet implemented or verified | Should |
 
 ### 3.6 Command-Line Interface (CLI)
@@ -212,7 +212,7 @@ tags:
   - security
   - authentication
 sources:
-  - external: EU-2016/679/clause:32   # GDPR Article 32
+  - external: EU-2016-679:article:32   # GDPR Article 32
 links:
   - id: REQ-SW-002
     relation: parent
@@ -223,6 +223,14 @@ links:
   - artefact: tests/auth/test_login.c
     relation: verified-by
 ```
+
+The canonical format for an external source reference in any requirement file is:
+
+```
+<EXT-ID>:<section-type>:<section-number>
+```
+
+Where `<section-type>` is one of `clause`, `article`, `annex`, or `section`, and `<EXT-ID>` is the `id` field of the corresponding external normative source document. Example: `EU-2016-679:article:32`, `EN-ISO-13849-2023:clause:4.5.2`, `EXT-MACH-DIR:annex:I-1.1.2`.
 
 An external normative source file (`external/EU-Machinery-Dir-2006-42-EC.yaml`):
 
@@ -284,7 +292,7 @@ Commands:
 
 | Language | Distribution | Ecosystem | Known to author | Suitability |
 |---|---|---|---|---|
-| **C / C++** | Single binary | libyaml / rapidyaml; GTK / Qt for GUI | Yes | Good; GUI is straightforward with Qt |
+| **C / C++** | Single binary | libyaml / RapidYAML; GTK / Qt for GUI | Yes | Good; GUI is straightforward with Qt |
 | **Common Lisp** | Single binary (SBCL `--save-lisp-and-die`) | cl-yaml; McCLIM for GUI | Yes | Excellent for DSL; GUI ecosystem is limited |
 | **Rust** | Single static binary | `serde_yaml`; `egui` / GTK for GUI | To explore | Excellent distribution story; memory safety |
 | **Go** | Single static binary | `gopkg.in/yaml.v3`; Fyne / `gio` for GUI | To explore | Very easy cross-compilation; moderate GUI |
