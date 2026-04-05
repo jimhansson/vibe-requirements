@@ -1,0 +1,20 @@
+id: REQ-SW-002
+title: "Auto-discovery of requirement files"
+type: functional
+status: approved
+priority: high
+description: |
+  The tool shall perform zero-config auto-discovery of all requirement files
+  anywhere in the repository by walking the directory tree and identifying
+  YAML files that contain a top-level "id" field.
+rationale: |
+  Users should not have to maintain a manifest of requirement files; the tool
+  should find them automatically, matching how source files are discovered in
+  build systems.
+verification: test
+tags:
+  - discovery
+  - cli
+links:
+  - id: REQ-SYS-001
+    relation: implements

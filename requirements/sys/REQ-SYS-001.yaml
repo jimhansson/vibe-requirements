@@ -1,0 +1,15 @@
+id: REQ-SYS-001
+title: "Requirements as code"
+type: functional
+status: approved
+priority: critical
+description: |
+  All project requirements shall be stored as plain text files inside the
+  version-controlled repository alongside source code and design artefacts.
+rationale: |
+  Storing requirements in the same VCS as the code enables atomic commits,
+  branching, diffing, and code-review workflows for requirement changes.
+verification: inspection
+tags:
+  - core
+  - vcs

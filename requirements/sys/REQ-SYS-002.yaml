@@ -1,0 +1,14 @@
+id: REQ-SYS-002
+title: "Single self-contained executable"
+type: constraint
+status: approved
+priority: high
+description: |
+  The CLI shall be distributable as a single self-contained executable with
+  no mandatory external runtime dependencies.
+rationale: |
+  Simplifies installation in CI pipelines and on developer workstations.
+verification: demonstration
+tags:
+  - distribution
+  - cli
