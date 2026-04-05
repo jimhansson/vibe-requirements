@@ -114,6 +114,8 @@ The tool covers:
 | REQ-055 | The CLI shall provide a `status` command showing counts of requirements per status and priority | Should |
 | REQ-056 | The CLI shall exit with a non-zero code when validation fails, making it suitable for use in CI pipelines | Must |
 | REQ-057 | The CLI shall ideally be distributed as a single self-contained executable with no runtime dependencies | Should |
+| REQ-058 | The tool shall gracefully handle malformed or invalid input files: when a file cannot be parsed or fails schema validation, the tool shall report the error (including file path and, where possible, the line/column or field name) and continue processing all remaining files rather than aborting | Must |
+| REQ-059 | The CLI shall provide a `--fail-fast` flag that causes processing to stop immediately on the first encountered parse or validation error; this flag is intended for use in CI pipelines where early termination is preferred | Should |
 
 ### 3.7 Graphical User Interface (GUI)
 
