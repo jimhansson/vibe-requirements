@@ -14,7 +14,7 @@ Requirements are stored as human-readable, version-controllable text files (e.g.
 
 The tool covers:
 
-- Capturing and editing requirements, user stories, system design documents (SDD), and related engineering documents.
+- Capturing and editing requirements, user stories, system design documents (SDD), test cases, and related engineering documents.
 - Linking requirements to each other, to code, to hardware design artefacts, and to external normative sources (standards, regulations, directives).
 - Providing a CLI for day-to-day use in terminals and CI pipelines.
 - Providing an optional GUI (native, not browser-based) for visual exploration and editing.
@@ -29,6 +29,7 @@ The tool covers:
 | Traceability | The ability to follow a requirement forward (to design/code/tests) and backward (to its origin) |
 | SDD | System/Software Design Document |
 | User story | An informal, plain-language description of a feature from an end-user perspective |
+| Test case | A structured document describing steps and expected results used to verify that a requirement is satisfied |
 | Artefact | Any project file that can be linked to a requirement (source file, schematic, test case, document) |
 
 ---
@@ -58,7 +59,7 @@ The tool covers:
 | REQ-003 | The tool shall be designed so that alternative file formats (e.g., TOML, S-expressions, plain Markdown front-matter) can be added without redesigning the core | Should |
 | REQ-004 | Requirement files shall be human-readable and human-editable without the tool (i.e., in any text editor) | Must |
 | REQ-005 | The tool shall perform zero-config auto-discovery of all requirement files anywhere in the repository; an optional `.vibe-req.yaml` configuration file may specify glob patterns to restrict or extend the search scope | Must |
-| REQ-006 | The tool should document and promote a recommended directory convention (e.g., `requirements/`, `stories/`, `design/`, `external/`) and the `init` command should scaffold this structure when requested | Should |
+| REQ-006 | The tool should document and promote a recommended directory convention (e.g., `requirements/`, `stories/`, `design/`, `tests/`, `external/`) and the `init` command should scaffold this structure when requested | Should |
 
 ### 3.2 Document Types
 
@@ -69,6 +70,7 @@ The tool covers:
 | REQ-012 | The tool shall support a **System Design Document (SDD)** document type that can reference and be referenced by requirements | Should |
 | REQ-013 | The tool shall support an **External Source** document type to represent normative references such as standards or legal directives, including clauses or articles that generate derived requirements | Should |
 | REQ-014 | The tool shall support a **Hardware Artefact** link type so that requirements can be traced to schematics, PCB files, mechanical drawings, or BOM entries | Should |
+| REQ-015 | The tool shall support a **Test Case** document type with at minimum: unique ID, title, description, preconditions, test steps, expected results, verification method (`inspection`, `analysis`, `demonstration`, `test`), status, and links to the requirements it verifies | Should |
 
 ### 3.3 Requirement Fields
 
@@ -175,6 +177,7 @@ project-repo/
 │   └── safety/       # Safety / regulatory requirements (recommended)
 ├── stories/          # User stories (recommended)
 ├── design/           # System design documents (SDD) (recommended)
+├── tests/            # Test cases (recommended)
 ├── external/         # Normative references (standards, directives) (recommended)
 └── .vibe-req.yaml    # Optional configuration (glob patterns, ID prefix, schema version, …)
 
@@ -254,6 +257,32 @@ clauses:
       putting persons at risk.
 ```
 
+A test case file (e.g., `tests/TC-SW-001.yaml`):
+
+```yaml
+id: TC-SW-001
+title: "User authentication with valid credentials"
+description: |
+  Verify that the system grants access to a protected resource when
+  a user provides valid credentials.
+preconditions:
+  - A registered user account with username "testuser" exists.
+  - The protected resource endpoint is available.
+steps:
+  - step: 1
+    action: "Submit a login request with username 'testuser' and the correct password."
+    expected_output: "The system returns an authentication token and HTTP 200."
+  - step: 2
+    action: "Use the authentication token to request the protected resource."
+    expected_output: "The system returns the resource content and HTTP 200."
+expected_result: "The user gains access to the protected resource."
+verification: test
+status: approved
+links:
+  - id: REQ-SW-001
+    relation: verifies
+```
+
 ### 6.3 Alternative Format Candidates
 
 | Format | Pros | Cons |
@@ -284,7 +313,7 @@ vibe-req <command> [options]
 
 Commands:
   init              Initialize a new vibe-req project in the current directory
-  new <type> <id>   Create a new requirement / story / SDD / external-source file
+  new <type> <id>   Create a new requirement / story / SDD / test-case / external-source file
   validate          Validate all files: schema, IDs, links
   status            Print counts by status and priority
   trace <id>        Show full traceability chain for a requirement
@@ -311,7 +340,7 @@ Commands:
 | Phase | Milestone | Key Deliverables |
 |---|---|---|
 | 1 | Core CLI MVP | `init`, `new`, `validate`, `status`; YAML format; software requirements only |
-| 2 | Traceability | `trace`, link graph, broken-link detection, external-source document type |
+| 2 | Traceability | `trace`, link graph, broken-link detection, external-source document type, test-case document type |
 | 3 | Reporting | `report` (Markdown + HTML), `lint`, CI pipeline integration |
 | 4 | Hardware & Safety | Hardware artefact links, safety requirement type, standards/directive support, subsystem filtering |
 | 5 | GUI | Native GUI: list view, traceability graph, inline editor |
