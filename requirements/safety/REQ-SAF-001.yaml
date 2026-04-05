@@ -1,0 +1,15 @@
+id: REQ-SAF-001
+title: "No network access for core operations"
+type: safety
+status: approved
+priority: critical
+description: |
+  The tool shall not require network access for any core operation including
+  discovery, parsing, validation, and listing of requirements.
+rationale: |
+  Core functionality must work in air-gapped environments and CI pipelines
+  without external connectivity.
+verification: inspection
+tags:
+  - safety
+  - offline
