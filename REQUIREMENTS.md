@@ -57,7 +57,8 @@ The tool covers:
 | REQ-002 | The tool shall support YAML as a primary file format for requirement files | Must |
 | REQ-003 | The tool shall be designed so that alternative file formats (e.g., TOML, S-expressions, plain Markdown front-matter) can be added without redesigning the core | Should |
 | REQ-004 | Requirement files shall be human-readable and human-editable without the tool (i.e., in any text editor) | Must |
-| REQ-005 | The tool shall define a clear directory convention so that requirements, user stories, SDDs, and external-source documents are organized consistently | Should |
+| REQ-005 | The tool shall perform zero-config auto-discovery of all requirement files anywhere in the repository; an optional `.vibe-req.yaml` configuration file may specify glob patterns to restrict or extend the search scope | Must |
+| REQ-006 | The tool should document and promote a recommended directory convention (e.g., `requirements/`, `stories/`, `design/`, `external/`) and the `init` command should scaffold this structure when requested | Should |
 
 ### 3.2 Document Types
 
@@ -161,17 +162,19 @@ The tool covers:
 
 ### 6.1 Architecture Overview
 
+The tool discovers requirement files automatically by scanning the entire repository for recognized file extensions (e.g., `.yaml`/`.yml` files containing a top-level `id` field). Projects may optionally add a `.vibe-req.yaml` configuration file at the repository root to provide glob patterns that restrict or extend discovery. The directory layout below is the **recommended convention** produced by `vibe-req init`; it is not enforced:
+
 ```
 project-repo/
 ├── requirements/
-│   ├── sys/          # System-level requirements
-│   ├── sw/           # Software requirements
-│   ├── hw/           # Hardware requirements
-│   └── safety/       # Safety / regulatory requirements
-├── stories/          # User stories
-├── design/           # System design documents (SDD)
-├── external/         # Normative references (standards, directives)
-└── .vibe-req.yaml    # Project configuration (ID prefix, schema version, …)
+│   ├── sys/          # System-level requirements (recommended)
+│   ├── sw/           # Software requirements (recommended)
+│   ├── hw/           # Hardware requirements (recommended)
+│   └── safety/       # Safety / regulatory requirements (recommended)
+├── stories/          # User stories (recommended)
+├── design/           # System design documents (SDD) (recommended)
+├── external/         # Normative references (standards, directives) (recommended)
+└── .vibe-req.yaml    # Optional configuration (glob patterns, ID prefix, schema version, …)
 
           ┌──────────────────────────────────────┐
           │          vibe-req  (binary)           │
