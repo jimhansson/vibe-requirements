@@ -1,0 +1,18 @@
+id: REQ-SW-001
+title: "YAML as primary file format"
+type: functional
+status: approved
+priority: high
+description: |
+  The tool shall use YAML as the primary file format for requirement files.
+  Each requirement shall live in its own YAML file.
+rationale: |
+  YAML is widely understood, human-readable, and supported by a rich
+  ecosystem of parsers and editors.
+verification: inspection
+tags:
+  - format
+  - yaml
+links:
+  - id: REQ-SYS-001
+    relation: implements

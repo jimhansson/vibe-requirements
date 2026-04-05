@@ -1,0 +1,19 @@
+id: REQ-SW-003
+title: "CLI list command"
+type: functional
+status: draft
+priority: high
+description: |
+  The CLI shall provide a command (default action) that lists all discovered
+  requirements in a human-readable tabular format showing at minimum: ID,
+  title, type, status, and priority.
+rationale: |
+  A quick overview of all requirements is the most frequently needed
+  operation during day-to-day development.
+verification: demonstration
+tags:
+  - cli
+  - listing
+links:
+  - id: REQ-SW-002
+    relation: depends-on
