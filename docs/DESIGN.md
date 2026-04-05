@@ -18,21 +18,21 @@ project-repo/
 └── .vibe-req.yaml    # Optional configuration (glob patterns, ID prefix, schema version, …)
 
           ┌──────────────────────────────────────┐
-          │          vibe-req  (binary)           │
+          │          vibe-req  (binary)          │
           │                                      │
           │  ┌─────────┐  ┌──────────────────┐   │
-          │  │   CLI   │  │   GUI (optional)  │   │
+          │  │   CLI   │  │   GUI (optional) │   │
           │  └────┬────┘  └────────┬─────────┘   │
-          │       │                │              │
-          │  ┌────▼────────────────▼──────────┐   │
-          │  │         Core Library           │   │
-          │  │  parser · validator · linker   │   │
-          │  │  reporter · tracer             │   │
-          │  └────────────────────────────────┘   │
+          │       │                │             │
+          │  ┌────▼────────────────▼──────────┐  │
+          │  │         Core Library           │  │
+          │  │  parser · validator · linker   │  │
+          │  │  reporter · tracer             │  │
+          │  └────────────────────────────────┘  │
           └──────────────┬───────────────────────┘
                          │ reads / writes
                     ┌────▼────┐
-                    │  files  │  (YAML, TOML, …)
+                    │  files  │  (YAML, …)
                     └─────────┘
 ```
 
@@ -142,7 +142,196 @@ The initial implementation uses YAML. The parser layer shall be abstracted so th
 | `tracer` | Traverses the link graph to produce traceability chains |
 | `exporter` | Converts the model to other representations (CSV, ReqIF, …) |
 
-## 5. CLI Command Design
+## 5. In-Memory Graph Model (Triplet Store)
+
+To support fast traceability queries and GUI editing, the core model should maintain an in-memory triplet store:
+
+```
+(subject, predicate, object)
+```
+
+Examples:
+
+```
+(REQ-SW-001, derives-from, REQ-SYS-005)
+(REQ-SW-001, implemented-in, src/auth/login.c)
+(TC-SW-001, verifies, REQ-SW-001)
+(REQ-SW-001, cites, EU-2016-679:article:32)
+```
+
+Suggested internal structures:
+
+- `triples: Vec<Triple>` (or equivalent)
+- `by_subject: HashMap<EntityId, Vec<TripleId>>`
+- `by_object: HashMap<EntityId, Vec<TripleId>>`
+- `by_predicate: HashMap<Relation, Vec<TripleId>>`
+
+This keeps write operations simple while enabling efficient traversal for `trace`, `lint`, and GUI graph views.
+
+### 5.1 Link Mutation API (GUI + CLI)
+
+Related requirements: REQ-066, REQ-068, REQ-069.
+
+The core library should expose link mutation operations instead of letting GUI/CLI modify file models directly:
+
+```
+add_link(subject, relation, object) -> Result<LinkId, Error>
+remove_link(link_id) -> Result<(), Error>
+remove_links(filter) -> Result<usize, Error>
+```
+
+Write-through variants for immediate persistence to disk:
+
+```
+add_link_and_flush(subject, relation, object) -> Result<LinkId, Error>
+remove_link_and_flush(link_id) -> Result<(), Error>
+remove_links_and_flush(filter) -> Result<usize, Error>
+```
+
+Required behavior:
+
+- Validate entity existence before insertion.
+- Reject exact duplicate links unless relation explicitly allows multiplicity.
+- Enforce relation constraints (`verifies` should typically originate from test-case entities, etc.).
+- Preserve consistency between in-memory graph and per-file object model.
+- In write-through mode, update YAML files atomically as part of the same operation.
+
+### 5.2 Persistence Strategy
+
+Related requirements: REQ-066, NFR-006.
+
+For deterministic file output and clean diffs:
+
+- Keep the graph as the working model during editing.
+- Default mode: write-through (every accepted mutation is persisted immediately).
+- Optional future mode: delayed/batched writes with explicit `flush()`.
+- Sort links by `(relation, target)` before writing.
+- Avoid rewriting untouched files.
+
+### 5.3 Entity Origin Tracking (File Provenance)
+
+Related requirements: REQ-067.
+
+Every loaded entity must carry provenance metadata so the system knows exactly which file to patch when data changes.
+
+Suggested metadata:
+
+```
+EntityOrigin {
+  entity_id: EntityId,
+  file_path: RepoRelativePath,
+  doc_kind: requirement | test_case | external_source | story | design_doc,
+  format: yaml,
+  loaded_revision: u64
+}
+```
+
+Indexes:
+
+- `origin_by_entity: HashMap<EntityId, EntityOrigin>`
+- `entities_by_file: HashMap<RepoRelativePath, Vec<EntityId>>`
+- `file_revision: HashMap<RepoRelativePath, u64>`
+
+Rules:
+
+- Each `EntityId` maps to exactly one owning file.
+- Cross-file links are allowed; ownership of the link record is the subject entity's file.
+- Rename/move operations must update origin indexes transactionally.
+
+### 5.4 Repository API (Write-Through First)
+
+Related requirements: REQ-066, REQ-067, REQ-068, REQ-069.
+
+Expose a repository-level API that combines in-memory mutation and disk persistence in one call:
+
+```
+update_component_and_flush(entity_id, component_patch) -> Result<(), Error>
+remove_component_and_flush(entity_id, component_type) -> Result<(), Error>
+add_link_and_flush(subject, relation, object) -> Result<LinkId, Error>
+remove_link_and_flush(link_id) -> Result<(), Error>
+```
+
+Execution model for each call:
+
+1. Resolve origin file(s) for affected entities.
+2. Validate schema + relation constraints against current graph.
+3. Apply mutation in memory.
+4. Serialize only affected file(s).
+5. Atomically write to disk (temp file + rename).
+6. Reindex provenance and graph indexes.
+
+Failure policy:
+
+- If disk write fails, roll back the in-memory mutation.
+- Return structured errors with file path and operation context.
+- Never leave memory and disk diverged after a failed write-through call.
+
+## 6. Entity-Component-Inspired Domain Model
+
+An ECS-inspired model can separate common, regular fields from irregular, type-specific fields without deep inheritance trees.
+
+### 6.1 Entity
+
+`Entity` is a stable ID (`REQ-SW-001`, `TC-SW-001`, `EXT-MACH-DIR`, etc.).
+
+### 6.2 Common Components (Regular Size)
+
+Store predictable fields in dense component tables:
+
+- `IdentityComponent` (`id`, `title`, `kind`)
+- `LifecycleComponent` (`status`, `priority`, `owner`, `version`)
+- `TextComponent` (`description`, `rationale`)
+- `TagComponent` (`tags`)
+- `SourceComponent` (`sources`)
+
+These components cover most entities and are suitable for cache-friendly storage and batch queries.
+
+### 6.3 Irregular Components (Variable Size)
+
+Store sparse or large data in separate, optional components:
+
+- `TestProcedureComponent` (`preconditions`, `steps`, `expected_result`)
+- `ClauseCollectionComponent` (external standard clauses/annexes/articles)
+- `DocumentBodyComponent` (long free-form markdown/text blocks)
+- `AttachmentComponent` (references to binary or generated artifacts)
+
+This separation keeps the hot path small while allowing rich per-entity data.
+
+### 6.4 Link Component
+
+Links should remain first-class and independent of entity kind:
+
+- `OutgoingLinkComponent`: list of `LinkId`
+- `IncomingLinkComponent`: optional reverse index for fast impact analysis
+
+The triplet store is the source of truth; these components are indexes/views.
+
+### 6.5 Why ECS-Like Here
+
+- Prevents monolithic requirement structs with many optional fields.
+- Makes it easier to add new entity kinds without schema rewrites.
+- Supports GUI features (property panels and graph views) by querying only needed components.
+- Helps separate regular and irregular data for better memory behavior.
+
+### 6.6 ECS Mutation API (Disk-Synchronized)
+
+Related requirements: REQ-066, REQ-067, REQ-068.
+
+Component mutation APIs should mirror triplet write-through guarantees:
+
+```
+set_component_and_flush(entity_id, component) -> Result<(), Error>
+patch_component_and_flush(entity_id, patch) -> Result<(), Error>
+clear_component_and_flush(entity_id, component_type) -> Result<(), Error>
+```
+
+Constraints:
+
+- Component updates must validate against entity kind and schema version.
+- Updates that affect generated links/sources must rebuild related indexes before write.
+- GUI should call only these repository APIs, not direct component table setters.
+
+## 7. CLI Command Design
 
 ```
 vibe-req <command> [options]
@@ -158,7 +347,7 @@ Commands:
   lint              Check for orphaned requirements, missing verifications, etc.
 ```
 
-## 6. Implementation Language Trade-offs
+## 8. Implementation Language Trade-offs
 
 | Language | Distribution | Ecosystem | Known to author | Suitability |
 |---|---|---|---|---|

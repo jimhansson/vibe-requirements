@@ -129,6 +129,10 @@ The tool covers:
 | REQ-063 | The GUI shall provide a visual traceability graph view | Should |
 | REQ-064 | The GUI shall provide an inline editor for requirement fields | Should |
 | REQ-065 | The GUI shall not require installation of a web browser or JavaScript runtime | Must |
+| REQ-066 | By default, accepted entity and link mutations from CLI or GUI shall be persisted directly to repository files (write-through mode) rather than only updating in-memory state | Must |
+| REQ-067 | The tool shall maintain entity provenance metadata mapping each entity ID to its owning file so updates are written to the correct document | Must |
+| REQ-068 | If persistence of an accepted mutation fails, the operation shall fail without leaving the in-memory model and on-disk files in diverged states | Must |
+| REQ-069 | File updates performed by mutation operations shall be atomic at file level (e.g., temporary file plus rename) to avoid partial writes | Must |
 
 ### 3.8 Hardware Project Support
 
@@ -149,6 +153,7 @@ The tool covers:
 | NFR-003 | The tool shall not require network access for core operations (create, validate, report) | Must |
 | NFR-004 | The file format schema shall be documented and stable; breaking changes shall require a major version increment | Must |
 | NFR-005 | The tool shall be buildable from source on Linux with a documented build procedure | Must |
+| NFR-006 | The architecture should support an optional delayed/batched write mode with explicit flush semantics as an alternative to default write-through behavior | Should |
 
 ---
 
