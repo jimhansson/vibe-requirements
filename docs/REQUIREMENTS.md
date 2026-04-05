@@ -60,6 +60,8 @@ The tool covers:
 | REQ-004 | Requirement files shall be human-readable and human-editable without the tool (i.e., in any text editor) | Must |
 | REQ-005 | The tool shall perform zero-config auto-discovery of all requirement files anywhere in the repository; an optional `.vibe-req.yaml` configuration file may specify glob patterns to restrict or extend the search scope | Must |
 | REQ-006 | The tool should document and promote a recommended directory convention (e.g., `requirements/`, `stories/`, `design/`, `tests/`, `external/`) and the `init` command should scaffold this structure when requested | Should |
+| REQ-007 | For YAML input, the tool shall support YAML multi-document streams so multiple entities can be stored in one physical file using `---` document separators | Must |
+| REQ-008 | Validation and parse errors in YAML multi-document files shall identify both file path and document position (index and/or line/column where available) | Must |
 
 ### 3.2 Document Types
 
@@ -130,7 +132,7 @@ The tool covers:
 | REQ-064 | The GUI shall provide an inline editor for requirement fields | Should |
 | REQ-065 | The GUI shall not require installation of a web browser or JavaScript runtime | Must |
 | REQ-066 | By default, accepted entity and link mutations from CLI or GUI shall be persisted directly to repository files (write-through mode) rather than only updating in-memory state | Must |
-| REQ-067 | The tool shall maintain entity provenance metadata mapping each entity ID to its owning file so updates are written to the correct document | Must |
+| REQ-067 | The tool shall maintain entity provenance metadata mapping each entity ID to its owning location (file path and document position within multi-document files) so updates are written to the correct document | Must |
 | REQ-068 | If persistence of an accepted mutation fails, the operation shall fail without leaving the in-memory model and on-disk files in diverged states | Must |
 | REQ-069 | File updates performed by mutation operations shall be atomic at file level (e.g., temporary file plus rename) to avoid partial writes | Must |
 

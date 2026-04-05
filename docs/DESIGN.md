@@ -38,6 +38,8 @@ project-repo/
 
 ## 2. File Format: YAML (Primary)
 
+Related requirements: REQ-002, REQ-007, REQ-008.
+
 A requirement file (e.g., `requirements/sw/REQ-SW-001.yaml`):
 
 ```yaml
@@ -118,6 +120,29 @@ links:
   - id: REQ-SW-001
     relation: verifies
 ```
+
+YAML files may also contain multiple entities in one physical file using YAML document separators:
+
+```yaml
+---
+id: REQ-SW-001
+title: "User authentication"
+type: functional
+status: approved
+priority: high
+description: |
+  The system shall authenticate users before granting access to protected resources.
+---
+id: REQ-SW-002
+title: "Session timeout"
+type: non-functional
+status: draft
+priority: medium
+description: |
+  The system shall expire inactive sessions after a configurable timeout.
+```
+
+For multi-document YAML, each YAML document maps to exactly one entity.
 
 ## 3. Alternative Format Candidates
 
@@ -210,7 +235,7 @@ For deterministic file output and clean diffs:
 
 ### 5.3 Entity Origin Tracking (File Provenance)
 
-Related requirements: REQ-067.
+Related requirements: REQ-007, REQ-067.
 
 Every loaded entity must carry provenance metadata so the system knows exactly which file to patch when data changes.
 
@@ -220,6 +245,7 @@ Suggested metadata:
 EntityOrigin {
   entity_id: EntityId,
   file_path: RepoRelativePath,
+  document_index: u32,          // 0-based position in YAML stream
   doc_kind: requirement | test_case | external_source | story | design_doc,
   format: yaml,
   loaded_revision: u64
@@ -230,17 +256,19 @@ Indexes:
 
 - `origin_by_entity: HashMap<EntityId, EntityOrigin>`
 - `entities_by_file: HashMap<RepoRelativePath, Vec<EntityId>>`
+- `entities_by_file_doc: HashMap<(RepoRelativePath, u32), EntityId>`
 - `file_revision: HashMap<RepoRelativePath, u64>`
 
 Rules:
 
-- Each `EntityId` maps to exactly one owning file.
+- Each `EntityId` maps to exactly one owning YAML document in one file.
 - Cross-file links are allowed; ownership of the link record is the subject entity's file.
+- For multi-document files, ownership of a link record is the subject entity's YAML document.
 - Rename/move operations must update origin indexes transactionally.
 
 ### 5.4 Repository API (Write-Through First)
 
-Related requirements: REQ-066, REQ-067, REQ-068, REQ-069.
+Related requirements: REQ-066, REQ-067, REQ-068, REQ-069, REQ-007.
 
 Expose a repository-level API that combines in-memory mutation and disk persistence in one call:
 
@@ -256,9 +284,11 @@ Execution model for each call:
 1. Resolve origin file(s) for affected entities.
 2. Validate schema + relation constraints against current graph.
 3. Apply mutation in memory.
-4. Serialize only affected file(s).
+4. Serialize only affected entity document(s).
 5. Atomically write to disk (temp file + rename).
 6. Reindex provenance and graph indexes.
+
+In multi-document YAML files, step 4 means replacing only the affected YAML document node in the in-memory file representation before writing the full file atomically.
 
 Failure policy:
 
