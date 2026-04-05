@@ -4,6 +4,8 @@
 
 #include "requirement.h"
 #include "discovery.h"
+#include "yaml_simple.h"
+#include "triplet_store_c.h"
 
 /* ------------------------------------------------------------------ */
 /* Comparison helper for qsort — sort requirements by ID.             */
@@ -17,7 +19,7 @@ static int cmp_by_id(const void *a, const void *b)
 }
 
 /* ------------------------------------------------------------------ */
-/* Table rendering                                                     */
+/* Table rendering — requirements                                      */
 /* ------------------------------------------------------------------ */
 
 #define TITLE_MAX_DISPLAY 52  /* truncate long titles to this width */
@@ -104,23 +106,139 @@ static void list_requirements(const RequirementList *list)
 }
 
 /* ------------------------------------------------------------------ */
+/* Table rendering — relations                                         */
+/* ------------------------------------------------------------------ */
+
+#define SUBJ_MAX_DISPLAY 32
+#define OBJ_MAX_DISPLAY  48
+
+static void print_rel_rule(int subj_w, int pred_w, int obj_w)
+{
+    int widths[] = { subj_w, pred_w, obj_w };
+    int ncols    = (int)(sizeof(widths) / sizeof(widths[0]));
+    for (int c = 0; c < ncols; c++) {
+        putchar('+');
+        for (int i = 0; i < widths[c] + 2; i++)
+            putchar('-');
+    }
+    puts("+");
+}
+
+static void list_relations(const TripletStore *store)
+{
+    CTripleList all = triplet_store_find_all(store);
+
+    if (all.count == 0) {
+        puts("No relations found.");
+        triplet_store_list_free(all);
+        return;
+    }
+
+    /* Determine column widths from data. */
+    int subj_w = (int)strlen("Subject");
+    int pred_w = (int)strlen("Relation");
+    int obj_w  = (int)strlen("Object");
+
+    for (size_t i = 0; i < all.count; i++) {
+        int len;
+        len = (int)strlen(all.triples[i].subject);
+        if (len > subj_w) subj_w = len;
+        len = (int)strlen(all.triples[i].predicate);
+        if (len > pred_w) pred_w = len;
+        len = (int)strlen(all.triples[i].object);
+        if (len > obj_w)  obj_w  = len;
+    }
+
+    /* Cap column widths. */
+    if (subj_w > SUBJ_MAX_DISPLAY) subj_w = SUBJ_MAX_DISPLAY;
+    if (obj_w  > OBJ_MAX_DISPLAY)  obj_w  = OBJ_MAX_DISPLAY;
+
+    print_rel_rule(subj_w, pred_w, obj_w);
+    printf("| %-*s | %-*s | %-*s |\n",
+           subj_w, "Subject", pred_w, "Relation", obj_w, "Object");
+    print_rel_rule(subj_w, pred_w, obj_w);
+
+    for (size_t i = 0; i < all.count; i++) {
+        const CTriple *t = &all.triples[i];
+
+        /* Truncate subject if needed. */
+        char sbuf[SUBJ_MAX_DISPLAY + 1];
+        strncpy(sbuf, t->subject, sizeof(sbuf) - 1);
+        sbuf[sizeof(sbuf) - 1] = '\0';
+        if (subj_w >= 3 && (int)strlen(t->subject) > subj_w) {
+            sbuf[subj_w - 3] = sbuf[subj_w - 2] = sbuf[subj_w - 1] = '.';
+            sbuf[subj_w] = '\0';
+        }
+
+        /* Truncate object if needed. */
+        char obuf[OBJ_MAX_DISPLAY + 1];
+        strncpy(obuf, t->object, sizeof(obuf) - 1);
+        obuf[sizeof(obuf) - 1] = '\0';
+        if (obj_w >= 3 && (int)strlen(t->object) > obj_w) {
+            obuf[obj_w - 3] = obuf[obj_w - 2] = obuf[obj_w - 1] = '.';
+            obuf[obj_w] = '\0';
+        }
+
+        printf("| %-*s | %-*s | %-*s |\n",
+               subj_w, sbuf, pred_w, t->predicate, obj_w, obuf);
+    }
+
+    print_rel_rule(subj_w, pred_w, obj_w);
+    printf("\nTotal: %zu relation(s)\n", all.count);
+
+    triplet_store_list_free(all);
+}
+
+/* ------------------------------------------------------------------ */
+/* Build the triplet store from the parsed requirement list            */
+/* ------------------------------------------------------------------ */
+
+static TripletStore *build_relation_store(const RequirementList *list)
+{
+    TripletStore *store = triplet_store_create();
+    if (!store)
+        return NULL;
+
+    for (int i = 0; i < list->count; i++) {
+        const Requirement *r = &list->items[i];
+        if (yaml_parse_links(r->file_path, r->id, store) < 0)
+            fprintf(stderr, "warning: could not parse links from '%s'\n",
+                    r->file_path);
+    }
+
+    return store;
+}
+
+/* ------------------------------------------------------------------ */
 /* Entry point                                                         */
 /* ------------------------------------------------------------------ */
 
 int main(int argc, char *argv[])
 {
-    const char *root = ".";
+    /* Parse optional subcommand and directory arguments. */
+    int         show_links = 0;
+    const char *root       = ".";
+
+    int arg_idx = 1;
 
     if (argc >= 2) {
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-            printf("Usage: %s [directory]\n\n", argv[0]);
-            printf("  List all requirements found in the given directory tree.\n");
-            printf("  Defaults to the current directory.\n\n");
+            printf("Usage: %s [links] [directory]\n\n", argv[0]);
+            printf("Commands:\n");
+            printf("  (default)  List all requirements found in the directory tree.\n");
+            printf("  links      List all relations parsed from requirement files.\n\n");
+            printf("  directory  Root directory to scan (default: current directory).\n\n");
             printf("  YAML files without a top-level 'id' field are silently ignored.\n");
             return 0;
         }
-        root = argv[1];
+        if (strcmp(argv[1], "links") == 0) {
+            show_links = 1;
+            arg_idx    = 2;
+        }
     }
+
+    if (argc > arg_idx)
+        root = argv[arg_idx];
 
     RequirementList list;
     req_list_init(&list);
@@ -136,7 +254,18 @@ int main(int argc, char *argv[])
     if (list.count > 1)
         qsort(list.items, (size_t)list.count, sizeof(Requirement), cmp_by_id);
 
-    list_requirements(&list);
+    if (show_links) {
+        TripletStore *store = build_relation_store(&list);
+        if (!store) {
+            fprintf(stderr, "error: failed to create relation store\n");
+            req_list_free(&list);
+            return 1;
+        }
+        list_relations(store);
+        triplet_store_destroy(store);
+    } else {
+        list_requirements(&list);
+    }
 
     req_list_free(&list);
     return 0;
