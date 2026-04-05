@@ -138,20 +138,6 @@ The tool covers:
 | REQ-071 | The tool shall support link types specific to hardware artefacts: `allocates-to-hardware`, `verified-by-hw-test`, `implemented-in-schematic` | Should |
 | REQ-072 | The report generator shall be able to produce a requirements subset filtered by subsystem (hardware or software) | Should |
 
-### 3.9 Scripting and Programmability
-
-| ID | Requirement | Priority |
-|---|---|---|
-| REQ-080 | The tool shall provide an embedded scripting layer that allows users to extend its behaviour without modifying the tool's source code | Should |
-| REQ-081 | The scripting layer shall expose the in-memory requirement model (all requirements, test cases, and external sources) as read-only objects that scripts can inspect and query | Should |
-| REQ-082 | The scripting layer shall allow users to define custom validation rules; violations shall be reported as errors or warnings alongside the built-in validation output | Should |
-| REQ-083 | The scripting layer shall allow users to define custom lint rules that inspect the full requirement link graph | Should |
-| REQ-084 | The scripting layer shall allow users to define custom report generators that produce output in any format the script chooses | Could |
-| REQ-085 | Scripts shall be loadable by listing them in `.vibe-req.yaml` and/or by convention-based auto-discovery (e.g., all files in a designated `scripts/` folder) | Should |
-| REQ-086 | The embedded scripting interpreter shall be distributed under a license compatible with the project's GNU GPL v3 license | Must |
-| REQ-087 | The scripting layer shall not require users to install a separate runtime; the interpreter shall be compiled into the tool binary | Should |
-| REQ-088 | Errors in user scripts (syntax errors, runtime exceptions) shall be reported clearly with the script file name and, where possible, the line number; they shall not silently suppress the built-in tool output | Must |
-
 ---
 
 ## 4. Non-Functional Requirements
@@ -186,4 +172,3 @@ The tool covers:
 | 4 | Hardware & Safety | Hardware artefact links, safety requirement type, standards/directive support, subsystem filtering |
 | 5 | GUI | Native GUI: list view, traceability graph, inline editor |
 | 6 | Advanced | Alternative formats (TOML, S-expressions), `export` (CSV, ReqIF), user story and SDD document types |
-| 7 | Scripting | Embedded scripting layer (Lua and/or Guile): custom validators, lint rules, and report generators |
