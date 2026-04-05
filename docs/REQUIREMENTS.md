@@ -67,7 +67,7 @@ The tool covers:
 
 | ID | Requirement | Priority |
 |---|---|---|
-| REQ-010 | The tool shall support a **Requirement** document type with at minimum: unique ID, title, description, type, status, priority, and links | Must |
+| REQ-010 | The tool shall support a **Requirement** document type with at minimum a project-unique identifier; all other fields (title, description, type, status, priority, links, etc.) are optional and shall not be required by the tool | Must |
 | REQ-011 | The tool shall support a **User Story** document type with: ID, title, narrative ("As a … I want … so that …"), acceptance criteria, and links | Should |
 | REQ-012 | The tool shall support a **System Design Document (SDD)** document type that can reference and be referenced by requirements | Should |
 | REQ-013 | The tool shall support an **External Source** document type to represent normative references such as standards or legal directives, including clauses or articles that generate derived requirements | Should |
@@ -79,13 +79,15 @@ The tool covers:
 | ID | Requirement | Priority |
 |---|---|---|
 | REQ-020 | Each requirement shall have a project-unique, human-readable identifier (e.g., `REQ-SYS-042`) | Must |
-| REQ-021 | Each requirement shall have a **type**: `functional`, `non-functional`, `constraint`, `safety`, `interface` | Must |
-| REQ-022 | Each requirement shall have a **status**: `draft`, `review`, `approved`, `implemented`, `verified`, `rejected` | Must |
-| REQ-023 | Each requirement shall have a **priority**: `critical`, `high`, `medium`, `low` | Must |
-| REQ-024 | Each requirement may declare one or more **sources**, which can be another requirement ID or an external normative reference (standard clause or directive article) | Must |
-| REQ-025 | Each requirement may carry user-defined **tags** (labels) for free-form categorization | Should |
-| REQ-026 | Requirements shall support a **rationale** field explaining why the requirement exists | Should |
-| REQ-027 | Requirements shall support a **verification method** field: `inspection`, `analysis`, `demonstration`, `test` | Should |
+| REQ-021 | A requirement may optionally carry a **type** field; the tool shall not prescribe or validate a fixed set of allowed values — the type vocabulary is left to user or project configuration | May |
+| REQ-022 | A requirement may optionally carry a **status** field; the tool shall not prescribe or validate a fixed set of allowed values — the status vocabulary is left to user or project configuration | May |
+| REQ-023 | A requirement may optionally carry a **priority** field; the tool shall not prescribe or validate a fixed set of allowed values — the priority vocabulary is left to user or project configuration | May |
+| REQ-024 | A requirement may optionally declare one or more **sources**, which can be another requirement ID or an external normative reference | May |
+| REQ-025 | A requirement may optionally carry user-defined **tags** (labels) for free-form categorization | May |
+| REQ-026 | A requirement may optionally carry a **rationale** field explaining why the requirement exists | May |
+| REQ-027 | A requirement may optionally carry a **verification method** field; the tool shall not prescribe or validate a fixed set of allowed values | May |
+| REQ-028 | Requirements and all other entity types shall support arbitrary user-defined additional fields beyond those listed in this specification; the tool shall preserve and pass through unrecognized fields without treating them as errors | Must |
+| REQ-029 | The tool shall provide an entity validation function that verifies: (a) no identifier is used more than once across all files in the repository, (b) every link target refers to an identifier that actually exists, and (c) every external normative source reference resolves to a known external source document; validation failures shall be reported with enough context for the user to locate and correct the problem | Must |
 
 ### 3.4 Traceability
 
@@ -112,7 +114,7 @@ The tool covers:
 |---|---|---|
 | REQ-050 | The tool shall provide a CLI that runs on Linux, macOS, and Windows | Must |
 | REQ-051 | The CLI shall provide commands to create, read, update, and delete requirements and related documents | Must |
-| REQ-052 | The CLI shall provide a `validate` command that checks all requirement files for schema correctness and broken links | Must |
+| REQ-052 | The CLI shall provide a `validate` command that runs the entity validation function (REQ-029) and reports all broken links, duplicate identifiers, and unresolvable references | Must |
 | REQ-053 | The CLI shall provide a `report` command that generates a human-readable summary (e.g., Markdown or HTML) of the requirement set | Should |
 | REQ-054 | The CLI shall provide a `trace` command that outputs the traceability graph for one or all requirements | Should |
 | REQ-055 | The CLI shall provide a `status` command showing counts of requirements per status and priority | Should |
@@ -179,3 +181,16 @@ The tool covers:
 | 4 | Hardware & Safety | Hardware artefact links, safety requirement type, standards/directive support, subsystem filtering |
 | 5 | GUI | Native GUI: list view, traceability graph, inline editor |
 | 6 | Advanced | Alternative formats (TOML, S-expressions), `export` (CSV, ReqIF), user story and SDD document types |
+
+---
+
+## 8. Open Questions
+
+1. **Primary implementation language** — After prototyping, which language (Rust, Go, C++, Common Lisp) offers the best balance of developer experience, binary portability, and GUI capability?
+2. **Default file format** — Should YAML be the only format in Phase 1, or should TOML be supported in parallel from the start?
+3. **ID scheme** — Should IDs be fully manual (engineer chooses `REQ-SW-001`) or partially auto-generated (tool assigns the next available number within a prefix)?
+4. **ReqIF export** — ReqIF is the ISO standard interchange format for requirements. Is this a priority for the target projects?
+5. **Multi-project monorepo** — Should one repository be able to host multiple independent projects, each with their own ID namespace and configuration?
+6. **Hardware CAD integration** — Which CAD/EDA file formats should be targeted for hardware artefact links (e.g., KiCad, Altium, FreeCAD)?
+7. **Field vocabularies (deferred)** — Should the tool allow projects to declare an allowed-values list for fields such as `type`, `status`, `priority`, and `verification` in the project configuration file (`.vibe-req.yaml`), so that optional validation of field values can be enabled on a per-project basis? This is intentionally left open; the tool shall not impose any vocabulary by default.
+8. **Mandatory field sets (deferred)** — Should the tool allow a project to declare a minimum required field set beyond the globally mandatory `id`, so that teams can enforce their own conventions without the tool hard-coding any requirements?
