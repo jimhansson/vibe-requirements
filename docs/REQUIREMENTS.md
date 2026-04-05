@@ -1,10 +1,10 @@
-# Requirements and Design Document
+# Requirements Document
 
 ## 1. Introduction
 
 ### 1.1 Purpose
 
-This document describes the requirements and high-level design for **vibe-requirements**, a "requirements as code" tool. The goal is to manage all project requirements — software, hardware, safety-related, and standards-derived — as plain text files stored directly inside a version-controlled repository, with a companion command-line interface (CLI) and optional graphical user interface (GUI) for interacting with those files.
+This document describes the requirements for **vibe-requirements**, a "requirements as code" tool. The goal is to manage all project requirements — software, hardware, safety-related, and standards-derived — as plain text files stored directly inside a version-controlled repository, with a companion command-line interface (CLI) and optional graphical user interface (GUI) for interacting with those files.
 
 ### 1.2 Concept: Requirements as Code
 
@@ -14,7 +14,7 @@ Requirements are stored as human-readable, version-controllable text files (e.g.
 
 The tool covers:
 
-- Capturing and editing requirements, user stories, system design documents (SDD), and related engineering documents.
+- Capturing and editing requirements, user stories, system design documents (SDD), test cases, and related engineering documents.
 - Linking requirements to each other, to code, to hardware design artefacts, and to external normative sources (standards, regulations, directives).
 - Providing a CLI for day-to-day use in terminals and CI pipelines.
 - Providing an optional GUI (native, not browser-based) for visual exploration and editing.
@@ -29,6 +29,7 @@ The tool covers:
 | Traceability | The ability to follow a requirement forward (to design/code/tests) and backward (to its origin) |
 | SDD | System/Software Design Document |
 | User story | An informal, plain-language description of a feature from an end-user perspective |
+| Test case | A structured document describing steps and expected results used to verify that a requirement is satisfied |
 | Artefact | Any project file that can be linked to a requirement (source file, schematic, test case, document) |
 
 ---
@@ -57,7 +58,10 @@ The tool covers:
 | REQ-002 | The tool shall support YAML as a primary file format for requirement files | Must |
 | REQ-003 | The tool shall be designed so that alternative file formats (e.g., TOML, S-expressions, plain Markdown front-matter) can be added without redesigning the core | Should |
 | REQ-004 | Requirement files shall be human-readable and human-editable without the tool (i.e., in any text editor) | Must |
-| REQ-005 | The tool shall define a clear directory convention so that requirements, user stories, SDDs, and external-source documents are organized consistently | Should |
+| REQ-005 | The tool shall perform zero-config auto-discovery of all requirement files anywhere in the repository; an optional `.vibe-req.yaml` configuration file may specify glob patterns to restrict or extend the search scope | Must |
+| REQ-006 | The tool should document and promote a recommended directory convention (e.g., `requirements/`, `stories/`, `design/`, `tests/`, `external/`) and the `init` command should scaffold this structure when requested | Should |
+| REQ-007 | For YAML input, the tool shall support YAML multi-document streams so multiple entities can be stored in one physical file using `---` document separators | Must |
+| REQ-008 | Validation and parse errors in YAML multi-document files shall identify both file path and document position (index and/or line/column where available) | Must |
 
 ### 3.2 Document Types
 
@@ -68,6 +72,7 @@ The tool covers:
 | REQ-012 | The tool shall support a **System Design Document (SDD)** document type that can reference and be referenced by requirements | Should |
 | REQ-013 | The tool shall support an **External Source** document type to represent normative references such as standards or legal directives, including clauses or articles that generate derived requirements | Should |
 | REQ-014 | The tool shall support a **Hardware Artefact** link type so that requirements can be traced to schematics, PCB files, mechanical drawings, or BOM entries | Should |
+| REQ-015 | The tool shall support a **Test Case** document type with at minimum: unique ID, title, description, preconditions, test steps, expected results, verification method (`inspection`, `analysis`, `demonstration`, `test`), status, and links to the requirements it verifies | Should |
 
 ### 3.3 Requirement Fields
 
@@ -115,6 +120,8 @@ The tool covers:
 | REQ-055 | The CLI shall provide a `status` command showing counts of requirements per status and priority | Should |
 | REQ-056 | The CLI shall exit with a non-zero code when validation fails, making it suitable for use in CI pipelines | Must |
 | REQ-057 | The CLI shall ideally be distributed as a single self-contained executable with no runtime dependencies | Should |
+| REQ-058 | The tool shall gracefully handle malformed or invalid input files: when a file cannot be parsed or fails schema validation, the tool shall report the error (including file path and, where possible, the line/column or field name) and continue processing all remaining files rather than aborting | Must |
+| REQ-059 | The CLI shall provide a `--fail-fast` flag that causes processing to stop immediately on the first encountered parse or validation error; this flag is intended for use in CI pipelines where early termination is preferred | Should |
 
 ### 3.7 Graphical User Interface (GUI)
 
@@ -126,6 +133,10 @@ The tool covers:
 | REQ-063 | The GUI shall provide a visual traceability graph view | Should |
 | REQ-064 | The GUI shall provide an inline editor for requirement fields | Should |
 | REQ-065 | The GUI shall not require installation of a web browser or JavaScript runtime | Must |
+| REQ-066 | By default, accepted entity and link mutations from CLI or GUI shall be persisted directly to repository files (write-through mode) rather than only updating in-memory state | Must |
+| REQ-067 | The tool shall maintain entity provenance metadata mapping each entity ID to its owning location (file path and document position within multi-document files) so updates are written to the correct document | Must |
+| REQ-068 | If persistence of an accepted mutation fails, the operation shall fail without leaving the in-memory model and on-disk files in diverged states | Must |
+| REQ-069 | File updates performed by mutation operations shall be atomic at file level (e.g., temporary file plus rename) to avoid partial writes | Must |
 
 ### 3.8 Hardware Project Support
 
@@ -146,6 +157,7 @@ The tool covers:
 | NFR-003 | The tool shall not require network access for core operations (create, validate, report) | Must |
 | NFR-004 | The file format schema shall be documented and stable; breaking changes shall require a major version increment | Must |
 | NFR-005 | The tool shall be buildable from source on Linux with a documented build procedure | Must |
+| NFR-006 | The architecture should support an optional delayed/batched write mode with explicit flush semantics as an alternative to default write-through behavior | Should |
 
 ---
 
@@ -159,158 +171,12 @@ The tool covers:
 
 ---
 
-## 6. High-Level Design
-
-### 6.1 Architecture Overview
-
-```
-project-repo/
-├── requirements/
-│   ├── sys/          # System-level requirements
-│   ├── sw/           # Software requirements
-│   ├── hw/           # Hardware requirements
-│   └── safety/       # Safety / regulatory requirements
-├── stories/          # User stories
-├── design/           # System design documents (SDD)
-├── external/         # Normative references (standards, directives)
-└── .vibe-req.yaml    # Project configuration (ID prefix, schema version, …)
-
-          ┌──────────────────────────────────────┐
-          │          vibe-req  (binary)           │
-          │                                      │
-          │  ┌─────────┐  ┌──────────────────┐   │
-          │  │   CLI   │  │   GUI (optional)  │   │
-          │  └────┬────┘  └────────┬─────────┘   │
-          │       │                │              │
-          │  ┌────▼────────────────▼──────────┐   │
-          │  │         Core Library           │   │
-          │  │  parser · validator · linker   │   │
-          │  │  reporter · tracer             │   │
-          │  └────────────────────────────────┘   │
-          └──────────────┬───────────────────────┘
-                         │ reads / writes
-                    ┌────▼────┐
-                    │  files  │  (YAML, TOML, …)
-                    └─────────┘
-```
-
-### 6.2 File Format: YAML (Primary)
-
-A requirement file (e.g., `requirements/sw/REQ-SW-001.yaml`). Only `id` is mandatory; all other fields are optional and user-defined:
-
-```yaml
-id: REQ-SW-001
-title: "User authentication"
-type: functional          # optional — value not prescribed by the tool
-status: approved          # optional — value not prescribed by the tool
-priority: high            # optional — value not prescribed by the tool
-description: |
-  The system shall authenticate users before granting access to any
-  protected resource.
-rationale: |
-  Prevents unauthorized access in accordance with the project security policy.
-verification: test        # optional — value not prescribed by the tool
-tags:
-  - security
-  - authentication
-sources:
-  - external: EU-2016-679:article:32   # GDPR Article 32
-links:
-  - id: REQ-SW-002
-    relation: parent
-  - id: REQ-SYS-005
-    relation: derives-from
-  - artefact: src/auth/login.c
-    relation: implemented-in
-  - artefact: tests/auth/test_login.c
-    relation: verified-by
-# Any additional user-defined fields are preserved and passed through unchanged
-my_custom_field: some-project-specific-value
-```
-
-The canonical format for an external source reference in any requirement file is:
-
-```
-<EXT-ID>:<section-type>:<section-number>
-```
-
-Where `<section-type>` is one of `clause`, `article`, `annex`, or `section`, and `<EXT-ID>` is the `id` field of the corresponding external normative source document. Example: `EU-2016-679:article:32`, `EN-ISO-13849-2023:clause:4.5.2`, `EXT-MACH-DIR:annex:I-1.1.2`.
-
-An external normative source file (`external/EU-Machinery-Dir-2006-42-EC.yaml`):
-
-```yaml
-id: EXT-MACH-DIR
-title: "EU Machinery Directive 2006/42/EC"
-type: directive
-issuer: "European Parliament and of the Council"
-year: 2006
-clauses:
-  - id: annex-I-1.1.2
-    title: "Principles of safety integration"
-    summary: |
-      Machinery must be designed and constructed so that it is fitted for
-      its function and can be operated, adjusted, and maintained without
-      putting persons at risk.
-```
-
-### 6.3 Alternative Format Candidates
-
-| Format | Pros | Cons |
-|---|---|---|
-| **YAML** | Widely known, good tooling, human-readable | Indentation-sensitive, complex edge cases |
-| **TOML** | Simpler syntax, unambiguous, good for flat structures | Less natural for nested/long text blocks |
-| **S-expressions** | Trivial to parse in Common Lisp, extensible | Unfamiliar to most engineers |
-| **Markdown + front-matter** | Requirements as prose documents, renders on GitHub | Harder to parse structured fields reliably |
-| **Custom DSL** | Full control over syntax | Maintenance burden, no existing tooling |
-
-The initial implementation uses YAML. The parser layer shall be abstracted so that additional formats can be added by implementing a format-specific reader/writer module.
-
-### 6.4 Core Library Modules
-
-| Module | Responsibility |
-|---|---|
-| `parser` | Reads and deserializes requirement files from disk; format-pluggable |
-| `validator` | Checks schema correctness, required fields, unique IDs, and link integrity |
-| `linker` | Builds the full link graph from all files in the repository |
-| `reporter` | Renders reports (Markdown, HTML, plain text) from the in-memory model |
-| `tracer` | Traverses the link graph to produce traceability chains |
-| `exporter` | Converts the model to other representations (CSV, ReqIF, …) |
-
-### 6.5 CLI Command Design
-
-```
-vibe-req <command> [options]
-
-Commands:
-  init              Initialize a new vibe-req project in the current directory
-  new <type> <id>   Create a new requirement / story / SDD / external-source file
-  validate          Validate all files: schema, IDs, links
-  status            Print counts by status and priority
-  trace <id>        Show full traceability chain for a requirement
-  report            Generate a Markdown / HTML requirements report
-  export <format>   Export to CSV or ReqIF
-  lint              Check for orphaned requirements, missing verifications, etc.
-```
-
-### 6.6 Implementation Language Trade-offs
-
-| Language | Distribution | Ecosystem | Known to author | Suitability |
-|---|---|---|---|---|
-| **C / C++** | Single binary | libyaml / RapidYAML; GTK / Qt for GUI | Yes | Good; GUI is straightforward with Qt |
-| **Common Lisp** | Single binary (SBCL `--save-lisp-and-die`) | cl-yaml; McCLIM for GUI | Yes | Excellent for DSL; GUI ecosystem is limited |
-| **Rust** | Single static binary | `serde_yaml`; `egui` / GTK for GUI | To explore | Excellent distribution story; memory safety |
-| **Go** | Single static binary | `gopkg.in/yaml.v3`; Fyne / `gio` for GUI | To explore | Very easy cross-compilation; moderate GUI |
-
-**Recommendation for evaluation:** Prototype the core parser and CLI in both Rust and Go, compare ergonomics and binary size, then decide. The GUI can be deferred to a later phase and use whichever GUI toolkit fits the chosen language.
-
----
-
-## 7. Roadmap
+## 6. Roadmap
 
 | Phase | Milestone | Key Deliverables |
 |---|---|---|
 | 1 | Core CLI MVP | `init`, `new`, `validate`, `status`; YAML format; software requirements only |
-| 2 | Traceability | `trace`, link graph, broken-link detection, external-source document type |
+| 2 | Traceability | `trace`, link graph, broken-link detection, external-source document type, test-case document type |
 | 3 | Reporting | `report` (Markdown + HTML), `lint`, CI pipeline integration |
 | 4 | Hardware & Safety | Hardware artefact links, safety requirement type, standards/directive support, subsystem filtering |
 | 5 | GUI | Native GUI: list view, traceability graph, inline editor |

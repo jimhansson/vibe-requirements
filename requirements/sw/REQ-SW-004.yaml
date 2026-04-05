@@ -1,0 +1,17 @@
+id: REQ-SW-004
+title: "Graceful handling of malformed files"
+type: non-functional
+status: approved
+priority: medium
+description: |
+  When a YAML file cannot be parsed or does not contain a recognizable
+  requirement structure, the tool shall silently skip that file and continue
+  processing all remaining files rather than aborting.
+rationale: |
+  Repositories often contain YAML files that are not requirement files
+  (CI configuration, Docker Compose files, etc.). Crashing on those would
+  make the tool unusable in real projects.
+verification: test
+tags:
+  - robustness
+  - error-handling
