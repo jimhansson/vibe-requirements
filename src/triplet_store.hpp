@@ -1,0 +1,137 @@
+/**
+ * @file triplet_store.hpp
+ * @brief C++ relation triplet store.
+ *
+ * Maintains an in-memory set of (subject, predicate, object) triples
+ * together with three hash-map indexes for O(1) average-case queries by
+ * subject, predicate, or object.  This is the authoritative source of
+ * truth for all links between entities in the vibe-req graph model (see
+ * design doc section 5).
+ *
+ * C callers should use the thin wrapper declared in triplet_store_c.h.
+ */
+
+#pragma once
+
+#include <cstddef>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+namespace vibe {
+
+/** Stable numeric identifier for a triple. */
+using TripleId = std::size_t;
+
+/** Sentinel returned when an operation does not produce a valid ID. */
+static constexpr TripleId INVALID_TRIPLE_ID = static_cast<TripleId>(-1);
+
+/** A single relation record. */
+struct Triple {
+    TripleId    id;        /**< Stable store-assigned identifier. */
+    std::string subject;   /**< Subject entity ID (e.g. "REQ-SW-001"). */
+    std::string predicate; /**< Relation name (e.g. "derives-from"). */
+    std::string object;    /**< Object entity ID or artefact path. */
+};
+
+/**
+ * In-memory triplet store backed by STL containers.
+ *
+ * Design invariant: the three index maps always reflect exactly the set of
+ * active (non-nullopt) entries in @c triples_.
+ */
+class TripletStore {
+public:
+    TripletStore() = default;
+
+    /**
+     * Add a (subject, predicate, object) triple.
+     * @return  The new triple's stable ID, or INVALID_TRIPLE_ID if an
+     *          identical triple already exists.
+     */
+    TripleId add(const std::string &subject,
+                 const std::string &predicate,
+                 const std::string &object);
+
+    /**
+     * Remove a triple by ID.
+     * @return  @c true if the triple was found and removed.
+     */
+    bool remove(TripleId id);
+
+    /**
+     * Remove all triples whose subject equals @p subject.
+     * @return  Number of triples actually removed.
+     */
+    std::size_t remove_by_subject(const std::string &subject);
+
+    /**
+     * Remove all triples whose object equals @p object.
+     * @return  Number of triples actually removed.
+     */
+    std::size_t remove_by_object(const std::string &object);
+
+    /**
+     * Remove all triples whose predicate equals @p predicate.
+     * @return  Number of triples actually removed.
+     */
+    std::size_t remove_by_predicate(const std::string &predicate);
+
+    /** Remove all triples and reset all indexes. */
+    void clear() noexcept;
+
+    /**
+     * Return a pointer to a triple by ID.
+     * @return  Pointer into the store (valid until the next mutation), or
+     *          @c nullptr if the ID is unknown or has been removed.
+     */
+    const Triple *get(TripleId id) const noexcept;
+
+    /**
+     * Find all triples with the given subject.
+     * Returned pointers are valid until the next mutation.
+     */
+    std::vector<const Triple *> find_by_subject(const std::string &subject) const;
+
+    /**
+     * Find all triples with the given object.
+     * Returned pointers are valid until the next mutation.
+     */
+    std::vector<const Triple *> find_by_object(const std::string &object) const;
+
+    /**
+     * Find all triples with the given predicate.
+     * Returned pointers are valid until the next mutation.
+     */
+    std::vector<const Triple *> find_by_predicate(const std::string &predicate) const;
+
+    /**
+     * Return all active triples.
+     * Returned pointers are valid until the next mutation.
+     */
+    std::vector<const Triple *> find_all() const;
+
+    /** Number of active (non-removed) triples. */
+    std::size_t count() const noexcept { return count_; }
+
+private:
+    /** Slot-based storage; removed entries become std::nullopt. */
+    std::vector<std::optional<Triple>> triples_;
+
+    /** Indexes: map key -> vector of TripleId slots. */
+    std::unordered_map<std::string, std::vector<TripleId>> by_subject_;
+    std::unordered_map<std::string, std::vector<TripleId>> by_object_;
+    std::unordered_map<std::string, std::vector<TripleId>> by_predicate_;
+
+    /** Cached count of active triples. */
+    std::size_t count_{0};
+
+    /** Remove @p id from an index entry; erase the entry if it becomes empty. */
+    static void index_remove(
+        std::unordered_map<std::string, std::vector<TripleId>> &idx,
+        const std::string &key,
+        TripleId id);
+};
+
+} // namespace vibe
