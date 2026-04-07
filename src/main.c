@@ -113,9 +113,9 @@ static void list_requirements(const RequirementList *list)
 #define SUBJ_MAX_DISPLAY 32
 #define OBJ_MAX_DISPLAY  48
 
-static void print_rel_rule(int subj_w, int pred_w, int obj_w)
+static void print_rel_rule(int subj_w, int pred_w, int obj_w, int src_w)
 {
-    int widths[] = { subj_w, pred_w, obj_w };
+    int widths[] = { subj_w, pred_w, obj_w, src_w };
     int ncols    = (int)(sizeof(widths) / sizeof(widths[0]));
     for (int c = 0; c < ncols; c++) {
         putchar('+');
@@ -139,6 +139,7 @@ static void list_relations(const TripletStore *store)
     int subj_w = (int)strlen("Subject");
     int pred_w = (int)strlen("Relation");
     int obj_w  = (int)strlen("Object");
+    int src_w  = (int)strlen("Source");
 
     for (size_t i = 0; i < all.count; i++) {
         int len;
@@ -154,10 +155,11 @@ static void list_relations(const TripletStore *store)
     if (subj_w > SUBJ_MAX_DISPLAY) subj_w = SUBJ_MAX_DISPLAY;
     if (obj_w  > OBJ_MAX_DISPLAY)  obj_w  = OBJ_MAX_DISPLAY;
 
-    print_rel_rule(subj_w, pred_w, obj_w);
-    printf("| %-*s | %-*s | %-*s |\n",
-           subj_w, "Subject", pred_w, "Relation", obj_w, "Object");
-    print_rel_rule(subj_w, pred_w, obj_w);
+    print_rel_rule(subj_w, pred_w, obj_w, src_w);
+    printf("| %-*s | %-*s | %-*s | %-*s |\n",
+           subj_w, "Subject", pred_w, "Relation", obj_w, "Object",
+           src_w, "Source");
+    print_rel_rule(subj_w, pred_w, obj_w, src_w);
 
     for (size_t i = 0; i < all.count; i++) {
         const CTriple *t = &all.triples[i];
@@ -180,11 +182,13 @@ static void list_relations(const TripletStore *store)
             obuf[obj_w] = '\0';
         }
 
-        printf("| %-*s | %-*s | %-*s |\n",
-               subj_w, sbuf, pred_w, t->predicate, obj_w, obuf);
+        const char *src = t->inferred ? "inferred" : "declared";
+        printf("| %-*s | %-*s | %-*s | %-*s |\n",
+               subj_w, sbuf, pred_w, t->predicate, obj_w, obuf,
+               src_w, src);
     }
 
-    print_rel_rule(subj_w, pred_w, obj_w);
+    print_rel_rule(subj_w, pred_w, obj_w, src_w);
     printf("\nTotal: %zu relation(s)\n", all.count);
 
     triplet_store_list_free(all);
@@ -207,7 +211,93 @@ static TripletStore *build_relation_store(const RequirementList *list)
                     r->file_path);
     }
 
+    /* Generate inferred inverse triples for all known relation pairs. */
+    triplet_store_infer_inverses(store);
+
     return store;
+}
+
+/* ------------------------------------------------------------------ */
+/* --strict-links validation                                          */
+/* ------------------------------------------------------------------ */
+
+/*
+ * For every user-declared triple (A, rel, B) where rel has a known
+ * inverse inv(rel), check that (B, inv(rel), A) is ALSO user-declared.
+ * If only the inferred direction exists, emit a warning to stderr.
+ *
+ * The inferred triple (B, inv_pred, A) — already present in the store
+ * after triplet_store_infer_inverses() was called — is used as a proxy
+ * to determine inv_pred without duplicating the relation-pair table in C.
+ *
+ * Note: this function is O(n * m) where n is the number of declared
+ * triples and m is the average out-degree per subject.  For typical
+ * repositories this is acceptable; a hash-based approach can be added
+ * later if profiling shows it to be a bottleneck.
+ *
+ * Returns the number of one-sided link warnings found.
+ */
+static int check_strict_links(const TripletStore *store)
+{
+    CTripleList all = triplet_store_find_all(store);
+    int warnings = 0;
+
+    for (size_t i = 0; i < all.count; i++) {
+        const CTriple *t = &all.triples[i];
+        if (t->inferred) continue; /* only inspect user-declared triples */
+
+        /*
+         * Look for the inferred inverse (t->object, inv_pred, t->subject).
+         * Its existence confirms that t->predicate is in the known-pair
+         * table and tells us the expected inverse predicate name.
+         */
+        CTripleList by_subj = triplet_store_find_by_subject(store, t->object);
+
+        /* Copy the inverse predicate into a local buffer before freeing
+         * by_subj, to avoid a use-after-free when writing the warning. */
+        char inv_pred_buf[256] = {0};
+        int  found_declared    = 0;
+
+        for (size_t j = 0; j < by_subj.count; j++) {
+            const CTriple *cand = &by_subj.triples[j];
+            if (cand->inferred && strcmp(cand->object, t->subject) == 0) {
+                strncpy(inv_pred_buf, cand->predicate,
+                        sizeof(inv_pred_buf) - 1);
+                break;
+            }
+        }
+
+        if (inv_pred_buf[0] == '\0') {
+            /* No inferred inverse — relation is unknown; skip (Option C). */
+            triplet_store_list_free(by_subj);
+            continue;
+        }
+
+        /* Check whether a user-declared (t->object, inv_pred, t->subject)
+         * triple already exists. */
+        for (size_t j = 0; j < by_subj.count; j++) {
+            const CTriple *cand = &by_subj.triples[j];
+            if (!cand->inferred &&
+                strcmp(cand->predicate, inv_pred_buf) == 0 &&
+                strcmp(cand->object, t->subject) == 0) {
+                found_declared = 1;
+                break;
+            }
+        }
+        triplet_store_list_free(by_subj);
+
+        if (!found_declared) {
+            fprintf(stderr,
+                "warning: strict-links: '%s -[%s]-> %s' — "
+                "inverse '[%s]' not explicitly declared by '%s'\n",
+                t->subject, t->predicate, t->object,
+                inv_pred_buf, t->object);
+            warnings++;
+        }
+    }
+
+    triplet_store_list_free(all);
+    return warnings;
 }
 
 /* ------------------------------------------------------------------ */
@@ -217,18 +307,23 @@ static TripletStore *build_relation_store(const RequirementList *list)
 int main(int argc, char *argv[])
 {
     /* Parse optional subcommand and directory arguments. */
-    int         show_links = 0;
-    const char *root       = ".";
+    int         show_links   = 0;
+    int         strict_links = 0;
+    const char *root         = ".";
 
     int arg_idx = 1;
 
     if (argc >= 2) {
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-            printf("Usage: %s [links] [directory]\n\n", argv[0]);
+            printf("Usage: %s [links] [--strict-links] [directory]\n\n", argv[0]);
             printf("Commands:\n");
-            printf("  (default)  List all requirements found in the directory tree.\n");
-            printf("  links      List all relations parsed from requirement files.\n\n");
-            printf("  directory  Root directory to scan (default: current directory).\n\n");
+            printf("  (default)       List all requirements found in the directory tree.\n");
+            printf("  links           List all relations parsed from requirement files.\n\n");
+            printf("Options:\n");
+            printf("  --strict-links  Warn when a known relation is declared in only one\n");
+            printf("                  direction (inverse not explicitly present in YAML).\n");
+            printf("                  Exits with a non-zero code if any warnings are found.\n");
+            printf("  directory       Root directory to scan (default: current directory).\n\n");
             printf("  YAML files without a top-level 'id' field are silently ignored.\n");
             return 0;
         }
@@ -238,8 +333,14 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (argc > arg_idx)
-        root = argv[arg_idx];
+    /* Scan remaining arguments for flags and directory. */
+    for (int i = arg_idx; i < argc; i++) {
+        if (strcmp(argv[i], "--strict-links") == 0) {
+            strict_links = 1;
+        } else {
+            root = argv[i];
+        }
+    }
 
     RequirementList list;
     req_list_init(&list);
@@ -260,19 +361,29 @@ int main(int argc, char *argv[])
     if (list.count > 1)
         qsort(list.items, (size_t)list.count, sizeof(Requirement), cmp_by_id);
 
-    if (show_links) {
+    int exit_code = 0;
+
+    if (show_links || strict_links) {
         TripletStore *store = build_relation_store(&list);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
             req_list_free(&list);
             return 1;
         }
-        list_relations(store);
+        if (show_links)
+            list_relations(store);
+        if (strict_links) {
+            int warnings = check_strict_links(store);
+            if (warnings > 0) {
+                fprintf(stderr, "%d strict-links warning(s) found.\n", warnings);
+                exit_code = 1;
+            }
+        }
         triplet_store_destroy(store);
     } else {
         list_requirements(&list);
     }
 
     req_list_free(&list);
-    return 0;
+    return exit_code;
 }
