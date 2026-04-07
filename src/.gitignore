@@ -1,6 +1,6 @@
 *.o
 vibe-req
-test_triplet_store
-test_config
-test_yaml_simple
-test_discovery_ignore
+tests/test_triplet_store
+tests/test_config
+tests/test_yaml_simple
+tests/test_discovery_ignore

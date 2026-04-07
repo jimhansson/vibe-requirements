@@ -1,45 +1,22 @@
 /**
- * @file test_discovery_ignore.c
+ * @file test_discovery_ignore.cpp
  * @brief Automated test for TC-IGNORE-DIRS-001 — verifies that directories
  *        listed in ignore_dirs of .vibe-req.yaml are not scanned during
- *        requirement auto-discovery.
+ *        requirement auto-discovery, using gtest/gmock.
  */
 
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+#include <cstdio>
+#include <cstring>
+#include <sys/stat.h>
+
+extern "C" {
 #include "discovery.h"
 #include "config.h"
 #include "requirement.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-
-/* -------------------------------------------------------------------------
- * Tiny test framework (mirrors test_config.c)
- * ---------------------------------------------------------------------- */
-
-static int g_tests_run    = 0;
-static int g_tests_failed = 0;
-
-#define ASSERT(cond)                                                        \
-    do {                                                                    \
-        ++g_tests_run;                                                      \
-        if (!(cond)) {                                                      \
-            fprintf(stderr, "FAIL  %s:%d  %s\n",                           \
-                    __FILE__, __LINE__, #cond);                             \
-            ++g_tests_failed;                                               \
-        }                                                                   \
-    } while (0)
-
-#define ASSERT_EQ(a, b)                                                     \
-    do {                                                                    \
-        ++g_tests_run;                                                      \
-        if ((int)(a) != (int)(b)) {                                         \
-            fprintf(stderr, "FAIL  %s:%d  expected %d, got %d\n",          \
-                    __FILE__, __LINE__, (int)(b), (int)(a));                \
-            ++g_tests_failed;                                               \
-        }                                                                   \
-    } while (0)
+}
 
 /* -------------------------------------------------------------------------
  * Helpers
@@ -120,14 +97,14 @@ static int setup_test_tree(const char *root)
     return 0;
 }
 
-/* Return 1 if any item in list has the given id, 0 otherwise. */
-static int list_contains_id(const RequirementList *list, const char *id)
+/* Return true if any item in list has the given id. */
+static bool list_contains_id(const RequirementList *list, const char *id)
 {
     for (int i = 0; i < list->count; i++) {
         if (strcmp(list->items[i].id, id) == 0)
-            return 1;
+            return true;
     }
-    return 0;
+    return false;
 }
 
 /* -------------------------------------------------------------------------
@@ -139,15 +116,15 @@ static int list_contains_id(const RequirementList *list, const char *id)
  * Requirements inside an ignored directory must not appear; requirements
  * inside a non-ignored directory must appear.
  */
-static void test_ignored_dir_not_scanned(void)
+TEST(DiscoveryIgnoreTest, IgnoredDirNotScanned)
 {
     const char *root = "/tmp/vibe_disco_test";
-    ASSERT(setup_test_tree(root) == 0);
+    ASSERT_EQ(setup_test_tree(root), 0);
 
     VibeConfig cfg;
     int rc = config_load(root, &cfg);
-    ASSERT_EQ(rc, 0);
-    ASSERT_EQ(cfg.ignore_dirs_count, 1);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(cfg.ignore_dirs_count, 1);
 
     RequirementList list;
     req_list_init(&list);
@@ -155,14 +132,14 @@ static void test_ignored_dir_not_scanned(void)
     int found = discover_requirements(root, &list, &cfg);
 
     /* At least one requirement must be found (from requirements/). */
-    ASSERT(found >= 1);
-    ASSERT(list.count >= 1);
+    EXPECT_GE(found, 1);
+    EXPECT_GE(list.count, 1);
 
     /* REQ-001 (from requirements/) must be present. */
-    ASSERT(list_contains_id(&list, "REQ-001"));
+    EXPECT_TRUE(list_contains_id(&list, "REQ-001"));
 
     /* EX-001 (from examples/) must NOT be present. */
-    ASSERT(!list_contains_id(&list, "EX-001"));
+    EXPECT_FALSE(list_contains_id(&list, "EX-001"));
 
     req_list_free(&list);
 }
@@ -171,20 +148,20 @@ static void test_ignored_dir_not_scanned(void)
  * Without a config (cfg == NULL) both directories are scanned, so both
  * requirements must appear.
  */
-static void test_no_cfg_scans_all_dirs(void)
+TEST(DiscoveryIgnoreTest, NoCfgScansAllDirs)
 {
     const char *root = "/tmp/vibe_disco_test";
-    ASSERT(setup_test_tree(root) == 0);
+    ASSERT_EQ(setup_test_tree(root), 0);
 
     RequirementList list;
     req_list_init(&list);
 
-    int found = discover_requirements(root, &list, NULL);
+    int found = discover_requirements(root, &list, nullptr);
 
-    ASSERT(found >= 2);
-    ASSERT(list.count >= 2);
-    ASSERT(list_contains_id(&list, "REQ-001"));
-    ASSERT(list_contains_id(&list, "EX-001"));
+    EXPECT_GE(found, 2);
+    EXPECT_GE(list.count, 2);
+    EXPECT_TRUE(list_contains_id(&list, "REQ-001"));
+    EXPECT_TRUE(list_contains_id(&list, "EX-001"));
 
     req_list_free(&list);
 }
@@ -192,10 +169,10 @@ static void test_no_cfg_scans_all_dirs(void)
 /*
  * A config whose ignore_dirs list is empty must also scan all directories.
  */
-static void test_empty_ignore_list_scans_all_dirs(void)
+TEST(DiscoveryIgnoreTest, EmptyIgnoreListScansAllDirs)
 {
     const char *root = "/tmp/vibe_disco_test";
-    ASSERT(setup_test_tree(root) == 0);
+    ASSERT_EQ(setup_test_tree(root), 0);
 
     VibeConfig cfg;
     memset(&cfg, 0, sizeof(cfg));   /* ignore_dirs_count == 0 */
@@ -205,16 +182,16 @@ static void test_empty_ignore_list_scans_all_dirs(void)
 
     int found = discover_requirements(root, &list, &cfg);
 
-    ASSERT(found >= 2);
-    ASSERT(list.count >= 2);
-    ASSERT(list_contains_id(&list, "REQ-001"));
-    ASSERT(list_contains_id(&list, "EX-001"));
+    EXPECT_GE(found, 2);
+    EXPECT_GE(list.count, 2);
+    EXPECT_TRUE(list_contains_id(&list, "REQ-001"));
+    EXPECT_TRUE(list_contains_id(&list, "EX-001"));
 
     req_list_free(&list);
 }
 
 /* discover_requirements must return -1 for a nonexistent root. */
-static void test_nonexistent_root(void)
+TEST(DiscoveryIgnoreTest, NonexistentRoot)
 {
     VibeConfig cfg;
     memset(&cfg, 0, sizeof(cfg));
@@ -223,23 +200,8 @@ static void test_nonexistent_root(void)
     req_list_init(&list);
 
     int rc = discover_requirements("/tmp/vibe_disco_no_such_dir_xyz", &list, &cfg);
-    ASSERT_EQ(rc, -1);
-    ASSERT_EQ(list.count, 0);
+    EXPECT_EQ(rc, -1);
+    EXPECT_EQ(list.count, 0);
 
     req_list_free(&list);
-}
-
-/* -------------------------------------------------------------------------
- * Entry point
- * ---------------------------------------------------------------------- */
-
-int main(void)
-{
-    test_ignored_dir_not_scanned();
-    test_no_cfg_scans_all_dirs();
-    test_empty_ignore_list_scans_all_dirs();
-    test_nonexistent_root();
-
-    printf("\n%d test(s) run, %d failed.\n", g_tests_run, g_tests_failed);
-    return (g_tests_failed > 0) ? 1 : 0;
 }
