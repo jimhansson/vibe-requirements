@@ -1,0 +1,28 @@
+id: TC-IGNORE-DIRS-001
+type: test-case
+title: "Directory exclusion via ignore_dirs configuration"
+status: draft
+description: |
+  Verify that the tool skips any directory whose base name appears in the
+  ignore_dirs list of .vibe-req.yaml during requirement discovery, so that
+  requirement files inside excluded directories are not loaded.
+preconditions:
+  - A repository root exists with at least two subdirectories; one to scan
+    (e.g. requirements/) and one to exclude (e.g. examples/).
+  - Each subdirectory contains at least one valid YAML requirement file.
+  - A .vibe-req.yaml at the repository root names the excluded directory
+    under the ignore_dirs key (e.g. "ignore_dirs:\n  - examples").
+steps:
+  - Run the tool's requirement-discovery function against the repository root
+    with the configuration loaded from .vibe-req.yaml.
+  - Observe which requirement files are included in the discovery result.
+expected_results:
+  - Requirement files inside the excluded directory (examples/) are NOT
+    present in the discovery result.
+  - Requirement files inside the non-excluded directory (requirements/) ARE
+    present in the discovery result.
+  - The tool exits without error.
+verification_method: test
+links:
+  - id: REQ-005
+    relation: verifies
