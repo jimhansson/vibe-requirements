@@ -1,0 +1,137 @@
+id: REQ-020
+title: "Project-unique human-readable identifier"
+type: functional
+status: draft
+priority: must
+description: |
+  Each requirement shall have a project-unique, human-readable identifier
+  (e.g., `REQ-SYS-042`).
+tags:
+  - identifier
+  - uniqueness
+---
+id: REQ-021
+title: "Optional type field — open vocabulary"
+type: functional
+status: draft
+priority: may
+description: |
+  A requirement may optionally carry a type field; the tool shall not
+  prescribe or validate a fixed set of allowed values — the type vocabulary
+  is left to user or project configuration.
+tags:
+  - fields
+  - type
+  - open-vocabulary
+---
+id: REQ-022
+title: "Optional status field — open vocabulary"
+type: functional
+status: draft
+priority: may
+description: |
+  A requirement may optionally carry a status field; the tool shall not
+  prescribe or validate a fixed set of allowed values — the status vocabulary
+  is left to user or project configuration.
+tags:
+  - fields
+  - status
+  - open-vocabulary
+---
+id: REQ-023
+title: "Optional priority field — open vocabulary"
+type: functional
+status: draft
+priority: may
+description: |
+  A requirement may optionally carry a priority field; the tool shall not
+  prescribe or validate a fixed set of allowed values — the priority
+  vocabulary is left to user or project configuration.
+tags:
+  - fields
+  - priority
+  - open-vocabulary
+---
+id: REQ-024
+title: "Optional sources field"
+type: functional
+status: draft
+priority: may
+description: |
+  A requirement may optionally declare one or more sources, which can be
+  another requirement ID or an external normative reference.
+tags:
+  - fields
+  - sources
+  - traceability
+---
+id: REQ-025
+title: "Optional tags field"
+type: functional
+status: draft
+priority: may
+description: |
+  A requirement may optionally carry user-defined tags (labels) for
+  free-form categorization.
+tags:
+  - fields
+  - tags
+  - categorization
+---
+id: REQ-026
+title: "Optional rationale field"
+type: functional
+status: draft
+priority: may
+description: |
+  A requirement may optionally carry a rationale field explaining why the
+  requirement exists.
+tags:
+  - fields
+  - rationale
+---
+id: REQ-027
+title: "Optional verification method field — open vocabulary"
+type: functional
+status: draft
+priority: may
+description: |
+  A requirement may optionally carry a verification method field; the tool
+  shall not prescribe or validate a fixed set of allowed values.
+tags:
+  - fields
+  - verification
+  - open-vocabulary
+---
+id: REQ-028
+title: "Arbitrary user-defined additional fields"
+type: functional
+status: draft
+priority: must
+description: |
+  Requirements and all other entity types shall support arbitrary
+  user-defined additional fields beyond those listed in this specification;
+  the tool shall preserve and pass through unrecognized fields without
+  treating them as errors.
+tags:
+  - fields
+  - extensibility
+  - forward-compatibility
+---
+id: REQ-029
+title: "Entity validation function"
+type: functional
+status: draft
+priority: must
+description: |
+  The tool shall provide an entity validation function that verifies:
+  (a) no identifier is used more than once across all files in the
+  repository, (b) every link target refers to an identifier that actually
+  exists, and (c) every external normative source reference resolves to a
+  known external source document; validation failures shall be reported with
+  enough context for the user to locate and correct the problem.
+tags:
+  - validation
+  - identifier
+  - links
+  - external-sources
