@@ -2,3 +2,4 @@
 vibe-req
 test_triplet_store
 test_config
+test_yaml_simple
