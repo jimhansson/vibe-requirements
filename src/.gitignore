@@ -1,3 +1,4 @@
 *.o
 vibe-req
 test_triplet_store
+test_config

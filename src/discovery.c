@@ -1,4 +1,5 @@
 #include "discovery.h"
+#include "config.h"
 #include "yaml_simple.h"
 #include <dirent.h>
 #include <sys/stat.h>
@@ -13,7 +14,7 @@ static int is_yaml(const char *name)
     return strcmp(dot, ".yaml") == 0 || strcmp(dot, ".yml") == 0;
 }
 
-static void walk(const char *dir, RequirementList *list)
+static void walk(const char *dir, RequirementList *list, const VibeConfig *cfg)
 {
     DIR *d = opendir(dir);
     if (!d)
@@ -39,7 +40,10 @@ static void walk(const char *dir, RequirementList *list)
             continue;
 
         if (S_ISDIR(st.st_mode)) {
-            walk(path, list);
+            /* Skip directories listed in ignore_dirs. */
+            if (config_is_ignored_dir(cfg, name))
+                continue;
+            walk(path, list, cfg);
         } else if (S_ISREG(st.st_mode) && is_yaml(name)) {
             Requirement req;
             if (yaml_parse_requirement(path, &req) == 0) {
@@ -52,7 +56,8 @@ static void walk(const char *dir, RequirementList *list)
     closedir(d);
 }
 
-int discover_requirements(const char *root_dir, RequirementList *list)
+int discover_requirements(const char *root_dir, RequirementList *list,
+                          const VibeConfig *cfg)
 {
     /* Probe that the directory exists before recursing. */
     DIR *probe = opendir(root_dir);
@@ -60,6 +65,6 @@ int discover_requirements(const char *root_dir, RequirementList *list)
         return -1;
     closedir(probe);
 
-    walk(root_dir, list);
+    walk(root_dir, list, cfg);
     return list->count;
 }

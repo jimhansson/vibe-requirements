@@ -4,6 +4,7 @@
 
 #include "requirement.h"
 #include "discovery.h"
+#include "config.h"
 #include "yaml_simple.h"
 #include "triplet_store_c.h"
 
@@ -243,7 +244,12 @@ int main(int argc, char *argv[])
     RequirementList list;
     req_list_init(&list);
 
-    int found = discover_requirements(root, &list);
+    VibeConfig cfg;
+    /* config_load() returns -1 when .vibe-req.yaml is absent or unparseable,
+     * which is perfectly valid — cfg is zeroed so discovery runs unfiltered. */
+    config_load(root, &cfg);
+
+    int found = discover_requirements(root, &list, &cfg);
     if (found < 0) {
         fprintf(stderr, "error: cannot open directory '%s'\n", root);
         req_list_free(&list);
