@@ -1,0 +1,76 @@
+id: REQ-030
+title: "Requirement-to-requirement links"
+type: functional
+status: draft
+priority: must
+description: |
+  The tool shall allow a requirement to be linked to one or more other
+  requirements (parent, child, derives-from, conflicts-with, implements).
+tags:
+  - traceability
+  - links
+---
+id: REQ-031
+title: "Requirement-to-test-case links"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall allow a requirement to be linked to test cases or
+  verification records.
+tags:
+  - traceability
+  - links
+  - test-case
+---
+id: REQ-032
+title: "Requirement-to-source-code links"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall allow a requirement to be linked to source code files or
+  specific Git commits.
+tags:
+  - traceability
+  - links
+  - source-code
+---
+id: REQ-033
+title: "Requirement-to-hardware-artefact links"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall allow a requirement to be linked to hardware design
+  artefacts (schematics, drawings, BOM rows).
+tags:
+  - traceability
+  - links
+  - hardware
+---
+id: REQ-034
+title: "Requirement-to-external-normative-source links"
+type: functional
+status: draft
+priority: must
+description: |
+  The tool shall allow a requirement to be linked to external normative
+  sources (standard, directive, clause).
+tags:
+  - traceability
+  - links
+  - external-sources
+---
+id: REQ-035
+title: "Traceability report"
+type: functional
+status: draft
+priority: should
+description: |
+  The CLI shall produce a traceability report showing the full link graph
+  for a given requirement or for all requirements.
+tags:
+  - traceability
+  - cli
+  - report
