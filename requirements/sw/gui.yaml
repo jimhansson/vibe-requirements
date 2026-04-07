@@ -1,0 +1,129 @@
+id: REQ-060
+title: "Optional native GUI application"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall provide an optional native GUI application (not
+  browser-based) for browsing and editing requirements.
+tags:
+  - gui
+  - native
+---
+id: REQ-061
+title: "GUI reads and writes same file formats as CLI"
+type: functional
+status: draft
+priority: must
+description: |
+  The GUI shall read and write the same file formats used by the CLI with
+  no intermediary database.
+tags:
+  - gui
+  - file-format
+  - consistency
+---
+id: REQ-062
+title: "Filterable and sortable requirement list"
+type: functional
+status: draft
+priority: should
+description: |
+  The GUI shall provide a filterable, sortable list of all requirements and
+  documents in the repository.
+tags:
+  - gui
+  - list-view
+  - filtering
+  - sorting
+---
+id: REQ-063
+title: "Visual traceability graph view"
+type: functional
+status: draft
+priority: should
+description: |
+  The GUI shall provide a visual traceability graph view.
+tags:
+  - gui
+  - traceability
+  - graph
+---
+id: REQ-064
+title: "Inline editor for requirement fields"
+type: functional
+status: draft
+priority: should
+description: |
+  The GUI shall provide an inline editor for requirement fields.
+tags:
+  - gui
+  - editor
+---
+id: REQ-065
+title: "No web browser or JavaScript runtime required"
+type: functional
+status: draft
+priority: must
+description: |
+  The GUI shall not require installation of a web browser or JavaScript
+  runtime.
+tags:
+  - gui
+  - native
+  - no-browser
+---
+id: REQ-066
+title: "Write-through persistence by default"
+type: functional
+status: draft
+priority: must
+description: |
+  By default, accepted entity and link mutations from CLI or GUI shall be
+  persisted directly to repository files (write-through mode) rather than
+  only updating in-memory state.
+tags:
+  - persistence
+  - write-through
+  - gui
+  - cli
+---
+id: REQ-067
+title: "Entity provenance metadata"
+type: functional
+status: draft
+priority: must
+description: |
+  The tool shall maintain entity provenance metadata mapping each entity ID
+  to its owning location (file path and document position within
+  multi-document files) so updates are written to the correct document.
+tags:
+  - persistence
+  - provenance
+  - multi-document
+---
+id: REQ-068
+title: "Atomic failure on persistence error"
+type: functional
+status: draft
+priority: must
+description: |
+  If persistence of an accepted mutation fails, the operation shall fail
+  without leaving the in-memory model and on-disk files in diverged states.
+tags:
+  - persistence
+  - error-handling
+  - consistency
+---
+id: REQ-069
+title: "Atomic file updates"
+type: functional
+status: draft
+priority: must
+description: |
+  File updates performed by mutation operations shall be atomic at file
+  level (e.g., temporary file plus rename) to avoid partial writes.
+tags:
+  - persistence
+  - atomicity
+  - file-update
