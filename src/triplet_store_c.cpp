@@ -68,6 +68,7 @@ static CTripleList make_list(const std::vector<const vibe::Triple *> &src)
         list.triples[i].subject   = dup_str(t->subject);
         list.triples[i].predicate = dup_str(t->predicate);
         list.triples[i].object    = dup_str(t->object);
+        list.triples[i].inferred  = t->inferred ? 1 : 0;
 
         /* On allocation failure clean up everything allocated so far. */
         if (!list.triples[i].subject  ||
@@ -150,6 +151,12 @@ size_t triplet_store_remove_by_predicate(TripletStore *store,
 void triplet_store_clear(TripletStore *store)
 {
     if (store) to_cpp(store)->clear();
+}
+
+size_t triplet_store_infer_inverses(TripletStore *store)
+{
+    if (!store) return 0;
+    return to_cpp(store)->infer_inverses();
 }
 
 /* -------------------------------------------------------------------------

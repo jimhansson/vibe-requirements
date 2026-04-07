@@ -10,6 +10,49 @@
 namespace vibe {
 
 /* -------------------------------------------------------------------------
+ * Built-in relation-pair registry (Option B — inferred inverse).
+ *
+ * Each entry maps a forward relation name to its inverse.  Symmetric
+ * relations (e.g. "conflicts-with") appear with the same string on both
+ * sides.  Both directions are listed explicitly so a single lookup suffices.
+ *
+ * The table can be extended at the project level via .vibe-req.yaml
+ * (future work); for now only built-in pairs are supported.
+ * ---------------------------------------------------------------------- */
+
+static const struct { const char *forward; const char *inverse; }
+k_relation_pairs[] = {
+    { "derives-from",          "derived-to"             },
+    { "derived-to",            "derives-from"           },
+    { "parent",                "child"                  },
+    { "child",                 "parent"                 },
+    { "verifies",              "verified-by"            },
+    { "verified-by",           "verifies"               },
+    { "implements",            "implemented-by"         },
+    { "implemented-by",        "implements"             },
+    { "implemented-in",        "implemented-by-artefact"},
+    { "implemented-by-artefact","implemented-in"        },
+    { "conflicts-with",        "conflicts-with"         }, /* symmetric */
+    { "refines",               "refined-by"             },
+    { "refined-by",            "refines"                },
+    { "traces-to",             "traced-from"            },
+    { "traced-from",           "traces-to"              },
+};
+
+static constexpr std::size_t k_num_relation_pairs =
+    sizeof(k_relation_pairs) / sizeof(k_relation_pairs[0]);
+
+/** Return the inverse relation name, or nullptr if rel is unknown. */
+static const char *lookup_inverse(const std::string &predicate) noexcept
+{
+    for (std::size_t i = 0; i < k_num_relation_pairs; ++i) {
+        if (predicate == k_relation_pairs[i].forward)
+            return k_relation_pairs[i].inverse;
+    }
+    return nullptr;
+}
+
+/* -------------------------------------------------------------------------
  * Public mutation API
  * ---------------------------------------------------------------------- */
 
@@ -29,7 +72,7 @@ TripleId TripletStore::add(const std::string &subject,
     }
 
     TripleId new_id = triples_.size();
-    triples_.push_back(Triple{new_id, subject, predicate, object});
+    triples_.push_back(Triple{new_id, subject, predicate, object, /*inferred=*/false});
 
     by_subject_[subject].push_back(new_id);
     by_object_[object].push_back(new_id);
@@ -126,6 +169,53 @@ void TripletStore::clear() noexcept
     by_object_.clear();
     by_predicate_.clear();
     count_ = 0;
+}
+
+TripleId TripletStore::add_inferred(const std::string &subject,
+                                    const std::string &predicate,
+                                    const std::string &object)
+{
+    /* Reject if an identical triple already exists (any origin). */
+    auto it = by_subject_.find(subject);
+    if (it != by_subject_.end()) {
+        for (TripleId existing_id : it->second) {
+            const auto &slot = triples_[existing_id];
+            if (slot && slot->predicate == predicate && slot->object == object)
+                return INVALID_TRIPLE_ID;
+        }
+    }
+
+    TripleId new_id = triples_.size();
+    triples_.push_back(Triple{new_id, subject, predicate, object, /*inferred=*/true});
+
+    by_subject_[subject].push_back(new_id);
+    by_object_[object].push_back(new_id);
+    by_predicate_[predicate].push_back(new_id);
+    ++count_;
+
+    return new_id;
+}
+
+std::size_t TripletStore::infer_inverses()
+{
+    /* Snapshot current user-declared triples before adding inferred ones,
+     * to avoid iterating over triples we are about to add. */
+    std::vector<Triple> declared;
+    declared.reserve(count_);
+    for (const auto &slot : triples_) {
+        if (slot && !slot->inferred)
+            declared.push_back(*slot);
+    }
+
+    std::size_t added = 0;
+    for (const auto &t : declared) {
+        const char *inv = lookup_inverse(t.predicate);
+        if (!inv) continue; /* Unknown relation — Option C silent fallback. */
+
+        TripleId id = add_inferred(t.object, inv, t.subject);
+        if (id != INVALID_TRIPLE_ID) ++added;
+    }
+    return added;
 }
 
 /* -------------------------------------------------------------------------

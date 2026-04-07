@@ -43,6 +43,8 @@ typedef struct {
     char   *subject;   /**< Subject entity ID (e.g. "REQ-SW-001"). */
     char   *predicate; /**< Relation / predicate name (e.g. "derives-from"). */
     char   *object;    /**< Object entity ID or artefact path. */
+    int     inferred;  /**< Non-zero if this triple was synthetically generated
+                            by inverse inference; zero if user-declared. */
 } CTriple;
 
 /**
@@ -118,6 +120,19 @@ size_t triplet_store_remove_by_predicate(TripletStore *store,
 
 /** Remove all triples from @p store. */
 void triplet_store_clear(TripletStore *store);
+
+/**
+ * For every user-declared triple (A, rel, B) in @p store where @c rel has a
+ * known inverse @c inv(rel) in the built-in relation-pair registry, add a
+ * synthetic triple (B, inv(rel), A) marked as inferred — unless an identical
+ * triple already exists.  Unknown or custom relation names are silently
+ * skipped (Option C fallback).
+ *
+ * Call this once after all user-declared triples have been loaded.
+ *
+ * @return  Number of synthetic triples added, or 0 when @p store is NULL.
+ */
+size_t triplet_store_infer_inverses(TripletStore *store);
 
 /* =========================================================================
  * Query

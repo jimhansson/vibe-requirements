@@ -274,3 +274,189 @@ TEST(TripletStoreTest, NullSafety)
 
     triplet_store_destroy(store);
 }
+
+/* -------------------------------------------------------------------------
+ * Inferred-inverse tests
+ * ---------------------------------------------------------------------- */
+
+TEST(TripletStoreTest, InferredFlagFalseByDefault)
+{
+    TripletStore *store = triplet_store_create();
+
+    triplet_store_add(store, "REQ-SW-001", "derives-from", "REQ-SYS-005");
+
+    CTripleList list = triplet_store_find_by_subject(store, "REQ-SW-001");
+    ASSERT_EQ(list.count, 1u);
+    EXPECT_EQ(list.triples[0].inferred, 0);
+
+    triplet_store_list_free(list);
+    triplet_store_destroy(store);
+}
+
+TEST(TripletStoreTest, InferInversesKnownRelation)
+{
+    TripletStore *store = triplet_store_create();
+
+    /* User declares one direction. */
+    triplet_store_add(store, "REQ-SW-001", "derives-from", "REQ-SYS-005");
+    EXPECT_EQ(triplet_store_count(store), 1u);
+
+    /* After inference the inverse should be added. */
+    size_t added = triplet_store_infer_inverses(store);
+    EXPECT_EQ(added, 1u);
+    EXPECT_EQ(triplet_store_count(store), 2u);
+
+    /* The inferred triple must be (REQ-SYS-005, derived-to, REQ-SW-001). */
+    CTripleList list = triplet_store_find_by_subject(store, "REQ-SYS-005");
+    ASSERT_EQ(list.count, 1u);
+    EXPECT_STREQ(list.triples[0].predicate, "derived-to");
+    EXPECT_STREQ(list.triples[0].object,    "REQ-SW-001");
+    EXPECT_EQ(list.triples[0].inferred, 1);
+    triplet_store_list_free(list);
+
+    /* The original triple must still be marked as declared (not inferred). */
+    CTripleList orig = triplet_store_find_by_subject(store, "REQ-SW-001");
+    ASSERT_EQ(orig.count, 1u);
+    EXPECT_EQ(orig.triples[0].inferred, 0);
+    triplet_store_list_free(orig);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TripletStoreTest, InferInversesUnknownRelation)
+{
+    TripletStore *store = triplet_store_create();
+
+    /* Custom / unknown relation — no inverse should be added. */
+    triplet_store_add(store, "REQ-SW-001", "custom-link", "REQ-SYS-005");
+    size_t added = triplet_store_infer_inverses(store);
+    EXPECT_EQ(added, 0u);
+    EXPECT_EQ(triplet_store_count(store), 1u);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TripletStoreTest, InferInversesSymmetricRelation)
+{
+    TripletStore *store = triplet_store_create();
+
+    /* "conflicts-with" is symmetric: inverse is also "conflicts-with". */
+    triplet_store_add(store, "REQ-SW-001", "conflicts-with", "REQ-SW-002");
+    size_t added = triplet_store_infer_inverses(store);
+    EXPECT_EQ(added, 1u);
+    EXPECT_EQ(triplet_store_count(store), 2u);
+
+    CTripleList list = triplet_store_find_by_subject(store, "REQ-SW-002");
+    ASSERT_EQ(list.count, 1u);
+    EXPECT_STREQ(list.triples[0].predicate, "conflicts-with");
+    EXPECT_STREQ(list.triples[0].object,    "REQ-SW-001");
+    EXPECT_EQ(list.triples[0].inferred, 1);
+    triplet_store_list_free(list);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TripletStoreTest, InferInversesNoDuplicateWhenBothDeclared)
+{
+    TripletStore *store = triplet_store_create();
+
+    /* User declares both directions explicitly. */
+    triplet_store_add(store, "REQ-SW-001", "verifies",     "REQ-SYS-005");
+    triplet_store_add(store, "REQ-SYS-005", "verified-by", "REQ-SW-001");
+    EXPECT_EQ(triplet_store_count(store), 2u);
+
+    /* Inference must not add a duplicate. */
+    size_t added = triplet_store_infer_inverses(store);
+    EXPECT_EQ(added, 0u);
+    EXPECT_EQ(triplet_store_count(store), 2u);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TripletStoreTest, InferInversesMultipleRelations)
+{
+    TripletStore *store = triplet_store_create();
+
+    triplet_store_add(store, "A", "parent",    "B");
+    triplet_store_add(store, "A", "verifies",  "C");
+    triplet_store_add(store, "A", "custom",    "D"); /* unknown */
+
+    size_t added = triplet_store_infer_inverses(store);
+    EXPECT_EQ(added, 2u); /* only 2 known inverses */
+    EXPECT_EQ(triplet_store_count(store), 5u); /* 3 declared + 2 inferred */
+
+    triplet_store_destroy(store);
+}
+
+TEST(TripletStoreTest, InferInversesIdempotent)
+{
+    TripletStore *store = triplet_store_create();
+
+    triplet_store_add(store, "REQ-SW-001", "derives-from", "REQ-SYS-005");
+
+    triplet_store_infer_inverses(store);
+    size_t count_after_first = triplet_store_count(store);
+
+    /* Calling a second time must not add more triples. */
+    size_t added_second = triplet_store_infer_inverses(store);
+    EXPECT_EQ(added_second, 0u);
+    EXPECT_EQ(triplet_store_count(store), count_after_first);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TripletStoreTest, InferInversesNullSafe)
+{
+    EXPECT_EQ(triplet_store_infer_inverses(nullptr), 0u);
+}
+
+TEST(TripletStoreTest, AllBuiltInPairsHaveInverse)
+{
+    /* Verify that every pair in the built-in table round-trips correctly
+     * by checking inference for each known forward relation. */
+    TripletStore *store = triplet_store_create();
+
+    static const struct { const char *fwd; const char *inv; } pairs[] = {
+        { "derives-from",          "derived-to"             },
+        { "derived-to",            "derives-from"           },
+        { "parent",                "child"                  },
+        { "child",                 "parent"                 },
+        { "verifies",              "verified-by"            },
+        { "verified-by",           "verifies"               },
+        { "implements",            "implemented-by"         },
+        { "implemented-by",        "implements"             },
+        { "implemented-in",        "implemented-by-artefact"},
+        { "implemented-by-artefact","implemented-in"        },
+        { "conflicts-with",        "conflicts-with"         },
+        { "refines",               "refined-by"             },
+        { "refined-by",            "refines"                },
+        { "traces-to",             "traced-from"            },
+        { "traced-from",           "traces-to"              },
+    };
+
+    const size_t n = sizeof(pairs) / sizeof(pairs[0]);
+
+    for (size_t i = 0; i < n; ++i) {
+        triplet_store_clear(store);
+        triplet_store_add(store, "A", pairs[i].fwd, "B");
+        size_t added = triplet_store_infer_inverses(store);
+        EXPECT_EQ(added, 1u) << "pair index " << i
+                             << " (" << pairs[i].fwd << ")";
+
+        CTripleList list = triplet_store_find_by_subject(store, "B");
+        bool found = false;
+        for (size_t j = 0; j < list.count; ++j) {
+            if (std::string(list.triples[j].predicate) == pairs[i].inv &&
+                std::string(list.triples[j].object) == "A" &&
+                list.triples[j].inferred) {
+                found = true;
+                break;
+            }
+        }
+        EXPECT_TRUE(found) << "inverse not found for " << pairs[i].fwd;
+        triplet_store_list_free(list);
+    }
+
+    triplet_store_destroy(store);
+}
+
