@@ -5,6 +5,13 @@ CXXFLAGS = -std=c++17 -Wall -Wextra -O2
 LDLIBS   = -lyaml
 TARGET   = vibe-req
 
+# gtest / gmock — override GTEST_PREFIX at the command line or in the
+# environment if your installation differs from the default below.
+GTEST_PREFIX  ?= /usr/share/miniconda
+GTEST_CFLAGS  = -I$(GTEST_PREFIX)/include
+GTEST_LDFLAGS = -L$(GTEST_PREFIX)/lib -Wl,-rpath,$(GTEST_PREFIX)/lib \
+                -lgtest_main -lgtest -lgmock -pthread
+
 # Main binary sources (C and C++)
 C_SRCS   = main.c requirement.c yaml_simple.c discovery.c config.c
 CPP_SRCS = triplet_store.cpp triplet_store_c.cpp
@@ -12,19 +19,19 @@ C_OBJS   = $(C_SRCS:.c=.o)
 CPP_OBJS = $(CPP_SRCS:.cpp=.o)
 OBJS     = $(C_OBJS) $(CPP_OBJS)
 
-# Test binaries
-TEST_TRIPLET_TARGET = test_triplet_store
-TEST_TRIPLET_OBJS   = test_triplet_store.o triplet_store.o triplet_store_c.o
+# Test binaries (sources live in tests/)
+TEST_TRIPLET_TARGET = tests/test_triplet_store
+TEST_TRIPLET_OBJS   = tests/test_triplet_store.o triplet_store.o triplet_store_c.o
 
-TEST_CONFIG_TARGET  = test_config
-TEST_CONFIG_OBJS    = test_config.o config.o
+TEST_CONFIG_TARGET  = tests/test_config
+TEST_CONFIG_OBJS    = tests/test_config.o config.o
 
-TEST_YAML_TARGET    = test_yaml_simple
-TEST_YAML_OBJS      = test_yaml_simple.o yaml_simple.o requirement.o \
+TEST_YAML_TARGET    = tests/test_yaml_simple
+TEST_YAML_OBJS      = tests/test_yaml_simple.o yaml_simple.o requirement.o \
                       triplet_store.o triplet_store_c.o
 
-TEST_DISCOVERY_TARGET = test_discovery_ignore
-TEST_DISCOVERY_OBJS   = test_discovery_ignore.o discovery.o requirement.o \
+TEST_DISCOVERY_TARGET = tests/test_discovery_ignore
+TEST_DISCOVERY_OBJS   = tests/test_discovery_ignore.o discovery.o requirement.o \
                         yaml_simple.o config.o triplet_store.o triplet_store_c.o
 
 .PHONY: all clean test
@@ -36,16 +43,16 @@ $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
 
 $(TEST_TRIPLET_TARGET): $(TEST_TRIPLET_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(GTEST_LDFLAGS)
 
 $(TEST_CONFIG_TARGET): $(TEST_CONFIG_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
 $(TEST_YAML_TARGET): $(TEST_YAML_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
 $(TEST_DISCOVERY_TARGET): $(TEST_DISCOVERY_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
 test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET)
 	./$(TEST_TRIPLET_TARGET)
@@ -58,6 +65,9 @@ test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DI
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+tests/%.o: tests/%.cpp
+	$(CXX) $(CXXFLAGS) $(GTEST_CFLAGS) -I. -c -o $@ $<
 
 clean:
 	rm -f $(OBJS) $(TARGET) \
