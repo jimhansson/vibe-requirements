@@ -1,0 +1,78 @@
+id: REQ-010
+title: "Requirement document type"
+type: functional
+status: draft
+priority: must
+description: |
+  The tool shall support a Requirement document type with at minimum a
+  project-unique identifier; all other fields (title, description, type,
+  status, priority, links, etc.) are optional and shall not be required by
+  the tool.
+tags:
+  - document-type
+  - requirement
+---
+id: REQ-011
+title: "User Story document type"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall support a User Story document type with: ID, title,
+  narrative ("As a … I want … so that …"), acceptance criteria, and links.
+tags:
+  - document-type
+  - user-story
+---
+id: REQ-012
+title: "System Design Document (SDD) document type"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall support a System Design Document (SDD) document type that
+  can reference and be referenced by requirements.
+tags:
+  - document-type
+  - sdd
+---
+id: REQ-013
+title: "External Source document type"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall support an External Source document type to represent
+  normative references such as standards or legal directives, including
+  clauses or articles that generate derived requirements.
+tags:
+  - document-type
+  - external-source
+---
+id: REQ-014
+title: "Hardware Artefact link type"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall support a Hardware Artefact link type so that requirements
+  can be traced to schematics, PCB files, mechanical drawings, or BOM
+  entries.
+tags:
+  - document-type
+  - hardware
+  - link-type
+---
+id: REQ-015
+title: "Test Case document type"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall support a Test Case document type with at minimum: unique
+  ID, title, description, preconditions, test steps, expected results,
+  verification method (inspection, analysis, demonstration, test), status,
+  and links to the requirements it verifies.
+tags:
+  - document-type
+  - test-case
