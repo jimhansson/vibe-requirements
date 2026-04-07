@@ -45,11 +45,8 @@ static void walk(const char *dir, RequirementList *list, const VibeConfig *cfg)
                 continue;
             walk(path, list, cfg);
         } else if (S_ISREG(st.st_mode) && is_yaml(name)) {
-            Requirement req;
-            if (yaml_parse_requirement(path, &req) == 0) {
-                if (req_list_add(list, &req) != 0)
-                    fprintf(stderr, "warning: out of memory, skipping: %s\n", path);
-            }
+            if (yaml_parse_requirements(path, list) < 0)
+                fprintf(stderr, "warning: could not parse: %s\n", path);
         }
     }
 
