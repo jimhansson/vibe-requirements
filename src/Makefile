@@ -23,6 +23,10 @@ TEST_YAML_TARGET    = test_yaml_simple
 TEST_YAML_OBJS      = test_yaml_simple.o yaml_simple.o requirement.o \
                       triplet_store.o triplet_store_c.o
 
+TEST_DISCOVERY_TARGET = test_discovery_ignore
+TEST_DISCOVERY_OBJS   = test_discovery_ignore.o discovery.o requirement.o \
+                        yaml_simple.o config.o triplet_store.o triplet_store_c.o
+
 .PHONY: all clean test
 
 all: $(TARGET)
@@ -40,10 +44,14 @@ $(TEST_CONFIG_TARGET): $(TEST_CONFIG_OBJS)
 $(TEST_YAML_TARGET): $(TEST_YAML_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
 
-test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET)
+$(TEST_DISCOVERY_TARGET): $(TEST_DISCOVERY_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
+
+test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET)
 	./$(TEST_TRIPLET_TARGET)
 	./$(TEST_CONFIG_TARGET)
 	./$(TEST_YAML_TARGET)
+	./$(TEST_DISCOVERY_TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -55,4 +63,5 @@ clean:
 	rm -f $(OBJS) $(TARGET) \
 	      $(TEST_TRIPLET_OBJS) $(TEST_TRIPLET_TARGET) \
 	      $(TEST_CONFIG_OBJS) $(TEST_CONFIG_TARGET) \
-	      $(TEST_YAML_OBJS) $(TEST_YAML_TARGET)
+	      $(TEST_YAML_OBJS) $(TEST_YAML_TARGET) \
+	      $(TEST_DISCOVERY_OBJS) $(TEST_DISCOVERY_TARGET)
