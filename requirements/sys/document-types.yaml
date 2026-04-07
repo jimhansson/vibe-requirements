@@ -59,7 +59,6 @@ description: |
   can be traced to schematics, PCB files, mechanical drawings, or BOM
   entries.
 tags:
-  - document-type
   - hardware
   - link-type
 ---
