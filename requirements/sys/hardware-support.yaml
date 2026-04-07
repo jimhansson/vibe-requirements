@@ -1,0 +1,39 @@
+id: REQ-070
+title: "Subsystem categorization including hardware subsystems"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall allow requirements to be categorized by subsystem, including
+  hardware subsystems (e.g., `subsystem: power-supply`).
+tags:
+  - hardware
+  - subsystem
+  - categorization
+---
+id: REQ-071
+title: "Hardware-specific link types"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall support link types specific to hardware artefacts:
+  `allocates-to-hardware`, `verified-by-hw-test`, `implemented-in-schematic`.
+tags:
+  - hardware
+  - link-type
+  - traceability
+---
+id: REQ-072
+title: "Subsystem-filtered report generation"
+type: functional
+status: draft
+priority: should
+description: |
+  The report generator shall be able to produce a requirements subset filtered
+  by subsystem (hardware or software).
+tags:
+  - hardware
+  - reporting
+  - subsystem
+  - filtering
