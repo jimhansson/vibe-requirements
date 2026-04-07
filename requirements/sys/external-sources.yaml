@@ -1,0 +1,39 @@
+id: REQ-040
+title: "External normative source as first-class document"
+type: functional
+status: draft
+priority: must
+description: |
+  The tool shall support defining an external normative source (e.g.,
+  EN ISO 13849, EU Machinery Directive 2006/42/EC) as a first-class document
+  in the repository.
+tags:
+  - external-source
+  - normative
+---
+id: REQ-041
+title: "Referenceable clauses in normative sources"
+type: functional
+status: draft
+priority: must
+description: |
+  Specific clauses or articles of a normative source shall be referenceable
+  so that derived requirements can declare their origin precisely (e.g.,
+  `source: EN-ISO-13849-2023:clause:4.5.2`).
+tags:
+  - external-source
+  - traceability
+  - clause
+---
+id: REQ-042
+title: "Report requirements derived from a standard or directive"
+type: functional
+status: draft
+priority: should
+description: |
+  The CLI shall be able to report which requirements are derived from a given
+  standard or directive and flag any that are not yet implemented or verified.
+tags:
+  - external-source
+  - reporting
+  - cli
