@@ -87,6 +87,52 @@ int yaml_parse_requirement(const char *path, Requirement *out)
     return rc;
 }
 
+int yaml_parse_requirements(const char *path, RequirementList *list)
+{
+    if (!path || !list)
+        return -1;
+
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return -1;
+
+    yaml_parser_t parser;
+    yaml_parser_initialize(&parser);
+    yaml_parser_set_input_file(&parser, f);
+
+    int added = 0;
+
+    while (1) {
+        yaml_document_t doc;
+        if (!yaml_parser_load(&parser, &doc))
+            break; /* parse error */
+
+        yaml_node_t *root = yaml_document_get_root_node(&doc);
+        if (!root) {
+            yaml_document_delete(&doc);
+            break; /* end of stream */
+        }
+
+        Requirement req;
+        memset(&req, 0, sizeof(req));
+        copy_field(req.file_path, REQ_PATH_LEN, path);
+        extract_fields(&doc, root, &req);
+        yaml_document_delete(&doc);
+
+        if (req.id[0] != '\0') {
+            if (req_list_add(list, &req) == 0) {
+                added++;
+            } else {
+                fprintf(stderr, "warning: out of memory, skipping document in: %s\n", path);
+            }
+        }
+    }
+
+    yaml_parser_delete(&parser);
+    fclose(f);
+    return added;
+}
+
 /*
  * Maximum buffer sizes used when extracting link fields from a YAML
  * link entry.  Entity IDs and artefact paths are capped at
@@ -147,52 +193,82 @@ int yaml_parse_links(const char *path, const char *subject_id,
     if (!f)
         return -1;
 
-    yaml_parser_t   parser;
-    yaml_document_t doc;
-    int             added = -1;
-
+    yaml_parser_t parser;
     yaml_parser_initialize(&parser);
     yaml_parser_set_input_file(&parser, f);
 
-    if (!yaml_parser_load(&parser, &doc)) {
-        yaml_parser_delete(&parser);
-        fclose(f);
-        return -1;
-    }
+    int added = 0;
 
-    added = 0;
-    yaml_node_t *root = yaml_document_get_root_node(&doc);
+    while (1) {
+        yaml_document_t doc;
+        if (!yaml_parser_load(&parser, &doc))
+            break; /* parse error — stop, keep any links already added */
 
-    if (root && root->type == YAML_MAPPING_NODE) {
-        yaml_node_pair_t *pair = root->data.mapping.pairs.start;
-        yaml_node_pair_t *end  = root->data.mapping.pairs.top;
-
-        for (; pair < end; pair++) {
-            yaml_node_t *key_node = yaml_document_get_node(&doc, pair->key);
-            if (!key_node || key_node->type != YAML_SCALAR_NODE)
-                continue;
-
-            const char *key = (const char *)key_node->data.scalar.value;
-            if (strcmp(key, "links") != 0)
-                continue;
-
-            /* Found the "links" key — iterate the sequence. */
-            yaml_node_t *links_node = yaml_document_get_node(&doc, pair->value);
-            if (!links_node || links_node->type != YAML_SEQUENCE_NODE)
-                break;
-
-            yaml_node_item_t *item = links_node->data.sequence.items.start;
-            yaml_node_item_t *top  = links_node->data.sequence.items.top;
-
-            for (; item < top; item++) {
-                yaml_node_t *link_map = yaml_document_get_node(&doc, *item);
-                added += add_link_triple(&doc, link_map, subject_id, store);
-            }
-            break;
+        yaml_node_t *root = yaml_document_get_root_node(&doc);
+        if (!root) {
+            yaml_document_delete(&doc);
+            break; /* end of stream */
         }
+
+        if (root->type == YAML_MAPPING_NODE) {
+            /*
+             * In a multi-document file each document may belong to a
+             * different requirement.  Only process the "links" sequence
+             * of the document whose top-level "id" matches subject_id.
+             */
+            const char *doc_id = NULL;
+            yaml_node_pair_t *pair = root->data.mapping.pairs.start;
+            yaml_node_pair_t *end  = root->data.mapping.pairs.top;
+
+            for (; pair < end; pair++) {
+                yaml_node_t *key_node = yaml_document_get_node(&doc, pair->key);
+                if (!key_node || key_node->type != YAML_SCALAR_NODE)
+                    continue;
+                if (strcmp((const char *)key_node->data.scalar.value, "id") == 0) {
+                    yaml_node_t *val_node = yaml_document_get_node(&doc, pair->value);
+                    if (val_node && val_node->type == YAML_SCALAR_NODE)
+                        doc_id = (const char *)val_node->data.scalar.value;
+                    break;
+                }
+            }
+
+            /* Skip documents that don't belong to subject_id. */
+            if (!doc_id || strcmp(doc_id, subject_id) != 0) {
+                yaml_document_delete(&doc);
+                continue;
+            }
+
+            /* Found the right document — extract its links. */
+            pair = root->data.mapping.pairs.start;
+            end  = root->data.mapping.pairs.top;
+
+            for (; pair < end; pair++) {
+                yaml_node_t *key_node = yaml_document_get_node(&doc, pair->key);
+                if (!key_node || key_node->type != YAML_SCALAR_NODE)
+                    continue;
+
+                const char *key = (const char *)key_node->data.scalar.value;
+                if (strcmp(key, "links") != 0)
+                    continue;
+
+                yaml_node_t *links_node = yaml_document_get_node(&doc, pair->value);
+                if (!links_node || links_node->type != YAML_SEQUENCE_NODE)
+                    break;
+
+                yaml_node_item_t *item = links_node->data.sequence.items.start;
+                yaml_node_item_t *top  = links_node->data.sequence.items.top;
+
+                for (; item < top; item++) {
+                    yaml_node_t *link_map = yaml_document_get_node(&doc, *item);
+                    added += add_link_triple(&doc, link_map, subject_id, store);
+                }
+                break;
+            }
+        }
+
+        yaml_document_delete(&doc);
     }
 
-    yaml_document_delete(&doc);
     yaml_parser_delete(&parser);
     fclose(f);
     return added;

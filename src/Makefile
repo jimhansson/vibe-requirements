@@ -19,6 +19,10 @@ TEST_TRIPLET_OBJS   = test_triplet_store.o triplet_store.o triplet_store_c.o
 TEST_CONFIG_TARGET  = test_config
 TEST_CONFIG_OBJS    = test_config.o config.o
 
+TEST_YAML_TARGET    = test_yaml_simple
+TEST_YAML_OBJS      = test_yaml_simple.o yaml_simple.o requirement.o \
+                      triplet_store.o triplet_store_c.o
+
 .PHONY: all clean test
 
 all: $(TARGET)
@@ -33,9 +37,13 @@ $(TEST_TRIPLET_TARGET): $(TEST_TRIPLET_OBJS)
 $(TEST_CONFIG_TARGET): $(TEST_CONFIG_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET)
+$(TEST_YAML_TARGET): $(TEST_YAML_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
+
+test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET)
 	./$(TEST_TRIPLET_TARGET)
 	./$(TEST_CONFIG_TARGET)
+	./$(TEST_YAML_TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -46,4 +54,5 @@ test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET)
 clean:
 	rm -f $(OBJS) $(TARGET) \
 	      $(TEST_TRIPLET_OBJS) $(TEST_TRIPLET_TARGET) \
-	      $(TEST_CONFIG_OBJS) $(TEST_CONFIG_TARGET)
+	      $(TEST_CONFIG_OBJS) $(TEST_CONFIG_TARGET) \
+	      $(TEST_YAML_OBJS) $(TEST_YAML_TARGET)
