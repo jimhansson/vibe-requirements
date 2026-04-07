@@ -1,0 +1,101 @@
+id: REQ-001
+title: "Plain text file storage"
+type: functional
+status: draft
+priority: must
+description: |
+  Requirements and related documents shall be stored as plain text files
+  within the project repository.
+tags:
+  - storage
+  - vcs
+---
+id: REQ-002
+title: "YAML as primary file format"
+type: functional
+status: draft
+priority: must
+description: |
+  The tool shall support YAML as a primary file format for requirement files.
+tags:
+  - format
+  - yaml
+---
+id: REQ-003
+title: "Pluggable alternative file formats"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool shall be designed so that alternative file formats (e.g., TOML,
+  S-expressions, plain Markdown front-matter) can be added without
+  redesigning the core.
+tags:
+  - format
+  - extensibility
+---
+id: REQ-004
+title: "Human-readable and human-editable files"
+type: functional
+status: draft
+priority: must
+description: |
+  Requirement files shall be human-readable and human-editable without the
+  tool (i.e., in any text editor).
+tags:
+  - usability
+  - format
+---
+id: REQ-005
+title: "Zero-config auto-discovery"
+type: functional
+status: draft
+priority: must
+description: |
+  The tool shall perform zero-config auto-discovery of all requirement files
+  anywhere in the repository; an optional `.vibe-req.yaml` configuration
+  file may specify glob patterns to restrict or extend the search scope.
+tags:
+  - discovery
+  - configuration
+---
+id: REQ-006
+title: "Recommended directory convention"
+type: functional
+status: draft
+priority: should
+description: |
+  The tool should document and promote a recommended directory convention
+  (e.g., `requirements/`, `stories/`, `design/`, `tests/`, `external/`)
+  and the `init` command should scaffold this structure when requested.
+tags:
+  - convention
+  - init
+---
+id: REQ-007
+title: "YAML multi-document stream support"
+type: functional
+status: draft
+priority: must
+description: |
+  For YAML input, the tool shall support YAML multi-document streams so
+  multiple entities can be stored in one physical file using `---` document
+  separators.
+tags:
+  - format
+  - yaml
+  - multi-document
+---
+id: REQ-008
+title: "Error location in multi-document files"
+type: functional
+status: draft
+priority: must
+description: |
+  Validation and parse errors in YAML multi-document files shall identify
+  both file path and document position (index and/or line/column where
+  available).
+tags:
+  - error-handling
+  - validation
+  - multi-document
