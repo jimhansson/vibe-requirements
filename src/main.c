@@ -398,7 +398,8 @@ static void list_entities(const EntityList *list)
     }
 
     print_entity_rule(id_w, title_w, kind_w, status_w, prio_w);
-    printf("\nTotal: %d entity/entities\n", list->count);
+    printf("\nTotal: %d %s\n", list->count,
+           list->count == 1 ? "entity" : "entities");
 }
 
 /* ------------------------------------------------------------------ */

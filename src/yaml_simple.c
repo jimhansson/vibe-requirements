@@ -349,27 +349,27 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
         if (val_node && val_node->type == YAML_SCALAR_NODE) {
             const char *val = (const char *)val_node->data.scalar.value;
 
-#define SMATCH(field_key, dst, dst_size)              \
+#define COPY_FIELD_IF_MATCH(field_key, dst, dst_size)              \
             if (strcmp(key, field_key) == 0) {        \
                 copy_field(dst, dst_size, val);       \
                 continue;                             \
             }
 
-            SMATCH("id",              out->identity.id,              sizeof(out->identity.id))
-            SMATCH("title",           out->identity.title,           sizeof(out->identity.title))
-            SMATCH("type",            out->identity.type_raw,        sizeof(out->identity.type_raw))
-            SMATCH("status",          out->lifecycle.status,         sizeof(out->lifecycle.status))
-            SMATCH("priority",        out->lifecycle.priority,       sizeof(out->lifecycle.priority))
-            SMATCH("owner",           out->lifecycle.owner,          sizeof(out->lifecycle.owner))
-            SMATCH("version",         out->lifecycle.version,        sizeof(out->lifecycle.version))
-            SMATCH("description",     out->text.description,         sizeof(out->text.description))
-            SMATCH("rationale",       out->text.rationale,           sizeof(out->text.rationale))
-            SMATCH("as_a",            out->user_story.as_a,          sizeof(out->user_story.as_a))
-            SMATCH("i_want",          out->user_story.i_want,        sizeof(out->user_story.i_want))
-            SMATCH("so_that",         out->user_story.so_that,       sizeof(out->user_story.so_that))
-            SMATCH("risk_if_false",   out->assumption.risk_if_false, sizeof(out->assumption.risk_if_false))
-            SMATCH("constraint_type", out->constraint.constraint_type, sizeof(out->constraint.constraint_type))
-            SMATCH("body",            out->doc_body.body,            sizeof(out->doc_body.body))
+            COPY_FIELD_IF_MATCH("id",              out->identity.id,              sizeof(out->identity.id))
+            COPY_FIELD_IF_MATCH("title",           out->identity.title,           sizeof(out->identity.title))
+            COPY_FIELD_IF_MATCH("type",            out->identity.type_raw,        sizeof(out->identity.type_raw))
+            COPY_FIELD_IF_MATCH("status",          out->lifecycle.status,         sizeof(out->lifecycle.status))
+            COPY_FIELD_IF_MATCH("priority",        out->lifecycle.priority,       sizeof(out->lifecycle.priority))
+            COPY_FIELD_IF_MATCH("owner",           out->lifecycle.owner,          sizeof(out->lifecycle.owner))
+            COPY_FIELD_IF_MATCH("version",         out->lifecycle.version,        sizeof(out->lifecycle.version))
+            COPY_FIELD_IF_MATCH("description",     out->text.description,         sizeof(out->text.description))
+            COPY_FIELD_IF_MATCH("rationale",       out->text.rationale,           sizeof(out->text.rationale))
+            COPY_FIELD_IF_MATCH("as_a",            out->user_story.as_a,          sizeof(out->user_story.as_a))
+            COPY_FIELD_IF_MATCH("i_want",          out->user_story.i_want,        sizeof(out->user_story.i_want))
+            COPY_FIELD_IF_MATCH("so_that",         out->user_story.so_that,       sizeof(out->user_story.so_that))
+            COPY_FIELD_IF_MATCH("risk_if_false",   out->assumption.risk_if_false, sizeof(out->assumption.risk_if_false))
+            COPY_FIELD_IF_MATCH("constraint_type", out->constraint.constraint_type, sizeof(out->constraint.constraint_type))
+            COPY_FIELD_IF_MATCH("body",            out->doc_body.body,            sizeof(out->doc_body.body))
 
             /* "statement" goes to assumption or constraint depending on kind
              * (kind is derived after all fields are read; store in both and
@@ -381,7 +381,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 continue;
             }
 
-#undef SMATCH
+#undef COPY_FIELD_IF_MATCH
         }
 
         /* Sequence fields */
