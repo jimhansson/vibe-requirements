@@ -1,0 +1,46 @@
+id: GRP-AUTH-001
+title: Authentication Requirements Group
+type: group
+status: approved
+owner: product-team
+version: "1.0"
+description: |
+  This group collects all requirements related to user authentication,
+  authorisation, and session management.  Child requirements are linked
+  via the triplet store using the "member-of" relation.
+rationale: |
+  Grouping authentication requirements makes traceability reviews and
+  impact analysis easier by providing a single entry point for the
+  authentication sub-domain.
+tags:
+  - authentication
+  - grouping
+---
+id: REQ-AUTH-001
+title: The system shall support email and password authentication
+type: functional
+status: approved
+priority: must
+owner: product-team
+description: |
+  Users must be able to authenticate using a valid email address and
+  a password that meets the system's complexity requirements.
+links:
+  - id: GRP-AUTH-001
+    relation: member-of
+---
+id: REQ-AUTH-002
+title: The system shall lock accounts after five failed login attempts
+type: functional
+status: draft
+priority: should
+owner: security-team
+description: |
+  After five consecutive failed login attempts the account must be
+  temporarily locked.  The lock must persist for at least 15 minutes
+  or until an administrator unlocks the account, whichever comes first.
+links:
+  - id: GRP-AUTH-001
+    relation: member-of
+  - id: REQ-AUTH-001
+    relation: refines

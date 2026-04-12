@@ -2,6 +2,7 @@
 #define VIBE_YAML_SIMPLE_H
 
 #include "requirement.h"
+#include "entity.h"
 #include "triplet_store_c.h"
 
 /*
@@ -40,5 +41,35 @@ int yaml_parse_requirements(const char *path, RequirementList *list);
  */
 int yaml_parse_links(const char *path, const char *subject_id,
                      TripletStore *store);
+
+/*
+ * Parse the first YAML document in the file and populate *out with
+ * recognised entity fields.
+ *
+ * The following YAML keys are mapped to Entity components:
+ *   id, title, type, file_path       → identity
+ *   status, priority, owner, version → lifecycle
+ *   description, rationale           → text
+ *   tags (sequence)                  → tags (newline-joined)
+ *   as_a, i_want, so_that            → user_story
+ *   acceptance_criteria (sequence)   → acceptance_criteria (newline-joined)
+ *   statement                        → assumption.statement or constraint.statement
+ *   risk_if_false                    → assumption.risk_if_false
+ *   constraint_type                  → constraint.constraint_type
+ *   body                             → doc_body.body
+ *
+ * Returns  0 on success (file has at least a top-level "id:" field).
+ * Returns -1 if the file cannot be opened or contains no "id:" field.
+ */
+int yaml_parse_entity(const char *path, Entity *out);
+
+/*
+ * Parse all YAML documents in a multi-document file and append each
+ * document that contains at least a top-level "id:" field to *list.
+ *
+ * Returns the number of entities appended (>= 0).
+ * Returns -1 if the file cannot be opened.
+ */
+int yaml_parse_entities(const char *path, EntityList *list);
 
 #endif /* VIBE_YAML_SIMPLE_H */

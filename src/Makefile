@@ -13,7 +13,7 @@ GTEST_LDFLAGS = -L$(GTEST_PREFIX)/lib -Wl,-rpath,$(GTEST_PREFIX)/lib \
                 -lgtest_main -lgtest -lgmock -pthread
 
 # Main binary sources (C and C++)
-C_SRCS   = main.c requirement.c yaml_simple.c discovery.c config.c
+C_SRCS   = main.c requirement.c entity.c yaml_simple.c discovery.c config.c
 CPP_SRCS = triplet_store.cpp triplet_store_c.cpp
 C_OBJS   = $(C_SRCS:.c=.o)
 CPP_OBJS = $(CPP_SRCS:.cpp=.o)
@@ -28,11 +28,16 @@ TEST_CONFIG_OBJS    = tests/test_config.o config.o
 
 TEST_YAML_TARGET    = tests/test_yaml_simple
 TEST_YAML_OBJS      = tests/test_yaml_simple.o yaml_simple.o requirement.o \
-                      triplet_store.o triplet_store_c.o
+                      entity.o triplet_store.o triplet_store_c.o
 
 TEST_DISCOVERY_TARGET = tests/test_discovery_ignore
 TEST_DISCOVERY_OBJS   = tests/test_discovery_ignore.o discovery.o requirement.o \
-                        yaml_simple.o config.o triplet_store.o triplet_store_c.o
+                        yaml_simple.o config.o triplet_store.o triplet_store_c.o \
+                        entity.o
+
+TEST_ENTITY_TARGET = tests/test_entity
+TEST_ENTITY_OBJS   = tests/test_entity.o entity.o yaml_simple.o requirement.o \
+                     triplet_store.o triplet_store_c.o
 
 .PHONY: all clean test
 
@@ -54,11 +59,15 @@ $(TEST_YAML_TARGET): $(TEST_YAML_OBJS)
 $(TEST_DISCOVERY_TARGET): $(TEST_DISCOVERY_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
-test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET)
+$(TEST_ENTITY_TARGET): $(TEST_ENTITY_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
+
+test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET) $(TEST_ENTITY_TARGET)
 	./$(TEST_TRIPLET_TARGET)
 	./$(TEST_CONFIG_TARGET)
 	./$(TEST_YAML_TARGET)
 	./$(TEST_DISCOVERY_TARGET)
+	./$(TEST_ENTITY_TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -74,4 +83,5 @@ clean:
 	      $(TEST_TRIPLET_OBJS) $(TEST_TRIPLET_TARGET) \
 	      $(TEST_CONFIG_OBJS) $(TEST_CONFIG_TARGET) \
 	      $(TEST_YAML_OBJS) $(TEST_YAML_TARGET) \
-	      $(TEST_DISCOVERY_OBJS) $(TEST_DISCOVERY_TARGET)
+	      $(TEST_DISCOVERY_OBJS) $(TEST_DISCOVERY_TARGET) \
+	      $(TEST_ENTITY_OBJS) $(TEST_ENTITY_TARGET)

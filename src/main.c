@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include "requirement.h"
+#include "entity.h"
 #include "discovery.h"
 #include "config.h"
 #include "yaml_simple.h"
@@ -301,24 +304,181 @@ static int check_strict_links(const TripletStore *store)
 }
 
 /* ------------------------------------------------------------------ */
-/* Entry point                                                         */
+/* Table rendering — entities (ECS)                                   */
 /* ------------------------------------------------------------------ */
+
+#define ENTITY_TITLE_MAX  48
+#define ENTITY_KIND_MAX   12
+#define ENTITY_STATUS_MAX 16
+#define ENTITY_PRIO_MAX   12
+
+static int cmp_entity_by_id(const void *a, const void *b)
+{
+    const Entity *ea = (const Entity *)a;
+    const Entity *eb = (const Entity *)b;
+    return strcmp(ea->identity.id, eb->identity.id);
+}
+
+static void print_entity_rule(int id_w, int title_w, int kind_w,
+                               int status_w, int prio_w)
+{
+    int widths[] = { id_w, title_w, kind_w, status_w, prio_w };
+    int ncols    = (int)(sizeof(widths) / sizeof(widths[0]));
+    for (int c = 0; c < ncols; c++) {
+        putchar('+');
+        for (int i = 0; i < widths[c] + 2; i++)
+            putchar('-');
+    }
+    puts("+");
+}
+
+static void print_entity_row(int id_w, int title_w, int kind_w,
+                              int status_w, int prio_w,
+                              const char *id, const char *title,
+                              const char *kind, const char *status,
+                              const char *prio)
+{
+    char tbuf[ENTITY_TITLE_MAX + 1];
+    strncpy(tbuf, title, sizeof(tbuf) - 1);
+    tbuf[sizeof(tbuf) - 1] = '\0';
+    if ((int)strlen(title) > title_w) {
+        tbuf[title_w - 3] = '.';
+        tbuf[title_w - 2] = '.';
+        tbuf[title_w - 1] = '.';
+        tbuf[title_w]     = '\0';
+    }
+
+    printf("| %-*s | %-*s | %-*s | %-*s | %-*s |\n",
+           id_w,     id,
+           title_w,  tbuf,
+           kind_w,   kind,
+           status_w, status,
+           prio_w,   prio);
+}
+
+static void list_entities(const EntityList *list)
+{
+    if (list->count == 0) {
+        puts("No entities found.");
+        return;
+    }
+
+    int id_w     = (int)strlen("ID");
+    int title_w  = (int)strlen("Title");
+    int kind_w   = (int)strlen("Kind");
+    int status_w = (int)strlen("Status");
+    int prio_w   = (int)strlen("Priority");
+
+    for (int i = 0; i < list->count; i++) {
+        const Entity *e = &list->items[i];
+        int len;
+        len = (int)strlen(e->identity.id);         if (len > id_w)     id_w     = len;
+        len = (int)strlen(e->identity.title);       if (len > title_w)  title_w  = len;
+        len = (int)strlen(entity_kind_label(e->identity.kind));
+                                                    if (len > kind_w)   kind_w   = len;
+        len = (int)strlen(e->lifecycle.status);     if (len > status_w) status_w = len;
+        len = (int)strlen(e->lifecycle.priority);   if (len > prio_w)   prio_w   = len;
+    }
+
+    if (title_w > ENTITY_TITLE_MAX) title_w = ENTITY_TITLE_MAX;
+
+    print_entity_rule(id_w, title_w, kind_w, status_w, prio_w);
+    print_entity_row(id_w, title_w, kind_w, status_w, prio_w,
+                     "ID", "Title", "Kind", "Status", "Priority");
+    print_entity_rule(id_w, title_w, kind_w, status_w, prio_w);
+
+    for (int i = 0; i < list->count; i++) {
+        const Entity *e = &list->items[i];
+        print_entity_row(id_w, title_w, kind_w, status_w, prio_w,
+                         e->identity.id,
+                         e->identity.title,
+                         entity_kind_label(e->identity.kind),
+                         e->lifecycle.status,
+                         e->lifecycle.priority);
+    }
+
+    print_entity_rule(id_w, title_w, kind_w, status_w, prio_w);
+    printf("\nTotal: %d entity/entities\n", list->count);
+}
+
+/* ------------------------------------------------------------------ */
+/* Discovery for entities                                              */
+/* ------------------------------------------------------------------ */
+
+static void walk_entities(const char *dir, EntityList *list,
+                           const VibeConfig *cfg)
+{
+    DIR *d = opendir(dir);
+    if (!d)
+        return;
+
+    struct dirent *entry;
+    while ((entry = readdir(d)) != NULL) {
+        const char *name = entry->d_name;
+
+        if (name[0] == '.')
+            continue;
+
+        char path[512];
+        int n = snprintf(path, sizeof(path), "%s/%s", dir, name);
+        if (n < 0 || (size_t)n >= sizeof(path)) {
+            fprintf(stderr, "warning: path too long, skipping: %s/%s\n",
+                    dir, name);
+            continue;
+        }
+
+        struct stat st;
+        if (stat(path, &st) != 0)
+            continue;
+
+        if (S_ISDIR(st.st_mode)) {
+            if (config_is_ignored_dir(cfg, name))
+                continue;
+            walk_entities(path, list, cfg);
+        } else if (S_ISREG(st.st_mode)) {
+            const char *dot = strrchr(name, '.');
+            if (!dot)
+                continue;
+            if (strcmp(dot, ".yaml") != 0 && strcmp(dot, ".yml") != 0)
+                continue;
+            if (yaml_parse_entities(path, list) < 0)
+                fprintf(stderr, "warning: could not parse: %s\n", path);
+        }
+    }
+
+    closedir(d);
+}
+
+static int discover_entities(const char *root_dir, EntityList *list,
+                              const VibeConfig *cfg)
+{
+    DIR *probe = opendir(root_dir);
+    if (!probe)
+        return -1;
+    closedir(probe);
+
+    walk_entities(root_dir, list, cfg);
+    return list->count;
+}
 
 int main(int argc, char *argv[])
 {
     /* Parse optional subcommand and directory arguments. */
-    int         show_links   = 0;
-    int         strict_links = 0;
-    const char *root         = ".";
+    int         show_links    = 0;
+    int         strict_links  = 0;
+    int         show_entities = 0;
+    const char *root          = ".";
 
     int arg_idx = 1;
 
     if (argc >= 2) {
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-            printf("Usage: %s [links] [--strict-links] [directory]\n\n", argv[0]);
+            printf("Usage: %s [links|entities] [--strict-links] [directory]\n\n",
+                   argv[0]);
             printf("Commands:\n");
             printf("  (default)       List all requirements found in the directory tree.\n");
-            printf("  links           List all relations parsed from requirement files.\n\n");
+            printf("  links           List all relations parsed from requirement files.\n");
+            printf("  entities        List all entities (all kinds) found in the directory tree.\n\n");
             printf("Options:\n");
             printf("  --strict-links  Warn when a known relation is declared in only one\n");
             printf("                  direction (inverse not explicitly present in YAML).\n");
@@ -330,6 +490,9 @@ int main(int argc, char *argv[])
         if (strcmp(argv[1], "links") == 0) {
             show_links = 1;
             arg_idx    = 2;
+        } else if (strcmp(argv[1], "entities") == 0) {
+            show_entities = 1;
+            arg_idx       = 2;
         }
     }
 
@@ -342,6 +505,35 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* ------------------------------------------------------------------
+     * 'entities' subcommand — use ECS parser path.
+     * ------------------------------------------------------------------ */
+    if (show_entities) {
+        EntityList elist;
+        entity_list_init(&elist);
+
+        VibeConfig cfg;
+        config_load(root, &cfg);
+
+        int found = discover_entities(root, &elist, &cfg);
+        if (found < 0) {
+            fprintf(stderr, "error: cannot open directory '%s'\n", root);
+            entity_list_free(&elist);
+            return 1;
+        }
+
+        if (elist.count > 1)
+            qsort(elist.items, (size_t)elist.count, sizeof(Entity),
+                  cmp_entity_by_id);
+
+        list_entities(&elist);
+        entity_list_free(&elist);
+        return 0;
+    }
+
+    /* ------------------------------------------------------------------
+     * Default / links / strict-links — legacy RequirementList path.
+     * ------------------------------------------------------------------ */
     RequirementList list;
     req_list_init(&list);
 

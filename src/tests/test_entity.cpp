@@ -1,0 +1,419 @@
+/**
+ * @file test_entity.cpp
+ * @brief Unit tests for entity.c and the new yaml_parse_entity /
+ *        yaml_parse_entities functions in yaml_simple.c.
+ */
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+#include <cstdio>
+#include <cstring>
+
+extern "C" {
+#include "entity.h"
+#include "yaml_simple.h"
+}
+
+/* -------------------------------------------------------------------------
+ * Helpers — write temporary YAML files into /tmp
+ * ---------------------------------------------------------------------- */
+
+static const char *write_yaml(const char *filename, const char *content)
+{
+    static char path[512];
+    snprintf(path, sizeof(path), "/tmp/%s", filename);
+    FILE *f = fopen(path, "w");
+    if (!f)
+        return nullptr;
+    fputs(content, f);
+    fclose(f);
+    return path;
+}
+
+/* =========================================================================
+ * Tests — entity_kind_from_string
+ * ======================================================================= */
+
+TEST(EntityKindTest, NullAndEmptyMapsToRequirement)
+{
+    EXPECT_EQ(entity_kind_from_string(nullptr),  ENTITY_KIND_REQUIREMENT);
+    EXPECT_EQ(entity_kind_from_string(""),        ENTITY_KIND_REQUIREMENT);
+}
+
+TEST(EntityKindTest, FunctionalVariants)
+{
+    EXPECT_EQ(entity_kind_from_string("functional"),    ENTITY_KIND_REQUIREMENT);
+    EXPECT_EQ(entity_kind_from_string("non-functional"), ENTITY_KIND_REQUIREMENT);
+    EXPECT_EQ(entity_kind_from_string("nonfunctional"),  ENTITY_KIND_REQUIREMENT);
+}
+
+TEST(EntityKindTest, Group)
+{
+    EXPECT_EQ(entity_kind_from_string("group"), ENTITY_KIND_GROUP);
+}
+
+TEST(EntityKindTest, Story)
+{
+    EXPECT_EQ(entity_kind_from_string("story"),      ENTITY_KIND_STORY);
+    EXPECT_EQ(entity_kind_from_string("user-story"), ENTITY_KIND_STORY);
+}
+
+TEST(EntityKindTest, DesignNote)
+{
+    EXPECT_EQ(entity_kind_from_string("design-note"), ENTITY_KIND_DESIGN_NOTE);
+    EXPECT_EQ(entity_kind_from_string("design_note"), ENTITY_KIND_DESIGN_NOTE);
+    EXPECT_EQ(entity_kind_from_string("design"),      ENTITY_KIND_DESIGN_NOTE);
+}
+
+TEST(EntityKindTest, Section)
+{
+    EXPECT_EQ(entity_kind_from_string("section"), ENTITY_KIND_SECTION);
+}
+
+TEST(EntityKindTest, Assumption)
+{
+    EXPECT_EQ(entity_kind_from_string("assumption"), ENTITY_KIND_ASSUMPTION);
+}
+
+TEST(EntityKindTest, Constraint)
+{
+    EXPECT_EQ(entity_kind_from_string("constraint"), ENTITY_KIND_CONSTRAINT);
+}
+
+TEST(EntityKindTest, TestCase)
+{
+    EXPECT_EQ(entity_kind_from_string("test-case"), ENTITY_KIND_TEST_CASE);
+    EXPECT_EQ(entity_kind_from_string("test_case"), ENTITY_KIND_TEST_CASE);
+    EXPECT_EQ(entity_kind_from_string("test"),      ENTITY_KIND_TEST_CASE);
+}
+
+TEST(EntityKindTest, External)
+{
+    EXPECT_EQ(entity_kind_from_string("external"),   ENTITY_KIND_EXTERNAL);
+    EXPECT_EQ(entity_kind_from_string("directive"),  ENTITY_KIND_EXTERNAL);
+    EXPECT_EQ(entity_kind_from_string("standard"),   ENTITY_KIND_EXTERNAL);
+    EXPECT_EQ(entity_kind_from_string("regulation"), ENTITY_KIND_EXTERNAL);
+}
+
+TEST(EntityKindTest, UnknownFallback)
+{
+    EXPECT_EQ(entity_kind_from_string("something-made-up"), ENTITY_KIND_UNKNOWN);
+    EXPECT_EQ(entity_kind_from_string("FUNCTIONAL"),        ENTITY_KIND_UNKNOWN); /* case-sensitive */
+}
+
+/* =========================================================================
+ * Tests — entity_kind_label
+ * ======================================================================= */
+
+TEST(EntityKindTest, Labels)
+{
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_REQUIREMENT), "requirement");
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_GROUP),       "group");
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_STORY),       "story");
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_DESIGN_NOTE), "design-note");
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_SECTION),     "section");
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_ASSUMPTION),  "assumption");
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_CONSTRAINT),  "constraint");
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_TEST_CASE),   "test-case");
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_EXTERNAL),    "external");
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_UNKNOWN),     "unknown");
+}
+
+/* =========================================================================
+ * Tests — entity_list_add / entity_list_free lifecycle
+ * ======================================================================= */
+
+TEST(EntityListTest, InitAndFree)
+{
+    EntityList list;
+    entity_list_init(&list);
+    EXPECT_EQ(list.count,    0);
+    EXPECT_EQ(list.capacity, 0);
+    EXPECT_EQ(list.items,    nullptr);
+    entity_list_free(&list);
+    EXPECT_EQ(list.count,    0);
+    EXPECT_EQ(list.items,    nullptr);
+}
+
+TEST(EntityListTest, AddSingleEntity)
+{
+    EntityList list;
+    entity_list_init(&list);
+
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    strncpy(e.identity.id,    "ENT-001", sizeof(e.identity.id) - 1);
+    strncpy(e.identity.title, "My entity", sizeof(e.identity.title) - 1);
+    e.identity.kind = ENTITY_KIND_REQUIREMENT;
+
+    EXPECT_EQ(entity_list_add(&list, &e), 0);
+    EXPECT_EQ(list.count, 1);
+    EXPECT_STREQ(list.items[0].identity.id,    "ENT-001");
+    EXPECT_STREQ(list.items[0].identity.title, "My entity");
+
+    entity_list_free(&list);
+}
+
+TEST(EntityListTest, AddMultipleEntitiesGrowsArray)
+{
+    EntityList list;
+    entity_list_init(&list);
+
+    for (int i = 0; i < 20; i++) {
+        Entity e;
+        memset(&e, 0, sizeof(e));
+        snprintf(e.identity.id, sizeof(e.identity.id), "ENT-%03d", i);
+        EXPECT_EQ(entity_list_add(&list, &e), 0);
+    }
+    EXPECT_EQ(list.count, 20);
+
+    entity_list_free(&list);
+}
+
+/* =========================================================================
+ * Tests — yaml_parse_entity
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, MinimalRequirementFile)
+{
+    const char *path = write_yaml("ent_req.yaml",
+        "id: REQ-001\n"
+        "title: Basic requirement\n"
+        "type: functional\n"
+        "status: draft\n"
+        "priority: must\n"
+        "description: A simple description.\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id,       "REQ-001");
+    EXPECT_STREQ(e.identity.title,    "Basic requirement");
+    EXPECT_STREQ(e.identity.type_raw, "functional");
+    EXPECT_EQ(e.identity.kind,        ENTITY_KIND_REQUIREMENT);
+    EXPECT_STREQ(e.lifecycle.status,   "draft");
+    EXPECT_STREQ(e.lifecycle.priority, "must");
+    EXPECT_STREQ(e.text.description,   "A simple description.");
+}
+
+TEST(YamlParseEntityTest, StoryFile)
+{
+    const char *path = write_yaml("ent_story.yaml",
+        "id: STORY-001\n"
+        "title: Login story\n"
+        "type: story\n"
+        "status: draft\n"
+        "as_a: registered user\n"
+        "i_want: to log in with my email\n"
+        "so_that: I can access my account\n"
+        "acceptance_criteria:\n"
+        "  - Login form is shown\n"
+        "  - Error displayed on wrong password\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id,       "STORY-001");
+    EXPECT_EQ(e.identity.kind,        ENTITY_KIND_STORY);
+    EXPECT_STREQ(e.user_story.as_a,   "registered user");
+    EXPECT_STREQ(e.user_story.i_want, "to log in with my email");
+    EXPECT_STREQ(e.user_story.so_that,"I can access my account");
+    EXPECT_EQ(e.acceptance_criteria.count, 2);
+    /* The two criteria should appear in the flat string. */
+    EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Login form is shown"), nullptr);
+    EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Error displayed on wrong password"), nullptr);
+}
+
+TEST(YamlParseEntityTest, AssumptionFile)
+{
+    const char *path = write_yaml("ent_assumption.yaml",
+        "id: ASSUM-001\n"
+        "title: Network always available\n"
+        "type: assumption\n"
+        "statement: The network connection is always available during operation.\n"
+        "risk_if_false: System cannot reach remote services.\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id,   "ASSUM-001");
+    EXPECT_EQ(e.identity.kind,    ENTITY_KIND_ASSUMPTION);
+    EXPECT_NE(e.assumption.statement[0], '\0');
+    EXPECT_NE(strstr(e.assumption.statement, "network connection"), nullptr);
+    EXPECT_NE(e.assumption.risk_if_false[0], '\0');
+    /* Constraint statement must be zeroed out (wrong kind). */
+    EXPECT_EQ(e.constraint.statement[0], '\0');
+}
+
+TEST(YamlParseEntityTest, ConstraintFile)
+{
+    const char *path = write_yaml("ent_constraint.yaml",
+        "id: CONSTR-001\n"
+        "title: Must use TLS 1.3\n"
+        "type: constraint\n"
+        "constraint_type: technical\n"
+        "statement: All communication must use TLS version 1.3 or higher.\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id,             "CONSTR-001");
+    EXPECT_EQ(e.identity.kind,              ENTITY_KIND_CONSTRAINT);
+    EXPECT_STREQ(e.constraint.constraint_type, "technical");
+    EXPECT_NE(e.constraint.statement[0],    '\0');
+    EXPECT_NE(strstr(e.constraint.statement, "TLS version 1.3"), nullptr);
+    /* Assumption statement must be zeroed out (wrong kind). */
+    EXPECT_EQ(e.assumption.statement[0], '\0');
+}
+
+TEST(YamlParseEntityTest, NoIdReturnsError)
+{
+    const char *path = write_yaml("ent_noid.yaml",
+        "title: No id field\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, -1);
+}
+
+TEST(YamlParseEntityTest, NonexistentFile)
+{
+    Entity e;
+    int rc = yaml_parse_entity("/tmp/no_such_entity_xyz.yaml", &e);
+    EXPECT_EQ(rc, -1);
+}
+
+TEST(YamlParseEntityTest, ExtendedLifecycleFields)
+{
+    const char *path = write_yaml("ent_lifecycle.yaml",
+        "id: REQ-EXT-001\n"
+        "title: Extended fields\n"
+        "type: functional\n"
+        "owner: alice\n"
+        "version: 1.2\n"
+        "rationale: Needed for compliance.\n"
+        "tags:\n"
+        "  - safety\n"
+        "  - compliance\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.lifecycle.owner,   "alice");
+    EXPECT_STREQ(e.lifecycle.version, "1.2");
+    EXPECT_STREQ(e.text.rationale,    "Needed for compliance.");
+    EXPECT_EQ(e.tags.count, 2);
+    EXPECT_NE(strstr(e.tags.tags, "safety"),     nullptr);
+    EXPECT_NE(strstr(e.tags.tags, "compliance"), nullptr);
+}
+
+/* =========================================================================
+ * Tests — yaml_parse_entities (multi-document)
+ * ======================================================================= */
+
+TEST(YamlParseEntitiesTest, MixedKindsMultiDoc)
+{
+    const char *path = write_yaml("ent_multi.yaml",
+        "id: REQ-001\n"
+        "title: A requirement\n"
+        "type: functional\n"
+        "status: draft\n"
+        "---\n"
+        "id: STORY-001\n"
+        "title: A story\n"
+        "type: story\n"
+        "status: draft\n"
+        "as_a: developer\n"
+        "i_want: faster builds\n"
+        "so_that: I save time\n"
+        "---\n"
+        "id: ASSUM-001\n"
+        "title: An assumption\n"
+        "type: assumption\n"
+        "statement: The cloud is reachable.\n");
+    ASSERT_NE(path, nullptr);
+
+    EntityList list;
+    entity_list_init(&list);
+
+    int rc = yaml_parse_entities(path, &list);
+    EXPECT_EQ(rc, 3);
+    EXPECT_EQ(list.count, 3);
+
+    EXPECT_EQ(list.items[0].identity.kind, ENTITY_KIND_REQUIREMENT);
+    EXPECT_STREQ(list.items[0].identity.id, "REQ-001");
+
+    EXPECT_EQ(list.items[1].identity.kind, ENTITY_KIND_STORY);
+    EXPECT_STREQ(list.items[1].identity.id, "STORY-001");
+    EXPECT_STREQ(list.items[1].user_story.as_a, "developer");
+
+    EXPECT_EQ(list.items[2].identity.kind, ENTITY_KIND_ASSUMPTION);
+    EXPECT_STREQ(list.items[2].identity.id, "ASSUM-001");
+
+    entity_list_free(&list);
+}
+
+TEST(YamlParseEntitiesTest, SkipsDocumentsWithoutId)
+{
+    const char *path = write_yaml("ent_multi_noid.yaml",
+        "id: REQ-001\n"
+        "title: Has id\n"
+        "---\n"
+        "title: No id here\n"
+        "---\n"
+        "id: CONSTR-001\n"
+        "title: Also has id\n"
+        "type: constraint\n");
+    ASSERT_NE(path, nullptr);
+
+    EntityList list;
+    entity_list_init(&list);
+
+    int rc = yaml_parse_entities(path, &list);
+    EXPECT_EQ(rc, 2);
+    EXPECT_STREQ(list.items[0].identity.id, "REQ-001");
+    EXPECT_STREQ(list.items[1].identity.id, "CONSTR-001");
+
+    entity_list_free(&list);
+}
+
+TEST(YamlParseEntitiesTest, DocIndexIsSet)
+{
+    const char *path = write_yaml("ent_docidx.yaml",
+        "id: ENT-A\n"
+        "title: First\n"
+        "---\n"
+        "id: ENT-B\n"
+        "title: Second\n");
+    ASSERT_NE(path, nullptr);
+
+    EntityList list;
+    entity_list_init(&list);
+
+    yaml_parse_entities(path, &list);
+    ASSERT_EQ(list.count, 2);
+    EXPECT_EQ(list.items[0].identity.doc_index, 0);
+    EXPECT_EQ(list.items[1].identity.doc_index, 1);
+
+    entity_list_free(&list);
+}
+
+TEST(YamlParseEntitiesTest, NonexistentFile)
+{
+    EntityList list;
+    entity_list_init(&list);
+
+    int rc = yaml_parse_entities("/tmp/no_such_file_xyz.yaml", &list);
+    EXPECT_EQ(rc, -1);
+    EXPECT_EQ(list.count, 0);
+
+    entity_list_free(&list);
+}
