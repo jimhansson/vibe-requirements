@@ -1,0 +1,32 @@
+id: STORY-SW-001
+title: User can log in with email and password
+type: story
+status: draft
+priority: must
+owner: product-team
+version: "1.0"
+as_a: registered user
+i_want: to log in using my email address and password
+so_that: I can access my personal account and settings
+description: |
+  Covers the primary authentication flow for returning users.
+  The login page must be accessible from the landing page without
+  additional navigation steps.
+rationale: |
+  Email/password login is the baseline authentication method required
+  before SSO or OAuth providers are available.
+tags:
+  - authentication
+  - login
+  - ux
+acceptance_criteria:
+  - A login form with email and password fields is displayed.
+  - Submitting valid credentials redirects the user to the dashboard.
+  - Submitting invalid credentials displays a clear error message.
+  - The password field masks its input by default.
+  - A "Forgot password?" link is present on the login form.
+links:
+  - id: REQ-AUTH-001
+    relation: implements
+  - id: CONSTR-SEC-001
+    relation: constrained-by

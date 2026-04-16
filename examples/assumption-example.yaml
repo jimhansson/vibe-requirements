@@ -1,0 +1,26 @@
+id: ASSUM-SYS-001
+title: Network connectivity is available during normal operation
+type: assumption
+status: draft
+owner: systems-team
+version: "1.0"
+statement: |
+  The embedded device has a reliable network connection to the backend
+  services during all normal operating modes.  Intermittent connectivity
+  (e.g. tunnels, airplane mode) is considered an edge case, not the
+  primary operating mode.
+risk_if_false: |
+  Remote configuration, telemetry uploads, and OTA firmware updates
+  will fail silently or block user workflows, requiring fallback
+  offline-mode logic to be designed and implemented.
+rationale: |
+  Designing for permanent offline operation would require significant
+  additional engineering effort.  The assumption is validated by the
+  target deployment environment specification (see DOC-DEPLOY-001).
+tags:
+  - network
+  - connectivity
+  - risk
+links:
+  - id: REQ-SYS-012
+    relation: constrains
