@@ -126,6 +126,38 @@ typedef struct {
     char body[DOCBODY_LEN]; /**< free-form body text (YAML "body:") */
 } DocumentBodyComponent;
 
+/** Maximum byte size of the traceability link store. */
+#define TRACE_STORE_LEN 4096
+
+/**
+ * Traceability component — outgoing relation links on any entity.
+ *
+ * Records N:M directed relations from this entity to other entities or
+ * artefacts.  Entries are stored as a newline-separated flat string where
+ * each entry is "target_id\trelation_type":
+ *
+ *   "REQ-SYS-005\tderived-from\nTC-SW-001\tverified-by"
+ *
+ * Relation types are free-form strings (e.g. "implements", "verifies",
+ * "refines", "derived-from").  Any entity can carry this component.
+ *
+ * YAML key: "traceability" — sequence of {id|artefact, relation} mappings:
+ *
+ *   traceability:
+ *     - id: REQ-SYS-005
+ *       relation: derived-from
+ *     - artefact: src/auth/login.c
+ *       relation: implemented-in
+ *
+ * Integrates with TripletStore: each entry maps directly to a
+ * (entity_id, relation_type, target_id) triple without duplication
+ * (see entity_traceability_to_triplets() in yaml_simple.h).
+ */
+typedef struct {
+    char entries[TRACE_STORE_LEN]; /**< "\n"-separated "target\trelation" pairs */
+    int  count;                    /**< number of traceability links stored      */
+} TraceabilityComponent;
+
 /* -----------------------------------------------------------------------
  * Entity — the unified record that replaces the old Requirement struct.
  * Sparse components are zero-initialised when not applicable.
@@ -147,6 +179,7 @@ typedef struct {
  *   - assumption           — any entity carrying an "assumption:" mapping
  *   - constraint           — any entity carrying a "constraint:" mapping
  *   - doc_body             — kind == ENTITY_KIND_DESIGN_NOTE / SECTION
+ *   - traceability         — any entity carrying a "traceability:" sequence
  */
 typedef struct {
     IdentityComponent          identity;
@@ -161,6 +194,7 @@ typedef struct {
     AssumptionComponent        assumption;
     ConstraintComponent        constraint;
     DocumentBodyComponent      doc_body;
+    TraceabilityComponent      traceability;
 } Entity;
 
 /** Dynamic array of Entity records (mirrors RequirementList). */

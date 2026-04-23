@@ -333,14 +333,39 @@ Both `AssumptionComponent` and `ConstraintComponent` are pure ECS components: no
 
 This separation keeps the hot path small while allowing rich per-entity data.
 
-### 6.4 Link Component
+### 6.4 Traceability Component
 
-Links should remain first-class and independent of entity kind:
+Traceability is an ECS component attached to any entity — not a separate `TraceabilityLink` entity type.
 
-- `OutgoingLinkComponent`: list of `LinkId`
-- `IncomingLinkComponent`: optional reverse index for fast impact analysis
+```c
+TraceabilityComponent {
+    entries: flat string of "\n"-separated "target_id\trelation_type" pairs
+    count:   number of outgoing links
+}
+```
 
-The triplet store is the source of truth; these components are indexes/views.
+**YAML key:** `traceability` — a sequence of `{id|artefact, relation}` mappings:
+
+```yaml
+traceability:
+  - id: REQ-SYS-005
+    relation: derived-from
+  - id: TC-SW-001
+    relation: verified-by
+  - artefact: src/auth/login.c
+    relation: implemented-in
+```
+
+**Relation types** are free-form strings (e.g. `"implements"`, `"verifies"`, `"refines"`, `"derived-from"`).
+
+**N:M relationships** are natural because any entity can carry the component and each entry points to any target entity or artefact.
+
+**Integration with TripletStore:** The component and the triplet store serve complementary roles that avoid duplication:
+
+- `TraceabilityComponent` on an `Entity` is the per-entity view populated during YAML parsing.  It is a fixed-size, stack-allocatable struct (no heap).
+- `TripletStore` is the global indexed view.  Each entry in `TraceabilityComponent` maps directly to a `(entity_id, relation_type, target_id)` triple.
+- `entity_traceability_to_triplets(entity, store)` loads the component's entries into the store as triples; the store deduplicates automatically.
+- Queries that need global lookup (e.g. "find everything verified by TC-SW-001") are served by `triplet_store_find_by_object()`; per-entity forward reads are served by the component directly.
 
 ### 6.5 Why ECS-Like Here
 
