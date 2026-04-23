@@ -233,8 +233,10 @@ TEST(YamlParseEntityTest, AssumptionFile)
         "id: ASSUM-001\n"
         "title: Network always available\n"
         "type: assumption\n"
-        "statement: The network connection is always available during operation.\n"
-        "risk_if_false: System cannot reach remote services.\n");
+        "assumption:\n"
+        "  text: The network connection is always available during operation.\n"
+        "  status: open\n"
+        "  source: NET-SPEC-001\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
@@ -242,11 +244,12 @@ TEST(YamlParseEntityTest, AssumptionFile)
     EXPECT_EQ(rc, 0);
     EXPECT_STREQ(e.identity.id,   "ASSUM-001");
     EXPECT_EQ(e.identity.kind,    ENTITY_KIND_ASSUMPTION);
-    EXPECT_NE(e.assumption.statement[0], '\0');
-    EXPECT_NE(strstr(e.assumption.statement, "network connection"), nullptr);
-    EXPECT_NE(e.assumption.risk_if_false[0], '\0');
-    /* Constraint statement must be zeroed out (wrong kind). */
-    EXPECT_EQ(e.constraint.statement[0], '\0');
+    EXPECT_NE(e.assumption.text[0], '\0');
+    EXPECT_NE(strstr(e.assumption.text, "network connection"), nullptr);
+    EXPECT_STREQ(e.assumption.status, "open");
+    EXPECT_STREQ(e.assumption.source, "NET-SPEC-001");
+    /* Constraint component must be zero (not set). */
+    EXPECT_EQ(e.constraint.text[0], '\0');
 }
 
 TEST(YamlParseEntityTest, ConstraintFile)
@@ -255,20 +258,60 @@ TEST(YamlParseEntityTest, ConstraintFile)
         "id: CONSTR-001\n"
         "title: Must use TLS 1.3\n"
         "type: constraint\n"
-        "constraint_type: technical\n"
-        "statement: All communication must use TLS version 1.3 or higher.\n");
+        "constraint:\n"
+        "  text: All communication must use TLS version 1.3 or higher.\n"
+        "  kind: technical\n"
+        "  source: SEC-POLICY-001\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id,             "CONSTR-001");
-    EXPECT_EQ(e.identity.kind,              ENTITY_KIND_CONSTRAINT);
-    EXPECT_STREQ(e.constraint.constraint_type, "technical");
-    EXPECT_NE(e.constraint.statement[0],    '\0');
-    EXPECT_NE(strstr(e.constraint.statement, "TLS version 1.3"), nullptr);
-    /* Assumption statement must be zeroed out (wrong kind). */
-    EXPECT_EQ(e.assumption.statement[0], '\0');
+    EXPECT_STREQ(e.identity.id,    "CONSTR-001");
+    EXPECT_EQ(e.identity.kind,     ENTITY_KIND_CONSTRAINT);
+    EXPECT_STREQ(e.constraint.kind, "technical");
+    EXPECT_NE(e.constraint.text[0], '\0');
+    EXPECT_NE(strstr(e.constraint.text, "TLS version 1.3"), nullptr);
+    EXPECT_STREQ(e.constraint.source, "SEC-POLICY-001");
+    /* Assumption component must be zero (not set). */
+    EXPECT_EQ(e.assumption.text[0], '\0');
+}
+
+TEST(YamlParseEntityTest, AnyEntityCanCarryAssumptionAndConstraint)
+{
+    /* A functional requirement that also carries both components. */
+    const char *path = write_yaml("ent_req_with_components.yaml",
+        "id: REQ-002\n"
+        "title: Response time under load\n"
+        "type: functional\n"
+        "status: draft\n"
+        "assumption:\n"
+        "  text: The database server is always reachable.\n"
+        "  status: open\n"
+        "  source: INFRA-SPEC-001\n"
+        "constraint:\n"
+        "  text: Response time must not exceed 200 ms under peak load.\n"
+        "  kind: technical\n"
+        "  source: PERF-POLICY-001\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id,   "REQ-002");
+    EXPECT_EQ(e.identity.kind,    ENTITY_KIND_REQUIREMENT);
+
+    /* Assumption component populated despite kind != ENTITY_KIND_ASSUMPTION. */
+    EXPECT_NE(e.assumption.text[0], '\0');
+    EXPECT_NE(strstr(e.assumption.text, "database server"), nullptr);
+    EXPECT_STREQ(e.assumption.status, "open");
+    EXPECT_STREQ(e.assumption.source, "INFRA-SPEC-001");
+
+    /* Constraint component populated despite kind != ENTITY_KIND_CONSTRAINT. */
+    EXPECT_NE(e.constraint.text[0], '\0');
+    EXPECT_NE(strstr(e.constraint.text, "200 ms"), nullptr);
+    EXPECT_STREQ(e.constraint.kind,   "technical");
+    EXPECT_STREQ(e.constraint.source, "PERF-POLICY-001");
 }
 
 TEST(YamlParseEntityTest, NoIdReturnsError)
@@ -338,7 +381,9 @@ TEST(YamlParseEntitiesTest, MixedKindsMultiDoc)
         "id: ASSUM-001\n"
         "title: An assumption\n"
         "type: assumption\n"
-        "statement: The cloud is reachable.\n");
+        "assumption:\n"
+        "  text: The cloud is reachable.\n"
+        "  status: open\n");
     ASSERT_NE(path, nullptr);
 
     EntityList list;

@@ -79,16 +79,32 @@ typedef struct {
     int  count;                  /**< number of criteria stored             */
 } AcceptanceCriteriaComponent;
 
-/** Assumption record — present when kind == ENTITY_KIND_ASSUMPTION. */
+/**
+ * Assumption component — can be attached to any entity.
+ *
+ * Schema: {text, status, source}
+ *   text   — the assumption being made
+ *   status — e.g. "open", "confirmed", "invalid"
+ *   source — reference to a document or entity that validates the assumption
+ */
 typedef struct {
-    char statement[1024];    /**< the assumption being made         */
-    char risk_if_false[512]; /**< consequence if the assumption fails */
+    char text[1024];   /**< the assumption being made                        */
+    char status[32];   /**< e.g. "open", "confirmed", "invalid"              */
+    char source[256];  /**< reference to validating document or entity ID    */
 } AssumptionComponent;
 
-/** Constraint record — present when kind == ENTITY_KIND_CONSTRAINT. */
+/**
+ * Constraint component — can be attached to any entity.
+ *
+ * Schema: {text, kind, source}
+ *   text   — the constraint wording
+ *   kind   — e.g. "legal", "technical", "environmental"
+ *   source — reference to the document or regulation imposing the constraint
+ */
 typedef struct {
-    char constraint_type[64]; /**< "technical", "regulatory", "business", … */
-    char statement[1024];     /**< constraint wording                        */
+    char text[1024];   /**< constraint wording                               */
+    char kind[64];     /**< "legal", "technical", "environmental", …         */
+    char source[256];  /**< reference to the imposing document or entity ID  */
 } ConstraintComponent;
 
 /** Maximum byte size of the document body store. */
@@ -113,11 +129,11 @@ typedef struct {
  *   - text       — description / rationale
  *   - tags       — optional tag list
  *
- * Sparse / kind-specific components (zero if not applicable):
+ * Sparse / optional components (zero if absent):
  *   - user_story           — kind == ENTITY_KIND_STORY
  *   - acceptance_criteria  — kind == ENTITY_KIND_STORY or REQUIREMENT
- *   - assumption           — kind == ENTITY_KIND_ASSUMPTION
- *   - constraint           — kind == ENTITY_KIND_CONSTRAINT
+ *   - assumption           — any entity carrying an "assumption:" mapping
+ *   - constraint           — any entity carrying a "constraint:" mapping
  *   - doc_body             — kind == ENTITY_KIND_DESIGN_NOTE / SECTION
  */
 typedef struct {
