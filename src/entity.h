@@ -21,6 +21,7 @@ typedef enum {
     ENTITY_KIND_CONSTRAINT,      /**< technical / regulatory / business const. */
     ENTITY_KIND_TEST_CASE,       /**< explicit test case                       */
     ENTITY_KIND_EXTERNAL,        /**< external normative source                */
+    ENTITY_KIND_DOCUMENT,        /**< a document entity (SRS, SDD, …)          */
     ENTITY_KIND_UNKNOWN          /**< fallback for unrecognised 'type' values  */
 } EntityKind;
 
@@ -118,6 +119,55 @@ typedef struct {
     char source[256];  /**< reference to the imposing document or entity ID  */
 } ConstraintComponent;
 
+/**
+ * Document-meta component — can be attached to any entity that represents
+ * a document (SRS, SDD, test-plan, …).
+ *
+ * Schema: {title, doc_type, version, client, status}
+ *   title    — human-readable document title (YAML "doc_meta.title")
+ *   doc_type — document category, e.g. "SRS", "SDD", "test-plan"
+ *   version  — document version string, e.g. "1.0", "2.3-draft"
+ *   client   — client / customer for whom the document is produced
+ *   status   — document lifecycle status, e.g. "draft", "approved"
+ *
+ * YAML key: "doc_meta" — a mapping node:
+ *
+ *   doc_meta:
+ *     doc_type: SRS
+ *     version: 1.0
+ *     client: ClientCorp
+ *     status: approved
+ */
+typedef struct {
+    char title[256];    /**< document title (YAML "doc_meta.title")       */
+    char doc_type[64];  /**< document category (YAML "doc_meta.doc_type") */
+    char version[32];   /**< document version (YAML "doc_meta.version")   */
+    char client[128];   /**< client / customer (YAML "doc_meta.client")   */
+    char status[32];    /**< document status (YAML "doc_meta.status")     */
+} DocumentMetaComponent;
+
+/** Maximum byte size of the document-membership store. */
+#define DOC_MEMBER_STORE_LEN 1024
+
+/**
+ * Document-membership component — attaches any entity to one or more
+ * document entities.
+ *
+ * Any entity (requirement, assumption, user story, …) can belong to any
+ * number of documents without a rigid type hierarchy.  The list of parent
+ * document entity-ids is stored as a newline-separated flat string.
+ *
+ * YAML key: "documents" — a sequence of entity IDs:
+ *
+ *   documents:
+ *     - SRS-CLIENT-001
+ *     - SDD-SYSTEM-001
+ */
+typedef struct {
+    char doc_ids[DOC_MEMBER_STORE_LEN]; /**< newline-separated document entity IDs */
+    int  count;                          /**< number of document memberships         */
+} DocumentMembershipComponent;
+
 /** Maximum byte size of the document body store. */
 #define DOCBODY_LEN 4096
 
@@ -178,6 +228,8 @@ typedef struct {
  *   - epic_membership      — any entity can belong to an epic
  *   - assumption           — any entity carrying an "assumption:" mapping
  *   - constraint           — any entity carrying a "constraint:" mapping
+ *   - doc_meta             — any entity representing a document (SRS, SDD, …)
+ *   - doc_membership       — any entity belonging to one or more documents
  *   - doc_body             — kind == ENTITY_KIND_DESIGN_NOTE / SECTION
  *   - traceability         — any entity carrying a "traceability:" sequence
  */
@@ -193,6 +245,8 @@ typedef struct {
     EpicMembershipComponent    epic_membership;
     AssumptionComponent        assumption;
     ConstraintComponent        constraint;
+    DocumentMetaComponent      doc_meta;
+    DocumentMembershipComponent doc_membership;
     DocumentBodyComponent      doc_body;
     TraceabilityComponent      traceability;
 } Entity;
@@ -239,6 +293,7 @@ void entity_list_free(EntityList *list);
  *   "constraint"                                         → ENTITY_KIND_CONSTRAINT
  *   "test-case", "test_case", "test"                     → ENTITY_KIND_TEST_CASE
  *   "external", "directive", "standard", "regulation"    → ENTITY_KIND_EXTERNAL
+ *   "document", "srs", "sdd"                             → ENTITY_KIND_DOCUMENT
  *   anything else                                        → ENTITY_KIND_UNKNOWN
  *
  * @param type_str  value of the YAML "type" key (may be NULL or empty)
