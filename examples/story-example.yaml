@@ -5,9 +5,10 @@ status: draft
 priority: must
 owner: product-team
 version: "1.0"
-as_a: registered user
-i_want: to log in using my email address and password
-so_that: I can access my personal account and settings
+role: registered user
+goal: to log in using my email address and password
+reason: I can access my personal account and settings
+epic: EPIC-AUTH-001
 description: |
   Covers the primary authentication flow for returning users.
   The login page must be accessible from the landing page without

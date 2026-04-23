@@ -364,9 +364,16 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
             COPY_FIELD_IF_MATCH("version",         out->lifecycle.version,        sizeof(out->lifecycle.version))
             COPY_FIELD_IF_MATCH("description",     out->text.description,         sizeof(out->text.description))
             COPY_FIELD_IF_MATCH("rationale",       out->text.rationale,           sizeof(out->text.rationale))
-            COPY_FIELD_IF_MATCH("as_a",            out->user_story.as_a,          sizeof(out->user_story.as_a))
-            COPY_FIELD_IF_MATCH("i_want",          out->user_story.i_want,        sizeof(out->user_story.i_want))
-            COPY_FIELD_IF_MATCH("so_that",         out->user_story.so_that,       sizeof(out->user_story.so_that))
+            /* user-story component — canonical keys */
+            COPY_FIELD_IF_MATCH("role",            out->user_story.role,          sizeof(out->user_story.role))
+            COPY_FIELD_IF_MATCH("goal",            out->user_story.goal,          sizeof(out->user_story.goal))
+            COPY_FIELD_IF_MATCH("reason",          out->user_story.reason,        sizeof(out->user_story.reason))
+            /* user-story component — legacy aliases for backward compatibility */
+            COPY_FIELD_IF_MATCH("as_a",            out->user_story.role,          sizeof(out->user_story.role))
+            COPY_FIELD_IF_MATCH("i_want",          out->user_story.goal,          sizeof(out->user_story.goal))
+            COPY_FIELD_IF_MATCH("so_that",         out->user_story.reason,        sizeof(out->user_story.reason))
+            /* epic-membership component */
+            COPY_FIELD_IF_MATCH("epic",            out->epic_membership.epic_id,  sizeof(out->epic_membership.epic_id))
             COPY_FIELD_IF_MATCH("risk_if_false",   out->assumption.risk_if_false, sizeof(out->assumption.risk_if_false))
             COPY_FIELD_IF_MATCH("constraint_type", out->constraint.constraint_type, sizeof(out->constraint.constraint_type))
             COPY_FIELD_IF_MATCH("body",            out->doc_body.body,            sizeof(out->doc_body.body))

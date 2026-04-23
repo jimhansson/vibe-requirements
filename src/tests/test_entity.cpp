@@ -205,9 +205,9 @@ TEST(YamlParseEntityTest, StoryFile)
         "title: Login story\n"
         "type: story\n"
         "status: draft\n"
-        "as_a: registered user\n"
-        "i_want: to log in with my email\n"
-        "so_that: I can access my account\n"
+        "role: registered user\n"
+        "goal: to log in with my email\n"
+        "reason: I can access my account\n"
         "acceptance_criteria:\n"
         "  - Login form is shown\n"
         "  - Error displayed on wrong password\n");
@@ -216,15 +216,83 @@ TEST(YamlParseEntityTest, StoryFile)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id,       "STORY-001");
-    EXPECT_EQ(e.identity.kind,        ENTITY_KIND_STORY);
-    EXPECT_STREQ(e.user_story.as_a,   "registered user");
-    EXPECT_STREQ(e.user_story.i_want, "to log in with my email");
-    EXPECT_STREQ(e.user_story.so_that,"I can access my account");
+    EXPECT_STREQ(e.identity.id,        "STORY-001");
+    EXPECT_EQ(e.identity.kind,         ENTITY_KIND_STORY);
+    EXPECT_STREQ(e.user_story.role,    "registered user");
+    EXPECT_STREQ(e.user_story.goal,    "to log in with my email");
+    EXPECT_STREQ(e.user_story.reason,  "I can access my account");
     EXPECT_EQ(e.acceptance_criteria.count, 2);
     /* The two criteria should appear in the flat string. */
     EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Login form is shown"), nullptr);
     EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Error displayed on wrong password"), nullptr);
+}
+
+TEST(YamlParseEntityTest, StoryFileLegacyAliases)
+{
+    /* Verify that the old as_a / i_want / so_that keys still work. */
+    const char *path = write_yaml("ent_story_legacy.yaml",
+        "id: STORY-002\n"
+        "title: Legacy story\n"
+        "type: story\n"
+        "as_a: developer\n"
+        "i_want: faster builds\n"
+        "so_that: I save time\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.user_story.role,   "developer");
+    EXPECT_STREQ(e.user_story.goal,   "faster builds");
+    EXPECT_STREQ(e.user_story.reason, "I save time");
+}
+
+TEST(YamlParseEntityTest, EpicMembership)
+{
+    /* Any entity can carry the epic-membership component. */
+    const char *path = write_yaml("ent_epic.yaml",
+        "id: STORY-003\n"
+        "title: Story with epic\n"
+        "type: story\n"
+        "role: tester\n"
+        "goal: run automated tests\n"
+        "reason: quality is assured\n"
+        "epic: EPIC-001\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.epic_membership.epic_id, "EPIC-001");
+}
+
+TEST(YamlParseEntityTest, UserStoryComponentOnNonStoryEntity)
+{
+    /* A requirement entity can also carry user-story and AC components. */
+    const char *path = write_yaml("ent_req_story.yaml",
+        "id: REQ-STORY-001\n"
+        "title: Requirement with user story framing\n"
+        "type: functional\n"
+        "role: admin\n"
+        "goal: manage users\n"
+        "reason: the system stays secure\n"
+        "epic: EPIC-ADMIN-001\n"
+        "acceptance_criteria:\n"
+        "  - Admin can create users\n"
+        "  - Admin can delete users\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind,         ENTITY_KIND_REQUIREMENT);
+    EXPECT_STREQ(e.user_story.role,    "admin");
+    EXPECT_STREQ(e.user_story.goal,    "manage users");
+    EXPECT_STREQ(e.user_story.reason,  "the system stays secure");
+    EXPECT_STREQ(e.epic_membership.epic_id, "EPIC-ADMIN-001");
+    EXPECT_EQ(e.acceptance_criteria.count, 2);
+    EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Admin can create users"), nullptr);
+    EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Admin can delete users"), nullptr);
 }
 
 TEST(YamlParseEntityTest, AssumptionFile)
@@ -331,9 +399,9 @@ TEST(YamlParseEntitiesTest, MixedKindsMultiDoc)
         "title: A story\n"
         "type: story\n"
         "status: draft\n"
-        "as_a: developer\n"
-        "i_want: faster builds\n"
-        "so_that: I save time\n"
+        "role: developer\n"
+        "goal: faster builds\n"
+        "reason: I save time\n"
         "---\n"
         "id: ASSUM-001\n"
         "title: An assumption\n"
@@ -353,7 +421,7 @@ TEST(YamlParseEntitiesTest, MixedKindsMultiDoc)
 
     EXPECT_EQ(list.items[1].identity.kind, ENTITY_KIND_STORY);
     EXPECT_STREQ(list.items[1].identity.id, "STORY-001");
-    EXPECT_STREQ(list.items[1].user_story.as_a, "developer");
+    EXPECT_STREQ(list.items[1].user_story.role, "developer");
 
     EXPECT_EQ(list.items[2].identity.kind, ENTITY_KIND_ASSUMPTION);
     EXPECT_STREQ(list.items[2].identity.id, "ASSUM-001");
