@@ -530,3 +530,165 @@ TEST(YamlParseEntitiesTest, NonexistentFile)
 
     entity_list_free(&list);
 }
+
+/* =========================================================================
+ * Tests — TraceabilityComponent (yaml_parse_entity + entity_traceability_to_triplets)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, TraceabilityComponent)
+{
+    /* Any entity can carry a traceability component. */
+    const char *path = write_yaml("ent_traceability.yaml",
+        "id: REQ-SW-001\n"
+        "title: A traced requirement\n"
+        "type: functional\n"
+        "traceability:\n"
+        "  - id: REQ-SYS-005\n"
+        "    relation: derived-from\n"
+        "  - id: TC-SW-001\n"
+        "    relation: verified-by\n"
+        "  - artefact: src/auth/login.c\n"
+        "    relation: implemented-in\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.traceability.count, 3);
+    EXPECT_NE(strstr(e.traceability.entries, "REQ-SYS-005"),    nullptr);
+    EXPECT_NE(strstr(e.traceability.entries, "derived-from"),   nullptr);
+    EXPECT_NE(strstr(e.traceability.entries, "TC-SW-001"),      nullptr);
+    EXPECT_NE(strstr(e.traceability.entries, "verified-by"),    nullptr);
+    EXPECT_NE(strstr(e.traceability.entries, "src/auth/login.c"), nullptr);
+    EXPECT_NE(strstr(e.traceability.entries, "implemented-in"), nullptr);
+}
+
+TEST(YamlParseEntityTest, TraceabilityOnAnyEntityKind)
+{
+    /* Traceability component can be attached to any entity kind. */
+    const char *path = write_yaml("ent_story_trace.yaml",
+        "id: STORY-010\n"
+        "title: Story with traceability\n"
+        "type: story\n"
+        "role: developer\n"
+        "goal: submit code\n"
+        "reason: features are delivered\n"
+        "traceability:\n"
+        "  - id: REQ-SW-010\n"
+        "    relation: implements\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind, ENTITY_KIND_STORY);
+    EXPECT_EQ(e.traceability.count, 1);
+    EXPECT_NE(strstr(e.traceability.entries, "REQ-SW-010"), nullptr);
+    EXPECT_NE(strstr(e.traceability.entries, "implements"), nullptr);
+}
+
+TEST(YamlParseEntityTest, TraceabilityEmptyWhenAbsent)
+{
+    /* Entities without a traceability key have a zero-initialised component. */
+    const char *path = write_yaml("ent_no_trace.yaml",
+        "id: REQ-003\n"
+        "title: No traceability\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.traceability.count, 0);
+    EXPECT_EQ(e.traceability.entries[0], '\0');
+}
+
+/* =========================================================================
+ * Tests — entity_traceability_to_triplets
+ * ======================================================================= */
+
+TEST(TraceabilityToTripletsTest, LoadsEntriesIntoStore)
+{
+    const char *path = write_yaml("ent_trace_triplets.yaml",
+        "id: REQ-SW-020\n"
+        "title: Requirement with traceability\n"
+        "type: functional\n"
+        "traceability:\n"
+        "  - id: REQ-SYS-010\n"
+        "    relation: derived-from\n"
+        "  - id: TC-SW-020\n"
+        "    relation: verified-by\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    ASSERT_EQ(rc, 0);
+    ASSERT_EQ(e.traceability.count, 2);
+
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    int added = entity_traceability_to_triplets(&e, store);
+    EXPECT_EQ(added, 2);
+    EXPECT_EQ(triplet_store_count(store), 2u);
+
+    /* Verify the triples are queryable by subject. */
+    CTripleList list = triplet_store_find_by_subject(store, "REQ-SW-020");
+    ASSERT_EQ(list.count, 2u);
+    triplet_store_list_free(list);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TraceabilityToTripletsTest, NullInputsReturnMinusOne)
+{
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_traceability_to_triplets(nullptr, store), -1);
+    EXPECT_EQ(entity_traceability_to_triplets(&e, nullptr),    -1);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TraceabilityToTripletsTest, EmptyTraceabilityReturnsZero)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    strncpy(e.identity.id, "ENT-001", sizeof(e.identity.id) - 1);
+
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    EXPECT_EQ(entity_traceability_to_triplets(&e, store), 0);
+    EXPECT_EQ(triplet_store_count(store), 0u);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TraceabilityToTripletsTest, DuplicatesNotAdded)
+{
+    const char *path = write_yaml("ent_trace_dedup.yaml",
+        "id: REQ-SW-030\n"
+        "title: Dedup test\n"
+        "type: functional\n"
+        "traceability:\n"
+        "  - id: REQ-SYS-030\n"
+        "    relation: derived-from\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    ASSERT_EQ(yaml_parse_entity(path, &e), 0);
+
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    EXPECT_EQ(entity_traceability_to_triplets(&e, store), 1);
+    /* Loading again must add 0 new triples (TripletStore deduplicates). */
+    EXPECT_EQ(entity_traceability_to_triplets(&e, store), 0);
+    EXPECT_EQ(triplet_store_count(store), 1u);
+
+    triplet_store_destroy(store);
+}

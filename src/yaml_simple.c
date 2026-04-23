@@ -304,6 +304,36 @@ static int append_to_flat(char *buf, size_t buf_size, int *count, const char *te
 }
 
 /*
+ * Append a traceability entry "target\trelation" to a newline-separated
+ * flat buffer.  Entries are separated by '\n'; within each entry the
+ * target and relation are separated by '\t'.
+ * Returns 1 if the entry was appended, 0 if there was not enough space.
+ */
+static int append_trace_entry(char *buf, size_t buf_size, int *count,
+                               const char *target, const char *relation)
+{
+    size_t cur_len = strlen(buf);
+    size_t t_len   = strlen(target);
+    size_t r_len   = strlen(relation);
+    /* Need: [leading newline] + target + '\t' + relation + NUL (1 byte) */
+    size_t need = t_len + 1u + r_len + 1u + (cur_len > 0 ? 1u : 0u);
+
+    if (cur_len + need >= buf_size)
+        return 0;
+
+    if (cur_len > 0)
+        buf[cur_len++] = '\n';
+
+    memcpy(buf + cur_len, target, t_len);
+    cur_len += t_len;
+    buf[cur_len++] = '\t';
+    memcpy(buf + cur_len, relation, r_len);
+    buf[cur_len + r_len] = '\0';
+    (*count)++;
+    return 1;
+}
+
+/*
  * Walk a YAML sequence node and collect scalar items into a flat buffer.
  */
 static void collect_sequence(yaml_document_t *doc, yaml_node_t *seq,
@@ -392,6 +422,40 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                                  out->acceptance_criteria.criteria,
                                  sizeof(out->acceptance_criteria.criteria),
                                  &out->acceptance_criteria.count);
+                continue;
+            }
+            if (strcmp(key, "traceability") == 0) {
+                yaml_node_item_t *item = val_node->data.sequence.items.start;
+                yaml_node_item_t *top  = val_node->data.sequence.items.top;
+                for (; item < top; item++) {
+                    yaml_node_t *link_map = yaml_document_get_node(doc, *item);
+                    if (!link_map || link_map->type != YAML_MAPPING_NODE)
+                        continue;
+
+                    char target[LINK_TARGET_LEN]     = {0};
+                    char relation[LINK_RELATION_LEN] = {0};
+
+                    yaml_node_pair_t *sp = link_map->data.mapping.pairs.start;
+                    yaml_node_pair_t *se = link_map->data.mapping.pairs.top;
+                    for (; sp < se; sp++) {
+                        yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                        yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                        if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                        if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                        const char *skey = (const char *)sk->data.scalar.value;
+                        const char *sval = (const char *)sv->data.scalar.value;
+                        if (strcmp(skey, "id") == 0 || strcmp(skey, "artefact") == 0)
+                            strncpy(target, sval, sizeof(target) - 1);
+                        else if (strcmp(skey, "relation") == 0)
+                            strncpy(relation, sval, sizeof(relation) - 1);
+                    }
+                    if (target[0] != '\0' && relation[0] != '\0') {
+                        append_trace_entry(out->traceability.entries,
+                                           sizeof(out->traceability.entries),
+                                           &out->traceability.count,
+                                           target, relation);
+                    }
+                }
                 continue;
             }
         }
@@ -519,5 +583,51 @@ int yaml_parse_entities(const char *path, EntityList *list)
 
     yaml_parser_delete(&parser);
     fclose(f);
+    return added;
+}
+
+int entity_traceability_to_triplets(const Entity *entity, TripletStore *store)
+{
+    if (!entity || !store)
+        return -1;
+
+    const char *subject = entity->identity.id;
+    if (subject[0] == '\0')
+        return 0;
+
+    const char *buf = entity->traceability.entries;
+    if (buf[0] == '\0')
+        return 0;
+
+    int added = 0;
+    const char *p = buf;
+
+    while (*p) {
+        /* Each entry: "target\trelation" separated by '\n' */
+        const char *tab = strchr(p, '\t');
+        if (!tab)
+            break;
+
+        const char *nl  = strchr(tab + 1, '\n');
+        const char *end = nl ? nl : p + strlen(p);
+
+        size_t t_len = (size_t)(tab - p);
+        size_t r_len = (size_t)(end - (tab + 1));
+
+        if (t_len > 0 && t_len < LINK_TARGET_LEN &&
+            r_len > 0 && r_len < LINK_RELATION_LEN) {
+            char target[LINK_TARGET_LEN]     = {0};
+            char relation[LINK_RELATION_LEN] = {0};
+            memcpy(target,   p,       t_len);
+            memcpy(relation, tab + 1, r_len);
+
+            size_t id = triplet_store_add(store, subject, relation, target);
+            if (id != TRIPLE_ID_INVALID)
+                added++;
+        }
+
+        p = nl ? nl + 1 : end;
+    }
+
     return added;
 }
