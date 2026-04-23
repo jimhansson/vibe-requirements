@@ -320,10 +320,16 @@ These components cover most entities and are suitable for cache-friendly storage
 
 Store sparse or large data in separate, optional components:
 
+- `AssumptionComponent` (`text`, `status`, `source`) — any entity may carry this
+- `ConstraintComponent` (`text`, `kind`, `source`) — any entity may carry this; `kind` is e.g. `legal`, `technical`, `environmental`
 - `TestProcedureComponent` (`preconditions`, `steps`, `expected_result`)
 - `ClauseCollectionComponent` (external standard clauses/annexes/articles)
 - `DocumentBodyComponent` (long free-form markdown/text blocks)
 - `AttachmentComponent` (references to binary or generated artifacts)
+
+Both `AssumptionComponent` and `ConstraintComponent` are pure ECS components: no specialised entity type is required to carry them.  Any entity (requirement, story, design note, …) may have one or both attached.  Links to documents or other requirements are handled via the shared relation component (`links:`).
+
+> **Schema note:** The earlier `AssumptionComponent` included a `risk_if_false` field.  Under the new schema that information belongs either in the `text` of a dedicated risk entity or in a linked document referenced via `source`.  The previous flat YAML keys (`statement:`, `risk_if_false:`, `constraint_type:`) are replaced by nested `assumption:` and `constraint:` mapping nodes.
 
 This separation keeps the hot path small while allowing rich per-entity data.
 
