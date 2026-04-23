@@ -304,6 +304,44 @@ static int check_strict_links(const TripletStore *store)
 }
 
 /* ------------------------------------------------------------------ */
+/* Trace — subject-focused traceability chain traversal               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Print all triples with the given subject at the specified indent level.
+ * Recurse one level deeper for each object that has outgoing triples of
+ * its own, up to max_depth hops.
+ */
+static void trace_subject(const TripletStore *store, const char *subject,
+                           int depth, int max_depth)
+{
+    CTripleList list = triplet_store_find_by_subject(store, subject);
+
+    for (size_t i = 0; i < list.count; i++) {
+        const CTriple *t = &list.triples[i];
+        if (t->inferred)
+            continue; /* show only user-declared triples */
+
+        for (int d = 0; d < depth; d++)
+            printf("  ");
+        printf("-[%s]-> %s\n", t->predicate, t->object);
+
+        if (depth < max_depth) {
+            trace_subject(store, t->object, depth + 1, max_depth);
+        }
+    }
+
+    triplet_store_list_free(list);
+}
+
+static void cmd_trace(const TripletStore *store, const char *id)
+{
+    printf("Traceability chain for: %s\n", id);
+    printf("%s\n", id);
+    trace_subject(store, id, 1, 2);
+}
+
+/* ------------------------------------------------------------------ */
 /* Table rendering — entities (ECS)                                   */
 /* ------------------------------------------------------------------ */
 
@@ -468,18 +506,20 @@ int main(int argc, char *argv[])
     int         show_links    = 0;
     int         strict_links  = 0;
     int         show_entities = 0;
+    const char *trace_id      = NULL;
     const char *root          = ".";
 
     int arg_idx = 1;
 
     if (argc >= 2) {
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-            printf("Usage: %s [links|entities] [--strict-links] [directory]\n\n",
+            printf("Usage: %s [links|entities|trace <id>] [--strict-links] [directory]\n\n",
                    argv[0]);
             printf("Commands:\n");
             printf("  (default)       List all requirements found in the directory tree.\n");
             printf("  links           List all relations parsed from requirement files.\n");
-            printf("  entities        List all entities (all kinds) found in the directory tree.\n\n");
+            printf("  entities        List all entities (all kinds) found in the directory tree.\n");
+            printf("  trace <id>      Show full traceability chain for an entity (2 hops).\n\n");
             printf("Options:\n");
             printf("  --strict-links  Warn when a known relation is declared in only one\n");
             printf("                  direction (inverse not explicitly present in YAML).\n");
@@ -494,6 +534,13 @@ int main(int argc, char *argv[])
         } else if (strcmp(argv[1], "entities") == 0) {
             show_entities = 1;
             arg_idx       = 2;
+        } else if (strcmp(argv[1], "trace") == 0) {
+            if (argc < 3) {
+                fprintf(stderr, "error: 'trace' requires an entity ID argument\n");
+                return 1;
+            }
+            trace_id = argv[2];
+            arg_idx  = 3;
         }
     }
 
@@ -556,7 +603,7 @@ int main(int argc, char *argv[])
 
     int exit_code = 0;
 
-    if (show_links || strict_links) {
+    if (show_links || strict_links || trace_id) {
         TripletStore *store = build_relation_store(&list);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
@@ -565,6 +612,8 @@ int main(int argc, char *argv[])
         }
         if (show_links)
             list_relations(store);
+        if (trace_id)
+            cmd_trace(store, trace_id);
         if (strict_links) {
             int warnings = check_strict_links(store);
             if (warnings > 0) {

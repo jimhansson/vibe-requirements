@@ -224,3 +224,51 @@ TEST(YamlSimpleTest, LinksNonexistentFile)
 
     triplet_store_destroy(store);
 }
+
+TEST(YamlSimpleTest, LinksArtefactKey)
+{
+    /* Artefact-based links use "artefact" instead of "id" as the target key. */
+    const char *path = write_yaml("test_links_artefact.yaml",
+        "id: TC-001\n"
+        "title: Test case with artefact links\n"
+        "links:\n"
+        "  - id: REQ-005\n"
+        "    relation: verifies\n"
+        "  - artefact: src/tests/test_foo.cpp\n"
+        "    relation: implemented-by\n"
+        "  - artefact: src/tests/test_foo.cpp#Suite.Test\n"
+        "    relation: implemented-by-test\n");
+    ASSERT_NE(path, nullptr);
+
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    int rc = yaml_parse_links(path, "TC-001", store);
+    EXPECT_EQ(rc, 3);
+
+    /* Verify that each triple was stored with the correct object. */
+    CTripleList list = triplet_store_find_by_subject(store, "TC-001");
+    EXPECT_EQ(list.count, 3u);
+
+    int found_verifies          = 0;
+    int found_implemented_by    = 0;
+    int found_implemented_by_test = 0;
+    for (size_t i = 0; i < list.count; i++) {
+        const CTriple *t = &list.triples[i];
+        if (strcmp(t->predicate, "verifies") == 0 &&
+            strcmp(t->object, "REQ-005") == 0)
+            found_verifies = 1;
+        if (strcmp(t->predicate, "implemented-by") == 0 &&
+            strcmp(t->object, "src/tests/test_foo.cpp") == 0)
+            found_implemented_by = 1;
+        if (strcmp(t->predicate, "implemented-by-test") == 0 &&
+            strcmp(t->object, "src/tests/test_foo.cpp#Suite.Test") == 0)
+            found_implemented_by_test = 1;
+    }
+    EXPECT_EQ(found_verifies, 1);
+    EXPECT_EQ(found_implemented_by, 1);
+    EXPECT_EQ(found_implemented_by_test, 1);
+
+    triplet_store_list_free(list);
+    triplet_store_destroy(store);
+}
