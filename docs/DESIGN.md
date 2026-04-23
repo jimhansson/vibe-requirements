@@ -322,12 +322,38 @@ Store sparse or large data in separate, optional components:
 
 - `AssumptionComponent` (`text`, `status`, `source`) — any entity may carry this
 - `ConstraintComponent` (`text`, `kind`, `source`) — any entity may carry this; `kind` is e.g. `legal`, `technical`, `environmental`
+- `DocumentMetaComponent` (`title`, `doc_type`, `version`, `client`, `status`) — any entity representing a document (SRS, SDD, …) may carry this
+- `DocumentMembershipComponent` (`doc_ids`, `count`) — attaches any entity to one or more document entities
 - `TestProcedureComponent` (`preconditions`, `steps`, `expected_result`)
 - `ClauseCollectionComponent` (external standard clauses/annexes/articles)
 - `DocumentBodyComponent` (long free-form markdown/text blocks)
 - `AttachmentComponent` (references to binary or generated artifacts)
 
 Both `AssumptionComponent` and `ConstraintComponent` are pure ECS components: no specialised entity type is required to carry them.  Any entity (requirement, story, design note, …) may have one or both attached.  Links to documents or other requirements are handled via the shared relation component (`links:`).
+
+`DocumentMetaComponent` and `DocumentMembershipComponent` implement the ECS document model: a document (SRS, SDD, etc.) is just an entity with `ENTITY_KIND_DOCUMENT`.  Its properties are expressed via `DocumentMetaComponent`; any other entity declares membership in one or more documents via `DocumentMembershipComponent`.  This naturally supports multiple SRS per client and N:M entity-to-document relationships without a rigid type hierarchy.
+
+**YAML schema:**
+
+```yaml
+# A document entity
+id: SRS-CLIENT-001
+title: SRS for Client Project
+type: document          # also: srs, sdd
+doc_meta:
+  doc_type: SRS
+  version: 1.0
+  client: ClientCorp
+  status: approved
+
+---
+# Any entity can declare membership in one or more documents
+id: REQ-SW-001
+type: functional
+documents:
+  - SRS-CLIENT-001
+  - SDD-SYS-001
+```
 
 > **Schema note:** The earlier `AssumptionComponent` included a `risk_if_false` field.  Under the new schema that information belongs either in the `text` of a dedicated risk entity or in a linked document referenced via `source`.  The previous flat YAML keys (`statement:`, `risk_if_false:`, `constraint_type:`) are replaced by nested `assumption:` and `constraint:` mapping nodes.
 

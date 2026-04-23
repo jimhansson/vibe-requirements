@@ -81,6 +81,11 @@ EntityKind entity_kind_from_string(const char *type_str)
         strcmp(type_str, "regulation") == 0)
         return ENTITY_KIND_EXTERNAL;
 
+    if (strcmp(type_str, "document") == 0 ||
+        strcmp(type_str, "srs")      == 0 ||
+        strcmp(type_str, "sdd")      == 0)
+        return ENTITY_KIND_DOCUMENT;
+
     return ENTITY_KIND_UNKNOWN;
 }
 
@@ -96,6 +101,7 @@ const char *entity_kind_label(EntityKind kind)
     case ENTITY_KIND_CONSTRAINT:  return "constraint";
     case ENTITY_KIND_TEST_CASE:   return "test-case";
     case ENTITY_KIND_EXTERNAL:    return "external";
+    case ENTITY_KIND_DOCUMENT:    return "document";
     default:                      return "unknown";
     }
 }

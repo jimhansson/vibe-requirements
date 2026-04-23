@@ -692,3 +692,179 @@ TEST(TraceabilityToTripletsTest, DuplicatesNotAdded)
 
     triplet_store_destroy(store);
 }
+
+/* =========================================================================
+ * Tests — ENTITY_KIND_DOCUMENT / entity_kind_from_string
+ * ======================================================================= */
+
+TEST(EntityKindTest, Document)
+{
+    EXPECT_EQ(entity_kind_from_string("document"), ENTITY_KIND_DOCUMENT);
+    EXPECT_EQ(entity_kind_from_string("srs"),      ENTITY_KIND_DOCUMENT);
+    EXPECT_EQ(entity_kind_from_string("sdd"),      ENTITY_KIND_DOCUMENT);
+}
+
+TEST(EntityKindTest, DocumentLabel)
+{
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_DOCUMENT), "document");
+}
+
+/* =========================================================================
+ * Tests — DocumentMetaComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, DocumentMetaFile)
+{
+    /* A document entity carries the doc_meta component. */
+    const char *path = write_yaml("ent_doc_meta.yaml",
+        "id: SRS-CLIENT-001\n"
+        "title: SRS for Client Project\n"
+        "type: document\n"
+        "doc_meta:\n"
+        "  doc_type: SRS\n"
+        "  version: 1.2\n"
+        "  client: ClientCorp\n"
+        "  status: approved\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id,        "SRS-CLIENT-001");
+    EXPECT_EQ(e.identity.kind,         ENTITY_KIND_DOCUMENT);
+    EXPECT_STREQ(e.doc_meta.doc_type,  "SRS");
+    EXPECT_STREQ(e.doc_meta.version,   "1.2");
+    EXPECT_STREQ(e.doc_meta.client,    "ClientCorp");
+    EXPECT_STREQ(e.doc_meta.status,    "approved");
+    /* Membership component must be zero when not set. */
+    EXPECT_EQ(e.doc_membership.count,  0);
+    EXPECT_EQ(e.doc_membership.doc_ids[0], '\0');
+}
+
+TEST(YamlParseEntityTest, DocumentMetaWithOptionalTitle)
+{
+    /* doc_meta may carry its own title field. */
+    const char *path = write_yaml("ent_doc_meta_title.yaml",
+        "id: SDD-SYS-001\n"
+        "title: SDD for System\n"
+        "type: sdd\n"
+        "doc_meta:\n"
+        "  title: Software Design Description v2\n"
+        "  doc_type: SDD\n"
+        "  version: 2.0\n"
+        "  client: AcmeCorp\n"
+        "  status: draft\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind,         ENTITY_KIND_DOCUMENT);
+    EXPECT_STREQ(e.doc_meta.title,     "Software Design Description v2");
+    EXPECT_STREQ(e.doc_meta.doc_type,  "SDD");
+    EXPECT_STREQ(e.doc_meta.version,   "2.0");
+    EXPECT_STREQ(e.doc_meta.client,    "AcmeCorp");
+    EXPECT_STREQ(e.doc_meta.status,    "draft");
+}
+
+TEST(YamlParseEntityTest, DocumentMetaEmptyWhenAbsent)
+{
+    /* Entities without a doc_meta key have a zero-initialised component. */
+    const char *path = write_yaml("ent_no_doc_meta.yaml",
+        "id: REQ-010\n"
+        "title: Plain requirement\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.doc_meta.doc_type[0], '\0');
+    EXPECT_EQ(e.doc_meta.client[0],   '\0');
+}
+
+/* =========================================================================
+ * Tests — DocumentMembershipComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, DocumentMembership)
+{
+    /* Any entity can belong to one or more documents. */
+    const char *path = write_yaml("ent_doc_member.yaml",
+        "id: REQ-SW-100\n"
+        "title: Requirement in two documents\n"
+        "type: functional\n"
+        "documents:\n"
+        "  - SRS-CLIENT-001\n"
+        "  - SDD-SYS-001\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.doc_membership.count, 2);
+    EXPECT_NE(strstr(e.doc_membership.doc_ids, "SRS-CLIENT-001"), nullptr);
+    EXPECT_NE(strstr(e.doc_membership.doc_ids, "SDD-SYS-001"),    nullptr);
+}
+
+TEST(YamlParseEntityTest, DocumentMembershipSingleDoc)
+{
+    const char *path = write_yaml("ent_doc_member_single.yaml",
+        "id: STORY-050\n"
+        "title: Story in one document\n"
+        "type: story\n"
+        "role: developer\n"
+        "goal: ship feature\n"
+        "reason: the release goes out\n"
+        "documents:\n"
+        "  - SRS-MAIN-001\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.doc_membership.count, 1);
+    EXPECT_NE(strstr(e.doc_membership.doc_ids, "SRS-MAIN-001"), nullptr);
+}
+
+TEST(YamlParseEntityTest, DocumentMembershipEmptyWhenAbsent)
+{
+    const char *path = write_yaml("ent_no_doc_member.yaml",
+        "id: REQ-011\n"
+        "title: Unattached requirement\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.doc_membership.count,      0);
+    EXPECT_EQ(e.doc_membership.doc_ids[0], '\0');
+}
+
+TEST(YamlParseEntityTest, AnyEntityCanCarryDocumentComponents)
+{
+    /* A requirement entity carrying both doc_meta and doc_membership. */
+    const char *path = write_yaml("ent_req_doc_components.yaml",
+        "id: REQ-012\n"
+        "title: Requirement with document components\n"
+        "type: functional\n"
+        "doc_meta:\n"
+        "  doc_type: SRS\n"
+        "  version: 3.0\n"
+        "  client: MegaCorp\n"
+        "  status: draft\n"
+        "documents:\n"
+        "  - SRS-MEGA-001\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind,          ENTITY_KIND_REQUIREMENT);
+    EXPECT_STREQ(e.doc_meta.doc_type,   "SRS");
+    EXPECT_STREQ(e.doc_meta.version,    "3.0");
+    EXPECT_STREQ(e.doc_meta.client,     "MegaCorp");
+    EXPECT_EQ(e.doc_membership.count,   1);
+    EXPECT_NE(strstr(e.doc_membership.doc_ids, "SRS-MEGA-001"), nullptr);
+}

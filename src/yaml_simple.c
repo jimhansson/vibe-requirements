@@ -424,6 +424,13 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                                  &out->acceptance_criteria.count);
                 continue;
             }
+            if (strcmp(key, "documents") == 0) {
+                collect_sequence(doc, val_node,
+                                 out->doc_membership.doc_ids,
+                                 sizeof(out->doc_membership.doc_ids),
+                                 &out->doc_membership.count);
+                continue;
+            }
             if (strcmp(key, "traceability") == 0) {
                 yaml_node_item_t *item = val_node->data.sequence.items.start;
                 yaml_node_item_t *top  = val_node->data.sequence.items.top;
@@ -460,7 +467,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
             }
         }
 
-        /* Mapping fields — assumption and constraint components */
+        /* Mapping fields — assumption, constraint, and doc_meta components */
         if (val_node && val_node->type == YAML_MAPPING_NODE) {
             if (strcmp(key, "assumption") == 0) {
                 yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
@@ -497,6 +504,29 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                         copy_field(out->constraint.kind,   sizeof(out->constraint.kind),   sval);
                     else if (strcmp(skey, "source") == 0)
                         copy_field(out->constraint.source, sizeof(out->constraint.source), sval);
+                }
+                continue;
+            }
+            if (strcmp(key, "doc_meta") == 0) {
+                yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
+                yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
+                for (; sp < se; sp++) {
+                    yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                    yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                    if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                    if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                    const char *skey = (const char *)sk->data.scalar.value;
+                    const char *sval = (const char *)sv->data.scalar.value;
+                    if (strcmp(skey, "title") == 0)
+                        copy_field(out->doc_meta.title,    sizeof(out->doc_meta.title),    sval);
+                    else if (strcmp(skey, "doc_type") == 0)
+                        copy_field(out->doc_meta.doc_type, sizeof(out->doc_meta.doc_type), sval);
+                    else if (strcmp(skey, "version") == 0)
+                        copy_field(out->doc_meta.version,  sizeof(out->doc_meta.version),  sval);
+                    else if (strcmp(skey, "client") == 0)
+                        copy_field(out->doc_meta.client,   sizeof(out->doc_meta.client),   sval);
+                    else if (strcmp(skey, "status") == 0)
+                        copy_field(out->doc_meta.status,   sizeof(out->doc_meta.status),   sval);
                 }
                 continue;
             }
