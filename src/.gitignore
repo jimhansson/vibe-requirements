@@ -1,4 +1,5 @@
 *.o
+*.d
 vibe-req
 tests/test_triplet_store
 tests/test_config

@@ -355,19 +355,26 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 continue;                             \
             }
 
-            COPY_FIELD_IF_MATCH("id",          out->identity.id,         sizeof(out->identity.id))
-            COPY_FIELD_IF_MATCH("title",       out->identity.title,      sizeof(out->identity.title))
-            COPY_FIELD_IF_MATCH("type",        out->identity.type_raw,   sizeof(out->identity.type_raw))
-            COPY_FIELD_IF_MATCH("status",      out->lifecycle.status,    sizeof(out->lifecycle.status))
-            COPY_FIELD_IF_MATCH("priority",    out->lifecycle.priority,  sizeof(out->lifecycle.priority))
-            COPY_FIELD_IF_MATCH("owner",       out->lifecycle.owner,     sizeof(out->lifecycle.owner))
-            COPY_FIELD_IF_MATCH("version",     out->lifecycle.version,   sizeof(out->lifecycle.version))
-            COPY_FIELD_IF_MATCH("description", out->text.description,    sizeof(out->text.description))
-            COPY_FIELD_IF_MATCH("rationale",   out->text.rationale,      sizeof(out->text.rationale))
-            COPY_FIELD_IF_MATCH("as_a",        out->user_story.as_a,     sizeof(out->user_story.as_a))
-            COPY_FIELD_IF_MATCH("i_want",      out->user_story.i_want,   sizeof(out->user_story.i_want))
-            COPY_FIELD_IF_MATCH("so_that",     out->user_story.so_that,  sizeof(out->user_story.so_that))
-            COPY_FIELD_IF_MATCH("body",        out->doc_body.body,       sizeof(out->doc_body.body))
+            COPY_FIELD_IF_MATCH("id",              out->identity.id,              sizeof(out->identity.id))
+            COPY_FIELD_IF_MATCH("title",           out->identity.title,           sizeof(out->identity.title))
+            COPY_FIELD_IF_MATCH("type",            out->identity.type_raw,        sizeof(out->identity.type_raw))
+            COPY_FIELD_IF_MATCH("status",          out->lifecycle.status,         sizeof(out->lifecycle.status))
+            COPY_FIELD_IF_MATCH("priority",        out->lifecycle.priority,       sizeof(out->lifecycle.priority))
+            COPY_FIELD_IF_MATCH("owner",           out->lifecycle.owner,          sizeof(out->lifecycle.owner))
+            COPY_FIELD_IF_MATCH("version",         out->lifecycle.version,        sizeof(out->lifecycle.version))
+            COPY_FIELD_IF_MATCH("description",     out->text.description,         sizeof(out->text.description))
+            COPY_FIELD_IF_MATCH("rationale",       out->text.rationale,           sizeof(out->text.rationale))
+            /* user-story component — canonical keys */
+            COPY_FIELD_IF_MATCH("role",            out->user_story.role,          sizeof(out->user_story.role))
+            COPY_FIELD_IF_MATCH("goal",            out->user_story.goal,          sizeof(out->user_story.goal))
+            COPY_FIELD_IF_MATCH("reason",          out->user_story.reason,        sizeof(out->user_story.reason))
+            /* user-story component — legacy aliases for backward compatibility */
+            COPY_FIELD_IF_MATCH("as_a",            out->user_story.role,          sizeof(out->user_story.role))
+            COPY_FIELD_IF_MATCH("i_want",          out->user_story.goal,          sizeof(out->user_story.goal))
+            COPY_FIELD_IF_MATCH("so_that",         out->user_story.reason,        sizeof(out->user_story.reason))
+            /* epic-membership component */
+            COPY_FIELD_IF_MATCH("epic",            out->epic_membership.epic_id,  sizeof(out->epic_membership.epic_id))
+            COPY_FIELD_IF_MATCH("body",            out->doc_body.body,            sizeof(out->doc_body.body))
 
 #undef COPY_FIELD_IF_MATCH
         }

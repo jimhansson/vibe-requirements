@@ -70,13 +70,21 @@ test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DI
 	./$(TEST_ENTITY_TARGET)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -MMD -MP -c -o $@ $<
 
 tests/%.o: tests/%.cpp
-	$(CXX) $(CXXFLAGS) $(GTEST_CFLAGS) -I. -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(GTEST_CFLAGS) -I. -MMD -MP -c -o $@ $<
+
+# Include auto-generated dependency files (if they exist)
+-include $(OBJS:.o=.d) \
+         $(TEST_TRIPLET_OBJS:.o=.d) \
+         $(TEST_CONFIG_OBJS:.o=.d) \
+         $(TEST_YAML_OBJS:.o=.d) \
+         $(TEST_DISCOVERY_OBJS:.o=.d) \
+         $(TEST_ENTITY_OBJS:.o=.d)
 
 clean:
 	rm -f $(OBJS) $(TARGET) \
@@ -84,4 +92,10 @@ clean:
 	      $(TEST_CONFIG_OBJS) $(TEST_CONFIG_TARGET) \
 	      $(TEST_YAML_OBJS) $(TEST_YAML_TARGET) \
 	      $(TEST_DISCOVERY_OBJS) $(TEST_DISCOVERY_TARGET) \
-	      $(TEST_ENTITY_OBJS) $(TEST_ENTITY_TARGET)
+	      $(TEST_ENTITY_OBJS) $(TEST_ENTITY_TARGET) \
+	      $(OBJS:.o=.d) \
+	      $(TEST_TRIPLET_OBJS:.o=.d) \
+	      $(TEST_CONFIG_OBJS:.o=.d) \
+	      $(TEST_YAML_OBJS:.o=.d) \
+	      $(TEST_DISCOVERY_OBJS:.o=.d) \
+	      $(TEST_ENTITY_OBJS:.o=.d)

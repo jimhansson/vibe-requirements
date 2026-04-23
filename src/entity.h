@@ -63,21 +63,32 @@ typedef struct {
     int  count;               /**< number of tags stored                 */
 } TagComponent;
 
-/** User-story fields — present when kind == ENTITY_KIND_STORY. */
+/**
+ * User-story component — can be attached to any entity.
+ * An entity becomes a user story by carrying this component.
+ */
 typedef struct {
-    char as_a[256];     /**< "As a <role>"        */
-    char i_want[512];   /**< "I want <feature>"   */
-    char so_that[512];  /**< "So that <benefit>"  */
+    char role[256];    /**< "As a <role>"        (YAML: "role" or legacy "as_a")   */
+    char goal[512];    /**< "I want <goal>"      (YAML: "goal" or legacy "i_want") */
+    char reason[512];  /**< "So that <reason>"   (YAML: "reason" or legacy "so_that") */
 } UserStoryComponent;
 
 /** Maximum byte size of the acceptance-criteria store. */
 #define AC_STORE_LEN 2048
 
-/** Acceptance criteria — attached to stories or requirements. */
+/**
+ * Acceptance-criteria component — can be attached to any entity.
+ * Stores each criterion as a newline-separated flat string.
+ */
 typedef struct {
     char criteria[AC_STORE_LEN]; /**< newline-separated acceptance criteria */
     int  count;                  /**< number of criteria stored             */
 } AcceptanceCriteriaComponent;
+
+/** Epic-membership component — records which epic an entity belongs to. */
+typedef struct {
+    char epic_id[64]; /**< entity-id of the parent epic (YAML: "epic") */
+} EpicMembershipComponent;
 
 /**
  * Assumption component — can be attached to any entity.
@@ -130,8 +141,9 @@ typedef struct {
  *   - tags       — optional tag list
  *
  * Sparse / optional components (zero if absent):
- *   - user_story           — kind == ENTITY_KIND_STORY
- *   - acceptance_criteria  — kind == ENTITY_KIND_STORY or REQUIREMENT
+ *   - user_story           — any entity can become a user story by carrying this
+ *   - acceptance_criteria  — any entity can carry acceptance criteria
+ *   - epic_membership      — any entity can belong to an epic
  *   - assumption           — any entity carrying an "assumption:" mapping
  *   - constraint           — any entity carrying a "constraint:" mapping
  *   - doc_body             — kind == ENTITY_KIND_DESIGN_NOTE / SECTION
@@ -145,6 +157,7 @@ typedef struct {
     /* Optional / sparse components */
     UserStoryComponent         user_story;
     AcceptanceCriteriaComponent acceptance_criteria;
+    EpicMembershipComponent    epic_membership;
     AssumptionComponent        assumption;
     ConstraintComponent        constraint;
     DocumentBodyComponent      doc_body;
