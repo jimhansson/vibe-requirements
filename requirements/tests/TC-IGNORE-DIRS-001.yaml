@@ -26,3 +26,7 @@ verification_method: test
 links:
   - id: REQ-005
     relation: verifies
+  - artefact: src/tests/test_discovery_ignore.cpp
+    relation: implemented-by
+  - artefact: src/tests/test_discovery_ignore.cpp#DiscoveryIgnoreTest.IgnoredDirNotScanned
+    relation: implemented-by-test
