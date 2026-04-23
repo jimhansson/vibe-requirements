@@ -315,8 +315,8 @@ static int append_trace_entry(char *buf, size_t buf_size, int *count,
     size_t cur_len = strlen(buf);
     size_t t_len   = strlen(target);
     size_t r_len   = strlen(relation);
-    /* Need: [leading newline] + target + '\t' + relation + NUL */
-    size_t need = t_len + 1u + r_len + (cur_len > 0 ? 1u : 0u);
+    /* Need: [leading newline] + target + '\t' + relation + NUL (1 byte) */
+    size_t need = t_len + 1u + r_len + 1u + (cur_len > 0 ? 1u : 0u);
 
     if (cur_len + need >= buf_size)
         return 0;

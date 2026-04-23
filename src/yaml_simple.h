@@ -60,8 +60,6 @@ int yaml_parse_links(const char *path, const char *subject_id,
  *   traceability (sequence)          → traceability component {entries, count}
  *   body                             → doc_body.body
  *
- *   traceability (sequence)           → traceability component {entries, count}
- *
  * The user_story, epic_membership, acceptance_criteria, assumption,
  * constraint, and traceability components may appear on any entity,
  * regardless of the "type" field value.
