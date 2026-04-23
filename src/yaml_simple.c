@@ -374,19 +374,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
             COPY_FIELD_IF_MATCH("so_that",         out->user_story.reason,        sizeof(out->user_story.reason))
             /* epic-membership component */
             COPY_FIELD_IF_MATCH("epic",            out->epic_membership.epic_id,  sizeof(out->epic_membership.epic_id))
-            COPY_FIELD_IF_MATCH("risk_if_false",   out->assumption.risk_if_false, sizeof(out->assumption.risk_if_false))
-            COPY_FIELD_IF_MATCH("constraint_type", out->constraint.constraint_type, sizeof(out->constraint.constraint_type))
             COPY_FIELD_IF_MATCH("body",            out->doc_body.body,            sizeof(out->doc_body.body))
-
-            /* "statement" goes to assumption or constraint depending on kind
-             * (kind is derived after all fields are read; store in both and
-             * let the caller use the right one, or we defer kind derivation).
-             * We store it in both slots and zero the wrong one afterwards.   */
-            if (strcmp(key, "statement") == 0) {
-                copy_field(out->assumption.statement,  sizeof(out->assumption.statement),  val);
-                copy_field(out->constraint.statement,  sizeof(out->constraint.statement),  val);
-                continue;
-            }
 
 #undef COPY_FIELD_IF_MATCH
         }
@@ -407,16 +395,52 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 continue;
             }
         }
+
+        /* Mapping fields — assumption and constraint components */
+        if (val_node && val_node->type == YAML_MAPPING_NODE) {
+            if (strcmp(key, "assumption") == 0) {
+                yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
+                yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
+                for (; sp < se; sp++) {
+                    yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                    yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                    if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                    if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                    const char *skey = (const char *)sk->data.scalar.value;
+                    const char *sval = (const char *)sv->data.scalar.value;
+                    if (strcmp(skey, "text") == 0)
+                        copy_field(out->assumption.text,   sizeof(out->assumption.text),   sval);
+                    else if (strcmp(skey, "status") == 0)
+                        copy_field(out->assumption.status, sizeof(out->assumption.status), sval);
+                    else if (strcmp(skey, "source") == 0)
+                        copy_field(out->assumption.source, sizeof(out->assumption.source), sval);
+                }
+                continue;
+            }
+            if (strcmp(key, "constraint") == 0) {
+                yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
+                yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
+                for (; sp < se; sp++) {
+                    yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                    yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                    if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                    if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                    const char *skey = (const char *)sk->data.scalar.value;
+                    const char *sval = (const char *)sv->data.scalar.value;
+                    if (strcmp(skey, "text") == 0)
+                        copy_field(out->constraint.text,   sizeof(out->constraint.text),   sval);
+                    else if (strcmp(skey, "kind") == 0)
+                        copy_field(out->constraint.kind,   sizeof(out->constraint.kind),   sval);
+                    else if (strcmp(skey, "source") == 0)
+                        copy_field(out->constraint.source, sizeof(out->constraint.source), sval);
+                }
+                continue;
+            }
+        }
     }
 
-    /* Derive kind from type_raw now that all scalar fields have been read. */
+    /* Derive kind from type_raw now that all fields have been read. */
     out->identity.kind = entity_kind_from_string(out->identity.type_raw);
-
-    /* Zero the "statement" field in the component that does not apply. */
-    if (out->identity.kind != ENTITY_KIND_CONSTRAINT)
-        memset(out->constraint.statement, 0, sizeof(out->constraint.statement));
-    if (out->identity.kind != ENTITY_KIND_ASSUMPTION)
-        memset(out->assumption.statement, 0, sizeof(out->assumption.statement));
 }
 
 int yaml_parse_entity(const char *path, Entity *out)

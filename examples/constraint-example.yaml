@@ -4,12 +4,14 @@ type: constraint
 status: approved
 owner: security-team
 version: "1.0"
-constraint_type: technical
-statement: |
-  Every network connection between the system and any external service
-  or client MUST be protected by TLS version 1.3 or higher.
-  TLS 1.2 is allowed only for legacy integrations that cannot be
-  upgraded, and only with written sign-off from the security team.
+constraint:
+  text: |
+    Every network connection between the system and any external service
+    or client MUST be protected by TLS version 1.3 or higher.
+    TLS 1.2 is allowed only for legacy integrations that cannot be
+    upgraded, and only with written sign-off from the security team.
+  kind: technical
+  source: SEC-POLICY-001
 rationale: |
   TLS 1.3 eliminates several known vulnerabilities present in earlier
   versions (e.g. BEAST, POODLE, CRIME) and reduces handshake latency.

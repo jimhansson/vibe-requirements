@@ -51,12 +51,17 @@ int yaml_parse_links(const char *path, const char *subject_id,
  *   status, priority, owner, version → lifecycle
  *   description, rationale           → text
  *   tags (sequence)                  → tags (newline-joined)
- *   as_a, i_want, so_that            → user_story
+ *   role, goal, reason               → user_story (canonical keys)
+ *   as_a, i_want, so_that            → user_story (legacy aliases)
+ *   epic                             → epic_membership.epic_id
  *   acceptance_criteria (sequence)   → acceptance_criteria (newline-joined)
- *   statement                        → assumption.statement or constraint.statement
- *   risk_if_false                    → assumption.risk_if_false
- *   constraint_type                  → constraint.constraint_type
+ *   assumption (mapping)             → assumption component {text, status, source}
+ *   constraint (mapping)             → constraint component {text, kind, source}
  *   body                             → doc_body.body
+ *
+ * The user_story, epic_membership, acceptance_criteria, assumption, and
+ * constraint components may appear on any entity, regardless of the "type"
+ * field value.
  *
  * Returns  0 on success (file has at least a top-level "id:" field).
  * Returns -1 if the file cannot be opened or contains no "id:" field.
