@@ -1,10 +1,1 @@
-*.o
-*.d
-vibe-req
-tests/test_triplet_store
-tests/test_config
-tests/test_yaml_simple
-tests/test_discovery_ignore
-tests/test_entity
-tests/test_report
-tests/test_new_cmd
+build/
