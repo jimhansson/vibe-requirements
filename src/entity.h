@@ -371,7 +371,7 @@ typedef struct {
     AttachmentComponent        attachment;
 } Entity;
 
-/** Dynamic array of Entity records (mirrors RequirementList). */
+/** Dynamic array of Entity records. */
 typedef struct {
     Entity *items;    /**< heap-allocated array of entities */
     int     count;    /**< number of valid entries          */

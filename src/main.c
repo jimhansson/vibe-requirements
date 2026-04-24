@@ -1,10 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dirent.h>
-#include <sys/stat.h>
 
-#include "requirement.h"
 #include "entity.h"
 #include "discovery.h"
 #include "config.h"
@@ -12,104 +9,6 @@
 #include "triplet_store_c.h"
 #include "report.h"
 #include "new_cmd.h"
-
-/* ------------------------------------------------------------------ */
-/* Comparison helper for qsort — sort requirements by ID.             */
-/* ------------------------------------------------------------------ */
-
-static int cmp_by_id(const void *a, const void *b)
-{
-    const Requirement *ra = (const Requirement *)a;
-    const Requirement *rb = (const Requirement *)b;
-    return strcmp(ra->id, rb->id);
-}
-
-/* ------------------------------------------------------------------ */
-/* Table rendering — requirements                                      */
-/* ------------------------------------------------------------------ */
-
-#define TITLE_MAX_DISPLAY 52  /* truncate long titles to this width */
-
-static void print_rule(int id_w, int title_w, int type_w,
-                        int status_w, int priority_w)
-{
-    int widths[] = { id_w, title_w, type_w, status_w, priority_w };
-    int ncols    = (int)(sizeof(widths) / sizeof(widths[0]));
-    for (int c = 0; c < ncols; c++) {
-        putchar('+');
-        for (int i = 0; i < widths[c] + 2; i++)
-            putchar('-');
-    }
-    puts("+");
-}
-
-static void print_row(int id_w, int title_w, int type_w,
-                       int status_w, int priority_w,
-                       const char *id, const char *title,
-                       const char *type, const char *status,
-                       const char *priority)
-{
-    /* Truncate title if it exceeds display width. */
-    char tbuf[TITLE_MAX_DISPLAY + 1];
-    strncpy(tbuf, title, sizeof(tbuf) - 1);
-    tbuf[sizeof(tbuf) - 1] = '\0';
-    if ((int)strlen(title) > title_w) {
-        tbuf[title_w - 3] = '.';
-        tbuf[title_w - 2] = '.';
-        tbuf[title_w - 1] = '.';
-        tbuf[title_w]     = '\0';
-    }
-
-    printf("| %-*s | %-*s | %-*s | %-*s | %-*s |\n",
-           id_w,       id,
-           title_w,    tbuf,
-           type_w,     type,
-           status_w,   status,
-           priority_w, priority);
-}
-
-static void list_requirements(const RequirementList *list)
-{
-    if (list->count == 0) {
-        puts("No requirements found.");
-        return;
-    }
-
-    /* Determine column widths from data. */
-    int id_w       = (int)strlen("ID");
-    int title_w    = (int)strlen("Title");
-    int type_w     = (int)strlen("Type");
-    int status_w   = (int)strlen("Status");
-    int priority_w = (int)strlen("Priority");
-
-    for (int i = 0; i < list->count; i++) {
-        const Requirement *r = &list->items[i];
-        int len;
-        len = (int)strlen(r->id);       if (len > id_w)       id_w       = len;
-        len = (int)strlen(r->title);    if (len > title_w)    title_w    = len;
-        len = (int)strlen(r->type);     if (len > type_w)     type_w     = len;
-        len = (int)strlen(r->status);   if (len > status_w)   status_w   = len;
-        len = (int)strlen(r->priority); if (len > priority_w) priority_w = len;
-    }
-
-    /* Cap title column. */
-    if (title_w > TITLE_MAX_DISPLAY)
-        title_w = TITLE_MAX_DISPLAY;
-
-    print_rule(id_w, title_w, type_w, status_w, priority_w);
-    print_row(id_w, title_w, type_w, status_w, priority_w,
-              "ID", "Title", "Type", "Status", "Priority");
-    print_rule(id_w, title_w, type_w, status_w, priority_w);
-
-    for (int i = 0; i < list->count; i++) {
-        const Requirement *r = &list->items[i];
-        print_row(id_w, title_w, type_w, status_w, priority_w,
-                  r->id, r->title, r->type, r->status, r->priority);
-    }
-
-    print_rule(id_w, title_w, type_w, status_w, priority_w);
-    printf("\nTotal: %d requirement(s)\n", list->count);
-}
 
 /* ------------------------------------------------------------------ */
 /* Table rendering — relations                                         */
@@ -197,29 +96,6 @@ static void list_relations(const TripletStore *store)
     printf("\nTotal: %zu relation(s)\n", all.count);
 
     triplet_store_list_free(all);
-}
-
-/* ------------------------------------------------------------------ */
-/* Build the triplet store from the parsed requirement list            */
-/* ------------------------------------------------------------------ */
-
-static TripletStore *build_relation_store(const RequirementList *list)
-{
-    TripletStore *store = triplet_store_create();
-    if (!store)
-        return NULL;
-
-    for (int i = 0; i < list->count; i++) {
-        const Requirement *r = &list->items[i];
-        if (yaml_parse_links(r->file_path, r->id, store) < 0)
-            fprintf(stderr, "warning: could not parse links from '%s'\n",
-                    r->file_path);
-    }
-
-    /* Generate inferred inverse triples for all known relation pairs. */
-    triplet_store_infer_inverses(store);
-
-    return store;
 }
 
 /* ------------------------------------------------------------------ */
@@ -841,66 +717,6 @@ static void entity_apply_filter(const EntityList *src, EntityList *dst,
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Discovery for entities                                              */
-/* ------------------------------------------------------------------ */
-
-static void walk_entities(const char *dir, EntityList *list,
-                           const VibeConfig *cfg)
-{
-    DIR *d = opendir(dir);
-    if (!d)
-        return;
-
-    struct dirent *entry;
-    while ((entry = readdir(d)) != NULL) {
-        const char *name = entry->d_name;
-
-        if (name[0] == '.')
-            continue;
-
-        char path[512];
-        int n = snprintf(path, sizeof(path), "%s/%s", dir, name);
-        if (n < 0 || (size_t)n >= sizeof(path)) {
-            fprintf(stderr, "warning: path too long, skipping: %s/%s\n",
-                    dir, name);
-            continue;
-        }
-
-        struct stat st;
-        if (stat(path, &st) != 0)
-            continue;
-
-        if (S_ISDIR(st.st_mode)) {
-            if (config_is_ignored_dir(cfg, name))
-                continue;
-            walk_entities(path, list, cfg);
-        } else if (S_ISREG(st.st_mode)) {
-            const char *dot = strrchr(name, '.');
-            if (!dot)
-                continue;
-            if (strcmp(dot, ".yaml") != 0 && strcmp(dot, ".yml") != 0)
-                continue;
-            if (yaml_parse_entities(path, list) < 0)
-                fprintf(stderr, "warning: could not parse: %s\n", path);
-        }
-    }
-
-    closedir(d);
-}
-
-static int discover_entities(const char *root_dir, EntityList *list,
-                              const VibeConfig *cfg)
-{
-    DIR *probe = opendir(root_dir);
-    if (!probe)
-        return -1;
-    closedir(probe);
-
-    walk_entities(root_dir, list, cfg);
-    return list->count;
-}
-
 int main(int argc, char *argv[])
 {
     /* Parse optional subcommand and directory arguments. */
@@ -1201,34 +1017,35 @@ int main(int argc, char *argv[])
     }
 
     /* ------------------------------------------------------------------
-     * Default / links / strict-links — legacy RequirementList path.
+     * Default / links / strict-links — ECS entity path.
      * ------------------------------------------------------------------ */
-    RequirementList list;
-    req_list_init(&list);
+    EntityList elist;
+    entity_list_init(&elist);
 
     VibeConfig cfg;
     /* config_load() returns -1 when .vibe-req.yaml is absent or unparseable,
      * which is perfectly valid — cfg is zeroed so discovery runs unfiltered. */
     config_load(root, &cfg);
 
-    int found = discover_requirements(root, &list, &cfg);
+    int found = discover_entities(root, &elist, &cfg);
     if (found < 0) {
         fprintf(stderr, "error: cannot open directory '%s'\n", root);
-        req_list_free(&list);
+        entity_list_free(&elist);
         return 1;
     }
 
     /* Sort alphabetically by ID before displaying. */
-    if (list.count > 1)
-        qsort(list.items, (size_t)list.count, sizeof(Requirement), cmp_by_id);
+    if (elist.count > 1)
+        qsort(elist.items, (size_t)elist.count, sizeof(Entity),
+              cmp_entity_by_id);
 
     int exit_code = 0;
 
     if (show_links || strict_links) {
-        TripletStore *store = build_relation_store(&list);
+        TripletStore *store = build_entity_relation_store(&elist);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
-            req_list_free(&list);
+            entity_list_free(&elist);
             return 1;
         }
         if (show_links)
@@ -1242,9 +1059,9 @@ int main(int argc, char *argv[])
         }
         triplet_store_destroy(store);
     } else {
-        list_requirements(&list);
+        list_entities(&elist);
     }
 
-    req_list_free(&list);
+    entity_list_free(&elist);
     return exit_code;
 }

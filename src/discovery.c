@@ -14,7 +14,7 @@ static int is_yaml(const char *name)
     return strcmp(dot, ".yaml") == 0 || strcmp(dot, ".yml") == 0;
 }
 
-static void walk(const char *dir, RequirementList *list, const VibeConfig *cfg)
+static void walk(const char *dir, EntityList *list, const VibeConfig *cfg)
 {
     DIR *d = opendir(dir);
     if (!d)
@@ -28,7 +28,7 @@ static void walk(const char *dir, RequirementList *list, const VibeConfig *cfg)
         if (name[0] == '.')
             continue;
 
-        char path[REQ_PATH_LEN];
+        char path[512];
         int n = snprintf(path, sizeof(path), "%s/%s", dir, name);
         if (n < 0 || (size_t)n >= sizeof(path)) {
             fprintf(stderr, "warning: path too long, skipping: %s/%s\n", dir, name);
@@ -45,7 +45,7 @@ static void walk(const char *dir, RequirementList *list, const VibeConfig *cfg)
                 continue;
             walk(path, list, cfg);
         } else if (S_ISREG(st.st_mode) && is_yaml(name)) {
-            if (yaml_parse_requirements(path, list) < 0)
+            if (yaml_parse_entities(path, list) < 0)
                 fprintf(stderr, "warning: could not parse: %s\n", path);
         }
     }
@@ -53,8 +53,8 @@ static void walk(const char *dir, RequirementList *list, const VibeConfig *cfg)
     closedir(d);
 }
 
-int discover_requirements(const char *root_dir, RequirementList *list,
-                          const VibeConfig *cfg)
+int discover_entities(const char *root_dir, EntityList *list,
+                      const VibeConfig *cfg)
 {
     /* Probe that the directory exists before recursing. */
     DIR *probe = opendir(root_dir);

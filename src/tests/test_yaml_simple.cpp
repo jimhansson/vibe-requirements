@@ -12,7 +12,6 @@
 
 extern "C" {
 #include "yaml_simple.h"
-#include "requirement.h"
 #include "triplet_store_c.h"
 }
 
@@ -33,7 +32,7 @@ static const char *write_yaml(const char *filename, const char *content)
 }
 
 /* -------------------------------------------------------------------------
- * Tests — yaml_parse_requirements (multi-document)
+ * Tests — yaml_parse_entities (multi-document)
  * ---------------------------------------------------------------------- */
 
 TEST(YamlSimpleTest, SingleDocument)
@@ -46,19 +45,18 @@ TEST(YamlSimpleTest, SingleDocument)
         "priority: must\n");
     ASSERT_NE(path, nullptr);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int rc = yaml_parse_requirements(path, &list);
+    int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 1);
     EXPECT_EQ(list.count, 1);
-    EXPECT_STREQ(list.items[0].id,       "REQ-001");
-    EXPECT_STREQ(list.items[0].title,    "Single document");
-    EXPECT_STREQ(list.items[0].type,     "functional");
-    EXPECT_STREQ(list.items[0].status,   "draft");
-    EXPECT_STREQ(list.items[0].priority, "must");
+    EXPECT_STREQ(list.items[0].identity.id,          "REQ-001");
+    EXPECT_STREQ(list.items[0].identity.title,        "Single document");
+    EXPECT_STREQ(list.items[0].lifecycle.status,      "draft");
+    EXPECT_STREQ(list.items[0].lifecycle.priority,    "must");
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 TEST(YamlSimpleTest, MultiDocument)
@@ -83,23 +81,23 @@ TEST(YamlSimpleTest, MultiDocument)
         "priority: could\n");
     ASSERT_NE(path, nullptr);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int rc = yaml_parse_requirements(path, &list);
+    int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 3);
     EXPECT_EQ(list.count, 3);
 
-    EXPECT_STREQ(list.items[0].id,    "REQ-001");
-    EXPECT_STREQ(list.items[0].title, "First requirement");
+    EXPECT_STREQ(list.items[0].identity.id,    "REQ-001");
+    EXPECT_STREQ(list.items[0].identity.title, "First requirement");
 
-    EXPECT_STREQ(list.items[1].id,    "REQ-002");
-    EXPECT_STREQ(list.items[1].title, "Second requirement");
+    EXPECT_STREQ(list.items[1].identity.id,    "REQ-002");
+    EXPECT_STREQ(list.items[1].identity.title, "Second requirement");
 
-    EXPECT_STREQ(list.items[2].id,    "REQ-003");
-    EXPECT_STREQ(list.items[2].title, "Third requirement");
+    EXPECT_STREQ(list.items[2].identity.id,    "REQ-003");
+    EXPECT_STREQ(list.items[2].identity.title, "Third requirement");
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 TEST(YamlSimpleTest, MultiDocumentSkipsNoId)
@@ -115,28 +113,28 @@ TEST(YamlSimpleTest, MultiDocumentSkipsNoId)
         "title: Also has id\n");
     ASSERT_NE(path, nullptr);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int rc = yaml_parse_requirements(path, &list);
+    int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 2);
     EXPECT_EQ(list.count, 2);
-    EXPECT_STREQ(list.items[0].id, "REQ-001");
-    EXPECT_STREQ(list.items[1].id, "REQ-003");
+    EXPECT_STREQ(list.items[0].identity.id, "REQ-001");
+    EXPECT_STREQ(list.items[1].identity.id, "REQ-003");
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 TEST(YamlSimpleTest, NonexistentFile)
 {
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int rc = yaml_parse_requirements("/tmp/no_such_file_xyz.yaml", &list);
+    int rc = yaml_parse_entities("/tmp/no_such_file_xyz.yaml", &list);
     EXPECT_EQ(rc, -1);
     EXPECT_EQ(list.count, 0);
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 TEST(YamlSimpleTest, FilePathStoredPerDocument)
@@ -149,16 +147,16 @@ TEST(YamlSimpleTest, FilePathStoredPerDocument)
         "title: Second\n");
     ASSERT_NE(path, nullptr);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    yaml_parse_requirements(path, &list);
+    yaml_parse_entities(path, &list);
     EXPECT_EQ(list.count, 2);
-    /* Both requirements should record the same file path. */
-    EXPECT_STREQ(list.items[0].file_path, path);
-    EXPECT_STREQ(list.items[1].file_path, path);
+    /* Both entities should record the same file path. */
+    EXPECT_STREQ(list.items[0].identity.file_path, path);
+    EXPECT_STREQ(list.items[1].identity.file_path, path);
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 /* -------------------------------------------------------------------------
