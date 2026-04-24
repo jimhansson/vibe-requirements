@@ -169,7 +169,7 @@ typedef struct {
 } DocumentMembershipComponent;
 
 /** Maximum byte size of the document body store. */
-#define DOCBODY_LEN 4096
+#define DOCBODY_LEN 65536
 
 /** Document body — present when kind == ENTITY_KIND_DESIGN_NOTE / SECTION. */
 typedef struct {

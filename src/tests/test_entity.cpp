@@ -9,6 +9,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 extern "C" {
 #include "entity.h"
@@ -868,6 +869,94 @@ TEST(YamlParseEntityTest, AnyEntityCanCarryDocumentComponents)
     EXPECT_STREQ(e.doc_meta.client,     "MegaCorp");
     EXPECT_EQ(e.doc_membership.count,   1);
     EXPECT_NE(strstr(e.doc_membership.doc_ids, "SRS-MEGA-001"), nullptr);
+}
+
+/* =========================================================================
+ * Tests — DocumentBodyComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, DocumentBodyShortContent)
+{
+    /* A design-note entity with a short body field. */
+    const char *path = write_yaml("ent_doc_body_short.yaml",
+        "id: DN-001\n"
+        "title: Short design note\n"
+        "type: design-note\n"
+        "body: This is a short body text.\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id,    "DN-001");
+    EXPECT_EQ(e.identity.kind,     ENTITY_KIND_DESIGN_NOTE);
+    EXPECT_STREQ(e.doc_body.body,  "This is a short body text.");
+    EXPECT_EQ(entity_has_component(&e, "doc-body"), 1);
+    EXPECT_EQ(entity_has_component(&e, "body"),     1);
+}
+
+TEST(YamlParseEntityTest, DocumentBodyLargeContent)
+{
+    /* Build a body string larger than the old 4096-byte limit. */
+    std::string large_body(8192, 'A');  /* 8 KB — exceeds old 4096-byte cap */
+    std::string yaml_content =
+        "id: DN-LARGE-001\n"
+        "title: Large design note\n"
+        "type: design-note\n"
+        "body: " + large_body + "\n";
+
+    const char *path = write_yaml("ent_doc_body_large.yaml",
+                                   yaml_content.c_str());
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id, "DN-LARGE-001");
+    EXPECT_EQ(e.identity.kind,  ENTITY_KIND_DESIGN_NOTE);
+    /* Body must be stored in full — length matches the generated string. */
+    EXPECT_EQ((int)strlen(e.doc_body.body), 8192);
+    EXPECT_EQ(entity_has_component(&e, "doc-body"), 1);
+}
+
+TEST(YamlParseEntityTest, DocumentBodyNearMaxContent)
+{
+    /* Build a body string near the new DOCBODY_LEN (65536) limit. */
+    std::string large_body(60000, 'B');  /* ~60 KB — near the 64 KB cap */
+    std::string yaml_content =
+        "id: DN-NEARMAX-001\n"
+        "title: Near-max design note\n"
+        "type: design-note\n"
+        "body: " + large_body + "\n";
+
+    const char *path = write_yaml("ent_doc_body_nearmax.yaml",
+                                   yaml_content.c_str());
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id, "DN-NEARMAX-001");
+    EXPECT_EQ(e.identity.kind,  ENTITY_KIND_DESIGN_NOTE);
+    /* Body must be stored in full — length matches the generated string. */
+    EXPECT_EQ((int)strlen(e.doc_body.body), 60000);
+    EXPECT_EQ(entity_has_component(&e, "doc-body"), 1);
+}
+
+TEST(YamlParseEntityTest, DocumentBodyEmptyWhenAbsent)
+{
+    /* Entities without a body key have an empty doc_body component. */
+    const char *path = write_yaml("ent_no_doc_body.yaml",
+        "id: REQ-013\n"
+        "title: Requirement without body\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.doc_body.body[0], '\0');
+    EXPECT_EQ(entity_has_component(&e, "doc-body"), 0);
 }
 
 /* =========================================================================
