@@ -1,0 +1,58 @@
+id: TC-NEW-CMD-001
+type: test-case
+title: "new command: YAML scaffold creation for all supported entity types"
+status: draft
+description: |
+  Verify that new_cmd_scaffold(type, id, dir) correctly creates a YAML
+  skeleton file for each supported entity type (requirement, functional,
+  non-functional, group, story, user-story, design-note, design, section,
+  assumption, constraint, test-case, test, external, directive, standard,
+  regulation, document, srs, sdd), populates mandatory and type-specific
+  fields (id, type, status: draft, priority, role/goal/reason,
+  preconditions/steps, clauses, doc_meta, etc.), rejects unknown types, and
+  handles edge cases (null/empty type, null/empty id, pre-existing file,
+  null/empty directory).
+preconditions:
+  - new_cmd.c and entity.c are compiled and linked.
+  - /tmp is writable and pre-existing test files are cleaned up before each
+    test.
+steps:
+  - Call new_cmd_scaffold() with an unknown type string; verify rc == -3 and
+    no file is created.
+  - Call new_cmd_scaffold() with null and empty type/id; verify rc == -3.
+  - Call new_cmd_scaffold() when the target file already exists; verify
+    rc == -1.
+  - Call new_cmd_scaffold() for each supported type alias; verify rc == 0,
+    the file exists, contains the correct id and type fields, and includes
+    status set to draft.
+  - Verify content spot-checks — requirement has priority set to must; story
+    has role, goal, reason, and acceptance_criteria fields; test-case has
+    preconditions, steps, and expected_result fields; external has a clauses
+    field; document has a doc_meta block; design-note has a body field.
+  - Call with null directory and empty directory; verify the file is created
+    in the current working directory.
+expected_results:
+  - Return code 0 on success, -1 if file exists, -3 for invalid inputs.
+  - Scaffolded YAML files contain all required top-level fields for the
+    requested type.
+  - No file is created on error.
+verification_method: test
+links:
+  - id: REQ-051
+    relation: verifies
+  - id: REQ-010
+    relation: verifies
+  - id: REQ-011
+    relation: verifies
+  - id: REQ-013
+    relation: verifies
+  - id: REQ-015
+    relation: verifies
+  - id: DESIGN-CH-7-1
+    relation: verifies
+  - artefact: src/tests/test_new_cmd.cpp
+    relation: implemented-by
+  - artefact: src/tests/test_new_cmd.cpp#NewCmdScaffoldTest.CreatesFileWithCorrectContent
+    relation: implemented-by-test
+  - artefact: src/tests/test_new_cmd.cpp#NewCmdContentTest.TestCaseHasPreconditionsAndSteps
+    relation: implemented-by-test

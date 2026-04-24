@@ -1,0 +1,49 @@
+id: TC-TRIPLET-STORE-001
+type: test-case
+title: "TripletStore: add, query, deduplication, inferred inverses, and lifecycle"
+status: draft
+description: |
+  Verify that the TripletStore (C++ implementation with C bridge) correctly
+  adds, retrieves, queries, and deduplicates (subject, predicate, object)
+  triples; that triplet_store_find_by_subject(), triplet_store_find_by_object(),
+  and triplet_store_find_by_predicate() return the expected result sets; that
+  triplet_store_infer_inverses() generates correct inverse triples marked as
+  inferred; and that create/destroy lifecycle is free of memory errors.
+preconditions:
+  - triplet_store.cpp and triplet_store_c.cpp are compiled and linked.
+  - No external runtime dependencies beyond the C++ standard library.
+steps:
+  - Create a store; verify it is non-null and initially empty.
+  - Add several triples with distinct subjects, predicates, and objects;
+    verify retrieval by each index axis.
+  - Add the same triple twice; verify deduplication (count does not increase).
+  - Call triplet_store_find_by_subject() for a subject with multiple outgoing
+    links; verify the returned list contains exactly those triples.
+  - Call triplet_store_find_by_object() for an object that is the target of
+    multiple subjects; verify the returned list.
+  - Call triplet_store_infer_inverses(); verify that for a declared
+    (A, implements, B) triple the inferred inverse (B, implemented-by, A) is
+    added and marked inferred.
+  - Verify that triplet_store_list_free() and triplet_store_destroy() can be
+    called without errors.
+expected_results:
+  - All add/query operations return consistent results.
+  - Duplicate triples are silently deduplicated.
+  - Inferred inverses are marked as such and do not duplicate declared triples.
+  - No memory errors on destroy.
+verification_method: test
+links:
+  - id: DESIGN-CH-5
+    relation: verifies
+  - id: DESIGN-CH-5-1
+    relation: verifies
+  - id: REQ-030
+    relation: verifies
+  - id: REQ-031
+    relation: verifies
+  - id: REQ-032
+    relation: verifies
+  - id: REQ-034
+    relation: verifies
+  - artefact: src/tests/test_triplet_store.cpp
+    relation: implemented-by
