@@ -10,15 +10,7 @@ extern "C" {
 #endif
 
 /**
- * Output format for the report command.
- */
-typedef enum {
-    REPORT_FORMAT_MARKDOWN = 0, /**< Markdown (.md) output    */
-    REPORT_FORMAT_HTML          /**< HTML (.html) output       */
-} ReportFormat;
-
-/**
- * Write a human-readable report of *list to *out.
+ * Write a human-readable Markdown report of *list to *out.
  *
  * Entities are grouped by kind.  Each entity section includes:
  *   - ID and title heading
@@ -32,10 +24,9 @@ typedef enum {
  * @param out    destination stream (must be open for writing)
  * @param list   entity list to render (may be a filtered subset)
  * @param store  relation store for traceability links (may be NULL)
- * @param format REPORT_FORMAT_MARKDOWN or REPORT_FORMAT_HTML
  */
 void report_write(FILE *out, const EntityList *list,
-                  const TripletStore *store, ReportFormat format);
+                  const TripletStore *store);
 
 #ifdef __cplusplus
 } /* extern "C" */

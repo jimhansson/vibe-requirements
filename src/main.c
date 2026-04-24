@@ -919,7 +919,6 @@ int main(int argc, char *argv[])
     const char *filter_priority = NULL;
 
     /* Report-specific options. */
-    ReportFormat report_format = REPORT_FORMAT_MARKDOWN;
     const char  *report_output = NULL; /* NULL = stdout */
 
     int arg_idx = 1;
@@ -942,9 +941,9 @@ int main(int argc, char *argv[])
             printf("  orphan          List requirements and test cases with no traceability\n");
             printf("                  links in either direction.\n");
             printf("                  Example: %s orphan\n", argv[0]);
-            printf("  report          Generate a Markdown or HTML report of all entities.\n");
-            printf("                  Use --format and filter flags to customise output.\n");
-            printf("                  Example: %s report --format html --output report.html\n\n",
+            printf("  report          Generate a Markdown report of all entities.\n");
+            printf("                  Use --output and filter flags to customise output.\n");
+            printf("                  Example: %s report --output report.md\n\n",
                    argv[0]);
             printf("Filter options (for 'list' / 'entities' / 'report'):\n");
             printf("  --kind <kind>        Show only entities of the given kind.\n");
@@ -960,7 +959,6 @@ int main(int argc, char *argv[])
             printf("  --status <status>    Show only entities with the given lifecycle status.\n");
             printf("  --priority <prio>    Show only entities with the given priority.\n\n");
             printf("Report options (for 'report'):\n");
-            printf("  --format <fmt>  Output format: md (default) or html.\n");
             printf("  --output <file> Write report to <file> instead of stdout.\n\n");
             printf("Other options:\n");
             printf("  --strict-links  Warn when a known relation is declared in only one\n");
@@ -1026,23 +1024,6 @@ int main(int argc, char *argv[])
                 return 1;
             }
             filter_priority = argv[++i];
-        } else if (strcmp(argv[i], "--format") == 0) {
-            if (i + 1 >= argc) {
-                fprintf(stderr, "error: '--format' requires a value (md or html)\n");
-                return 1;
-            }
-            ++i;
-            if (strcmp(argv[i], "html") == 0) {
-                report_format = REPORT_FORMAT_HTML;
-            } else if (strcmp(argv[i], "md") == 0 ||
-                       strcmp(argv[i], "markdown") == 0) {
-                report_format = REPORT_FORMAT_MARKDOWN;
-            } else {
-                fprintf(stderr,
-                        "error: unknown format '%s' — use 'md' or 'html'\n",
-                        argv[i]);
-                return 1;
-            }
         } else if (strcmp(argv[i], "--output") == 0) {
             if (i + 1 >= argc) {
                 fprintf(stderr, "error: '--output' requires a file path\n");
@@ -1129,7 +1110,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            report_write(out, src, store, report_format);
+            report_write(out, src, store);
 
             if (report_output)
                 fclose(out);
