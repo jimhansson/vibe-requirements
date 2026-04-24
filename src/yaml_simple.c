@@ -431,7 +431,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                                  &out->doc_membership.count);
                 continue;
             }
-            if (strcmp(key, "traceability") == 0) {
+            if (strcmp(key, "traceability") == 0 || strcmp(key, "links") == 0) {
                 yaml_node_item_t *item = val_node->data.sequence.items.start;
                 yaml_node_item_t *top  = val_node->data.sequence.items.top;
                 for (; item < top; item++) {

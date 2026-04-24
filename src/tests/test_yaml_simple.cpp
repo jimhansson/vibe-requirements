@@ -272,3 +272,69 @@ TEST(YamlSimpleTest, LinksArtefactKey)
     triplet_store_list_free(list);
     triplet_store_destroy(store);
 }
+
+/* -------------------------------------------------------------------------
+ * Tests — yaml_parse_entity with "links:" as an alias for "traceability:"
+ * ---------------------------------------------------------------------- */
+
+TEST(YamlSimpleTest, EntityLinksKeyAliasForTraceability)
+{
+    /* When a YAML entity uses "links:" instead of "traceability:", the
+     * entity parser must still populate the TraceabilityComponent. */
+    const char *path = write_yaml("test_entity_links_alias.yaml",
+        "id: TC-ALIAS-001\n"
+        "title: Test case using legacy links key\n"
+        "type: test-case\n"
+        "status: draft\n"
+        "links:\n"
+        "  - id: REQ-005\n"
+        "    relation: verifies\n"
+        "  - artefact: src/tests/test_foo.cpp\n"
+        "    relation: implemented-by\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    ASSERT_EQ(rc, 0);
+
+    EXPECT_STREQ(e.identity.id, "TC-ALIAS-001");
+    EXPECT_EQ(e.traceability.count, 2);
+    EXPECT_NE(strstr(e.traceability.entries, "REQ-005"),           nullptr);
+    EXPECT_NE(strstr(e.traceability.entries, "verifies"),          nullptr);
+    EXPECT_NE(strstr(e.traceability.entries, "src/tests/test_foo.cpp"), nullptr);
+    EXPECT_NE(strstr(e.traceability.entries, "implemented-by"),    nullptr);
+}
+
+TEST(YamlSimpleTest, EntityLinksKeyLoadedIntoTripletStore)
+{
+    /* Verify that a "links:"-based entity populates the TripletStore
+     * via entity_traceability_to_triplets(). */
+    const char *path = write_yaml("test_entity_links_triplets.yaml",
+        "id: TC-ALIAS-002\n"
+        "title: Test entity traceability via links key\n"
+        "type: test-case\n"
+        "links:\n"
+        "  - id: REQ-010\n"
+        "    relation: verifies\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    ASSERT_EQ(rc, 0);
+    ASSERT_EQ(e.traceability.count, 1);
+
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    int added = entity_traceability_to_triplets(&e, store);
+    EXPECT_EQ(added, 1);
+
+    CTripleList list = triplet_store_find_by_subject(store, "TC-ALIAS-002");
+    ASSERT_EQ(list.count, 1u);
+    EXPECT_STREQ(list.triples[0].subject,   "TC-ALIAS-002");
+    EXPECT_STREQ(list.triples[0].predicate, "verifies");
+    EXPECT_STREQ(list.triples[0].object,    "REQ-010");
+
+    triplet_store_list_free(list);
+    triplet_store_destroy(store);
+}
