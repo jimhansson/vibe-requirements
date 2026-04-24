@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "report.h"
 #include "entity.h"
@@ -187,9 +188,10 @@ static void html_bullet_list(FILE *out, const char *label, const char *flat,
         size_t len = nl ? (size_t)(nl - p) : strlen(p);
         if (len > 0) {
             fprintf(out, "  <li>");
-            /* Use fwrite to handle the non-NUL-terminated slice, then
-             * escape character-by-character would require a copy; instead
-             * write slice via a temporary buffer on the stack.           */
+            /* Copy the entry into a fixed-size buffer for html_escape().
+             * Entries longer than 511 bytes are silently truncated; in
+             * practice all ECS store fields (TAG_STORE_LEN, AC_STORE_LEN,
+             * etc.) contain short strings well within this limit.          */
             char buf[512];
             size_t copy = len < sizeof(buf) - 1 ? len : sizeof(buf) - 1;
             memcpy(buf, p, copy);
@@ -410,9 +412,7 @@ void report_write(FILE *out, const EntityList *list,
             fprintf(out, "<h2>");
             /* Capitalise first letter */
             if (label[0] != '\0') {
-                char c = (char)(label[0] >= 'a' && label[0] <= 'z'
-                                ? label[0] - 32 : label[0]);
-                fputc(c, out);
+                fputc(toupper((unsigned char)label[0]), out);
                 html_escape(out, label + 1);
             }
             fprintf(out, "s (%d)</h2>\n\n", section_count);
@@ -421,8 +421,7 @@ void report_write(FILE *out, const EntityList *list,
             char heading[64];
             strncpy(heading, label, sizeof(heading) - 1);
             heading[sizeof(heading) - 1] = '\0';
-            if (heading[0] >= 'a' && heading[0] <= 'z')
-                heading[0] = (char)(heading[0] - 32);
+            heading[0] = (char)toupper((unsigned char)heading[0]);
             fprintf(out, "## %ss (%d)\n\n", heading, section_count);
         }
 
