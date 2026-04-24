@@ -1,0 +1,125 @@
+id: DESIGN-CH-2
+title: "File Format: YAML (Primary)"
+type: design-note
+status: approved
+tags:
+  - file-format
+  - yaml
+body: |
+  Related requirements: REQ-002, REQ-007, REQ-008.
+
+  A requirement file (e.g., `requirements/sw/REQ-SW-001.yaml`):
+
+  ```yaml
+  id: REQ-SW-001
+  title: "User authentication"
+  type: functional
+  status: approved
+  priority: high
+  description: |
+    The system shall authenticate users before granting access to any
+    protected resource.
+  rationale: |
+    Prevents unauthorized access in accordance with the project security policy.
+  verification: test
+  tags:
+    - security
+    - authentication
+  sources:
+    - external: EU-2016-679:article:32   # GDPR Article 32
+  links:
+    - id: REQ-SW-002
+      relation: parent
+    - id: REQ-SYS-005
+      relation: derives-from
+    - artefact: src/auth/login.c
+      relation: implemented-in
+    - artefact: tests/auth/test_login.c
+      relation: verified-by
+  ```
+
+  The canonical format for an external source reference in any requirement
+  file is:
+
+  ```
+  <EXT-ID>:<section-type>:<section-number>
+  ```
+
+  Where `<section-type>` is one of `clause`, `article`, `annex`, or `section`,
+  and `<EXT-ID>` is the `id` field of the corresponding external normative
+  source document. Example: `EU-2016-679:article:32`,
+  `EN-ISO-13849-2023:clause:4.5.2`, `EXT-MACH-DIR:annex:I-1.1.2`.
+
+  An external normative source file (`external/EU-Machinery-Dir-2006-42-EC.yaml`):
+
+  ```yaml
+  id: EXT-MACH-DIR
+  title: "EU Machinery Directive 2006/42/EC"
+  type: directive
+  issuer: "European Parliament and of the Council"
+  year: 2006
+  clauses:
+    - id: annex-I-1.1.2
+      title: "Principles of safety integration"
+      summary: |
+        Machinery must be designed and constructed so that it is fitted for
+        its function and can be operated, adjusted, and maintained without
+        putting persons at risk.
+  ```
+
+  A test case file (e.g., `tests/TC-SW-001.yaml`):
+
+  ```yaml
+  id: TC-SW-001
+  title: "User authentication with valid credentials"
+  description: |
+    Verify that the system grants access to a protected resource when
+    a user provides valid credentials.
+  preconditions:
+    - A registered user account with username "testuser" exists.
+    - The protected resource endpoint is available.
+  steps:
+    - step: 1
+      action: "Submit a login request with username 'testuser' and the correct password."
+      expected_output: "The system returns an authentication token and HTTP 200."
+    - step: 2
+      action: "Use the authentication token to request the protected resource."
+      expected_output: "The system returns the resource content and HTTP 200."
+  expected_result: "The user gains access to the protected resource."
+  verification: test
+  status: approved
+  links:
+    - id: REQ-SW-001
+      relation: verifies
+  ```
+
+  YAML files may also contain multiple entities in one physical file using
+  YAML document separators:
+
+  ```yaml
+  ---
+  id: REQ-SW-001
+  title: "User authentication"
+  type: functional
+  status: approved
+  priority: high
+  description: |
+    The system shall authenticate users before granting access to protected resources.
+  ---
+  id: REQ-SW-002
+  title: "Session timeout"
+  type: non-functional
+  status: draft
+  priority: medium
+  description: |
+    The system shall expire inactive sessions after a configurable timeout.
+  ```
+
+  For multi-document YAML, each YAML document maps to exactly one entity.
+traceability:
+  - id: REQ-002
+    relation: elaborates
+  - id: REQ-007
+    relation: elaborates
+  - id: REQ-008
+    relation: elaborates

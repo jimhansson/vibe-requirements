@@ -1,0 +1,16 @@
+id: DESIGN-CH-4
+title: "Core Library Modules"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - modules
+body: |
+  | Module | Responsibility |
+  |---|---|
+  | `parser` | Reads and deserializes requirement files from disk; format-pluggable |
+  | `validator` | Checks schema correctness, required fields, unique IDs, and link integrity |
+  | `linker` | Builds the full link graph from all files in the repository |
+  | `reporter` | Renders reports (Markdown, HTML, plain text) from the in-memory model |
+  | `tracer` | Traverses the link graph to produce traceability chains |
+  | `exporter` | Converts the model to other representations (CSV, ReqIF, …) |

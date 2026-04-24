@@ -1,0 +1,54 @@
+id: DESIGN-CH-1
+title: "Architecture Overview"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - overview
+body: |
+  The tool discovers requirement files automatically by scanning the entire
+  repository for recognized file extensions (e.g., `.yaml`/`.yml` files
+  containing a top-level `id` field). Projects may optionally add a
+  `.vibe-req.yaml` configuration file at the repository root to provide glob
+  patterns that restrict or extend discovery. The directory layout below is
+  the **recommended convention** produced by `vibe-req init`; it is not
+  enforced:
+
+  ```
+  project-repo/
+  ├── requirements/
+  │   ├── sys/          # System-level requirements (recommended)
+  │   ├── sw/           # Software requirements (recommended)
+  │   ├── hw/           # Hardware requirements (recommended)
+  │   └── safety/       # Safety / regulatory requirements (recommended)
+  ├── stories/          # User stories (recommended)
+  ├── design/           # System design documents (SDD) (recommended)
+  ├── tests/            # Test cases (recommended)
+  ├── external/         # Normative references (standards, directives) (recommended)
+  └── .vibe-req.yaml    # Optional configuration (glob patterns, ID prefix, schema version, …)
+
+            ┌──────────────────────────────────────┐
+            │          vibe-req  (binary)          │
+            │                                      │
+            │  ┌─────────┐  ┌──────────────────┐   │
+            │  │   CLI   │  │   GUI (optional) │   │
+            │  └────┬────┘  └────────┬─────────┘   │
+            │       │                │             │
+            │  ┌────▼────────────────▼──────────┐  │
+            │  │         Core Library           │  │
+            │  │  parser · validator · linker   │  │
+            │  │  reporter · tracer             │  │
+            │  └────────────────────────────────┘  │
+            └──────────────┬───────────────────────┘
+                           │ reads / writes
+                      ┌────▼────┐
+                      │  files  │  (YAML, …)
+                      └─────────┘
+  ```
+traceability:
+  - id: REQ-001
+    relation: elaborates
+  - id: REQ-005
+    relation: elaborates
+  - id: REQ-006
+    relation: elaborates
