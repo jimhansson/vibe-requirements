@@ -153,6 +153,12 @@ void triplet_store_clear(TripletStore *store)
     if (store) to_cpp(store)->clear();
 }
 
+size_t triplet_store_compact(TripletStore *store)
+{
+    if (!store) return 0;
+    return to_cpp(store)->compact();
+}
+
 size_t triplet_store_infer_inverses(TripletStore *store)
 {
     if (!store) return 0;
@@ -209,4 +215,10 @@ size_t triplet_store_count(const TripletStore *store)
 {
     if (!store) return 0;
     return to_cpp(store)->count();
+}
+
+size_t triplet_store_slot_count(const TripletStore *store)
+{
+    if (!store) return 0;
+    return to_cpp(store)->slot_count();
 }

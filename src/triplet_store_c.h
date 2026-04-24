@@ -122,6 +122,24 @@ size_t triplet_store_remove_by_predicate(TripletStore *store,
 void triplet_store_clear(TripletStore *store);
 
 /**
+ * Compact the store by removing dead (nullopt) slots and reassigning
+ * consecutive IDs starting from 0.  After this call
+ * @c triplet_store_slot_count() == @c triplet_store_count().
+ *
+ * Any @c size_t ID obtained from @c triplet_store_add() before this call
+ * must be considered invalid and must not be passed to @c triplet_store_remove()
+ * or @c triplet_store_get() afterwards.
+ *
+ * The store also performs lazy (automatic) compaction internally whenever
+ * the dead-slot count reaches the built-in threshold; explicit calls are
+ * useful after a bulk-removal pass when the caller knows no live IDs are
+ * being held.
+ *
+ * @return  Number of dead slots reclaimed, or 0 when @p store is NULL.
+ */
+size_t triplet_store_compact(TripletStore *store);
+
+/**
  * For every user-declared triple (A, rel, B) in @p store where @c rel has a
  * known inverse @c inv(rel) in the built-in relation-pair registry, add a
  * synthetic triple (B, inv(rel), A) marked as inferred — unless an identical
@@ -188,6 +206,18 @@ void triplet_store_list_free(CTripleList list);
  * Returns 0 when @p store is NULL.
  */
 size_t triplet_store_count(const TripletStore *store);
+
+/**
+ * Return the total number of allocated slots in @p store, including dead
+ * (nullopt) slots left by previous removals.
+ *
+ * @c triplet_store_slot_count() - @c triplet_store_count() is the number of
+ * dead slots that a @c triplet_store_compact() call would reclaim.
+ * After @c triplet_store_compact() this equals @c triplet_store_count().
+ *
+ * Returns 0 when @p store is NULL.
+ */
+size_t triplet_store_slot_count(const TripletStore *store);
 
 #ifdef __cplusplus
 }
