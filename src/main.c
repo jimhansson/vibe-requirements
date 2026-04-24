@@ -945,7 +945,8 @@ int main(int argc, char *argv[])
             printf("                       Components: user-story, acceptance-criteria, epic,\n");
             printf("                                  assumption, constraint, doc-meta,\n");
             printf("                                  doc-membership, doc-body, traceability,\n");
-            printf("                                  tags\n");
+            printf("                                  tags, test-procedure, clause-collection,\n");
+            printf("                                  attachment\n");
             printf("  --status <status>    Show only entities with the given lifecycle status.\n");
             printf("  --priority <prio>    Show only entities with the given priority.\n\n");
             printf("Other options:\n");
