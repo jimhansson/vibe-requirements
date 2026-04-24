@@ -605,6 +605,62 @@ TEST(YamlParseEntityTest, TraceabilityEmptyWhenAbsent)
     EXPECT_EQ(e.traceability.entries[0], '\0');
 }
 
+TEST(YamlParseEntityTest, SourcesComponentMappingItems)
+{
+    /* Any entity can carry a sources component with mapping items. */
+    const char *path = write_yaml("ent_sources_mapping.yaml",
+        "id: REQ-SW-001\n"
+        "title: User authentication\n"
+        "type: functional\n"
+        "sources:\n"
+        "  - external: EU-2016-679:article:32\n"
+        "  - id: REQ-SYS-005\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.sources.count, 2);
+    EXPECT_NE(strstr(e.sources.sources, "EU-2016-679:article:32"), nullptr);
+    EXPECT_NE(strstr(e.sources.sources, "REQ-SYS-005"),            nullptr);
+}
+
+TEST(YamlParseEntityTest, SourcesComponentScalarItems)
+{
+    /* Sources component accepts plain scalar items too. */
+    const char *path = write_yaml("ent_sources_scalar.yaml",
+        "id: REQ-SW-002\n"
+        "title: Session timeout\n"
+        "type: functional\n"
+        "sources:\n"
+        "  - EN-ISO-13849-2023:clause:4.5.2\n"
+        "  - REQ-SYS-001\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.sources.count, 2);
+    EXPECT_NE(strstr(e.sources.sources, "EN-ISO-13849-2023:clause:4.5.2"), nullptr);
+    EXPECT_NE(strstr(e.sources.sources, "REQ-SYS-001"),                    nullptr);
+}
+
+TEST(YamlParseEntityTest, SourcesEmptyWhenAbsent)
+{
+    /* Entities without a sources key have a zero-initialised component. */
+    const char *path = write_yaml("ent_no_sources.yaml",
+        "id: REQ-004\n"
+        "title: No sources\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.sources.count, 0);
+    EXPECT_EQ(e.sources.sources[0], '\0');
+}
+
 /* =========================================================================
  * Tests — entity_traceability_to_triplets
  * ======================================================================= */
@@ -1077,6 +1133,16 @@ TEST(EntityHasComponentTest, TraceabilityAbsentAndPresent)
 
     e.traceability.count = 1;
     EXPECT_EQ(entity_has_component(&e, "traceability"), 1);
+}
+
+TEST(EntityHasComponentTest, SourcesAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "sources"), 0);
+
+    e.sources.count = 1;
+    EXPECT_EQ(entity_has_component(&e, "sources"), 1);
 }
 
 TEST(EntityHasComponentTest, TagsAbsentAndPresent)

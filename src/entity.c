@@ -144,6 +144,9 @@ int entity_has_component(const Entity *entity, const char *comp)
     if (strcmp(comp, "traceability") == 0)
         return entity->traceability.count > 0;
 
+    if (strcmp(comp, "sources") == 0)
+        return entity->sources.count > 0;
+
     if (strcmp(comp, "tags") == 0)
         return entity->tags.count > 0;
 
