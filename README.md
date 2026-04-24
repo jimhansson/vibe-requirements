@@ -1,5 +1,7 @@
 # vibe-requirements
 
+[![CI](https://github.com/jimhansson/vibe-requirements/actions/workflows/ci.yml/badge.svg)](https://github.com/jimhansson/vibe-requirements/actions/workflows/ci.yml)
+
 **vibe-requirements** is a "requirements as code" tool that stores all project
 requirements, user stories, test cases, assumptions, constraints, and design
 documents as plain YAML files inside a version-controlled repository.  A
