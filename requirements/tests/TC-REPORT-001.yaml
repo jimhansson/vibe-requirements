@@ -1,0 +1,53 @@
+id: TC-REPORT-001
+type: test-case
+title: "Report generation: Markdown and HTML output correctness"
+status: draft
+description: |
+  Verify that report_write() produces correct Markdown and HTML output for an
+  EntityList, including per-kind section headings, entity metadata (kind,
+  status, priority, description, rationale, user story, tags), outgoing and
+  incoming traceability links, suppression of inferred-only links, and proper
+  HTML escaping of special characters.
+preconditions:
+  - report.c, entity.c, and triplet_store.cpp are compiled and linked.
+  - A writable temporary file can be created in /tmp.
+steps:
+  - Call report_write() with an empty entity list; verify heading is present
+    and no entity sections are emitted.
+  - Call report_write() with a single requirement entity; verify section
+    heading, kind, status, and priority fields are rendered.
+  - Call report_write() with entities of multiple kinds; verify one section
+    heading per kind is produced.
+  - Populate description and rationale fields; verify they appear in the
+    output.
+  - Build a TripletStore with outgoing and incoming links for an entity;
+    verify both directions render in Markdown (arrow-right and arrow-left).
+  - Add a triple only from another entity to the subject (TC to REQ), call
+    triplet_store_infer_inverses(); verify the inferred inverse does NOT appear
+    in the report.
+  - Call report_write() with REPORT_FORMAT_HTML; verify valid DOCTYPE html,
+    HTML section elements, anchor link elements, and correct escaping of <,
+    >, and & characters.
+expected_results:
+  - Markdown output contains correct headings, metadata fields, and
+    traceability sections.
+  - Inferred (non-declared) links are suppressed in both formats.
+  - HTML output is well-formed with escaped special characters.
+  - HTML traceability links are rendered as anchor elements with href
+    attributes pointing to the target ID.
+verification_method: test
+links:
+  - id: REQ-035
+    relation: verifies
+  - id: REQ-053
+    relation: verifies
+  - id: DESIGN-CH-7-2
+    relation: verifies
+  - artefact: src/tests/test_report.cpp
+    relation: implemented-by
+  - artefact: src/tests/test_report.cpp#ReportMdTest.TraceabilityLinksRendered
+    relation: implemented-by-test
+  - artefact: src/tests/test_report.cpp#ReportMdTest.InferredLinksNotRendered
+    relation: implemented-by-test
+  - artefact: src/tests/test_report.cpp#ReportHtmlTest.HtmlSpecialCharsEscaped
+    relation: implemented-by-test

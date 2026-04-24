@@ -1,0 +1,43 @@
+id: TC-CONFIG-001
+type: test-case
+title: "Config module: loading .vibe-req.yaml and ignore_dirs queries"
+status: draft
+description: |
+  Verify that the config module correctly loads .vibe-req.yaml from a
+  repository root directory, parses the ignore_dirs list into the VibeConfig
+  struct, and correctly reports whether a given directory name appears in the
+  ignore list.
+preconditions:
+  - A writable /tmp directory is available.
+  - The config_load() and config_is_ignored_dir() C functions are compiled
+    and linked.
+steps:
+  - Call config_load() with a directory containing a .vibe-req.yaml that lists
+    one or more ignore_dirs entries; verify that the returned count and names
+    match.
+  - Call config_load() with a non-existent path and with a NULL root; verify
+    that rc == -1 and ignore_dirs_count == 0.
+  - Call config_is_ignored_dir() with a populated config and a matching
+    directory name; verify that it returns 1.
+  - Call config_is_ignored_dir() with a non-matching name, with a NULL config
+    pointer, and with a NULL name; verify that it returns 0 in each case.
+expected_results:
+  - All config_load() calls return 0 on success and -1 on failure.
+  - ignore_dirs_count always matches the number of entries actually present in
+    the YAML.
+  - config_is_ignored_dir() returns 1 for exact string matches, 0 for
+    non-matches and null inputs.
+verification_method: test
+links:
+  - id: REQ-005
+    relation: verifies
+  - id: DESIGN-CH-1
+    relation: verifies
+  - artefact: src/tests/test_config.cpp
+    relation: implemented-by
+  - artefact: src/tests/test_config.cpp#ConfigTest.LoadSingleIgnoreDir
+    relation: implemented-by-test
+  - artefact: src/tests/test_config.cpp#ConfigTest.LoadMultipleIgnoreDirs
+    relation: implemented-by-test
+  - artefact: src/tests/test_config.cpp#ConfigTest.IsIgnoredDirMatch
+    relation: implemented-by-test

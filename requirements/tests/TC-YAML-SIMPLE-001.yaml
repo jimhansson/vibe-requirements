@@ -1,0 +1,58 @@
+id: TC-YAML-SIMPLE-001
+type: test-case
+title: "YAML parser: single/multi-document parsing, links, and entity traceability"
+status: draft
+description: |
+  Verify that yaml_parse_requirements(), yaml_parse_links(), and
+  yaml_parse_entity() correctly parse single-document and multi-document YAML
+  files, extract requirement fields and link/traceability entries (including
+  artefact keys and the links: alias for traceability:), and populate
+  RequirementList, TripletStore, and Entity structs accordingly.
+preconditions:
+  - Temporary YAML files can be written to /tmp.
+  - yaml_parse_requirements(), yaml_parse_links(), yaml_parse_entity(), and
+    entity_traceability_to_triplets() are compiled and linked.
+steps:
+  - Parse a single-document YAML file; verify that one requirement is returned
+    with correct field values.
+  - Parse a multi-document YAML file with --- separators; verify that all
+    documents are returned.
+  - Parse a multi-document file where one document lacks an id field; verify
+    the no-id document is silently skipped.
+  - Attempt to parse a non-existent file; verify that -1 is returned and the
+    list is empty.
+  - Parse a file with traceability entries (including artefact keys) using the
+    links alias; verify that the TripletStore is populated with the correct
+    triples.
+  - Parse an entity using the links key as an alias for traceability; verify
+    the TraceabilityComponent is populated and triplets can be loaded into a
+    TripletStore.
+expected_results:
+  - Parsed counts match the number of valid YAML documents.
+  - All required fields (id, title, type, status, priority, file_path) are
+    populated correctly.
+  - Link triples (subject, predicate, object) are stored correctly, including
+    artefact-keyed entries.
+  - The links key is treated as an alias for traceability in entity parsing.
+verification_method: test
+links:
+  - id: REQ-002
+    relation: verifies
+  - id: REQ-007
+    relation: verifies
+  - id: REQ-030
+    relation: verifies
+  - id: REQ-031
+    relation: verifies
+  - id: REQ-032
+    relation: verifies
+  - id: DESIGN-CH-2
+    relation: verifies
+  - artefact: src/tests/test_yaml_simple.cpp
+    relation: implemented-by
+  - artefact: src/tests/test_yaml_simple.cpp#YamlSimpleTest.SingleDocument
+    relation: implemented-by-test
+  - artefact: src/tests/test_yaml_simple.cpp#YamlSimpleTest.MultiDocument
+    relation: implemented-by-test
+  - artefact: src/tests/test_yaml_simple.cpp#YamlSimpleTest.LinksArtefactKey
+    relation: implemented-by-test
