@@ -142,6 +142,18 @@ int yaml_parse_requirements(const char *path, RequirementList *list)
 #define LINK_TARGET_LEN   256
 #define LINK_RELATION_LEN 128
 
+/* Buffer sizes for test-procedure step sub-fields. */
+#define STEP_ACTION_LEN  512
+#define STEP_OUTPUT_LEN  512
+
+/* Buffer sizes for clause-collection sub-fields. */
+#define CLAUSE_ID_LEN    128
+#define CLAUSE_TITLE_LEN 256
+
+/* Buffer sizes for attachment sub-fields. */
+#define ATTACH_PATH_LEN  512
+#define ATTACH_DESC_LEN  512
+
 /*
  * Walk one link mapping node and add a triple to store.
  * Each link is expected to have either an "id" or "artefact" key (the
@@ -465,6 +477,124 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 }
                 continue;
             }
+            if (strcmp(key, "preconditions") == 0) {
+                collect_sequence(doc, val_node,
+                                 out->test_procedure.preconditions,
+                                 sizeof(out->test_procedure.preconditions),
+                                 &out->test_procedure.precondition_count);
+                continue;
+            }
+            if (strcmp(key, "steps") == 0) {
+                yaml_node_item_t *item = val_node->data.sequence.items.start;
+                yaml_node_item_t *top  = val_node->data.sequence.items.top;
+                for (; item < top; item++) {
+                    yaml_node_t *step_map = yaml_document_get_node(doc, *item);
+                    if (!step_map || step_map->type != YAML_MAPPING_NODE)
+                        continue;
+
+                    char action[STEP_ACTION_LEN]  = {0};
+                    char expected_output[STEP_OUTPUT_LEN] = {0};
+
+                    yaml_node_pair_t *sp = step_map->data.mapping.pairs.start;
+                    yaml_node_pair_t *se = step_map->data.mapping.pairs.top;
+                    for (; sp < se; sp++) {
+                        yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                        yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                        if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                        if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                        const char *skey = (const char *)sk->data.scalar.value;
+                        const char *sval = (const char *)sv->data.scalar.value;
+                        if (strcmp(skey, "action") == 0)
+                            strncpy(action, sval, sizeof(action) - 1);
+                        else if (strcmp(skey, "expected_output") == 0)
+                            strncpy(expected_output, sval, sizeof(expected_output) - 1);
+                    }
+                    if (action[0] != '\0') {
+                        append_trace_entry(out->test_procedure.steps,
+                                           sizeof(out->test_procedure.steps),
+                                           &out->test_procedure.step_count,
+                                           action, expected_output);
+                    }
+                }
+                continue;
+            }
+            if (strcmp(key, "clauses") == 0) {
+                yaml_node_item_t *item = val_node->data.sequence.items.start;
+                yaml_node_item_t *top  = val_node->data.sequence.items.top;
+                for (; item < top; item++) {
+                    yaml_node_t *clause_map = yaml_document_get_node(doc, *item);
+                    if (!clause_map || clause_map->type != YAML_MAPPING_NODE)
+                        continue;
+
+                    char clause_id[CLAUSE_ID_LEN]      = {0};
+                    char clause_title[CLAUSE_TITLE_LEN] = {0};
+
+                    yaml_node_pair_t *sp = clause_map->data.mapping.pairs.start;
+                    yaml_node_pair_t *se = clause_map->data.mapping.pairs.top;
+                    for (; sp < se; sp++) {
+                        yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                        yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                        if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                        if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                        const char *skey = (const char *)sk->data.scalar.value;
+                        const char *sval = (const char *)sv->data.scalar.value;
+                        if (strcmp(skey, "id") == 0)
+                            strncpy(clause_id, sval, sizeof(clause_id) - 1);
+                        else if (strcmp(skey, "title") == 0)
+                            strncpy(clause_title, sval, sizeof(clause_title) - 1);
+                    }
+                    if (clause_id[0] != '\0') {
+                        append_trace_entry(out->clause_collection.clauses,
+                                           sizeof(out->clause_collection.clauses),
+                                           &out->clause_collection.count,
+                                           clause_id, clause_title);
+                    }
+                }
+                continue;
+            }
+            if (strcmp(key, "attachments") == 0) {
+                yaml_node_item_t *item = val_node->data.sequence.items.start;
+                yaml_node_item_t *top  = val_node->data.sequence.items.top;
+                for (; item < top; item++) {
+                    yaml_node_t *att_map = yaml_document_get_node(doc, *item);
+                    if (!att_map || att_map->type != YAML_MAPPING_NODE)
+                        continue;
+
+                    char att_path[ATTACH_PATH_LEN]        = {0};
+                    char att_description[ATTACH_DESC_LEN] = {0};
+
+                    yaml_node_pair_t *sp = att_map->data.mapping.pairs.start;
+                    yaml_node_pair_t *se = att_map->data.mapping.pairs.top;
+                    for (; sp < se; sp++) {
+                        yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                        yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                        if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                        if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                        const char *skey = (const char *)sk->data.scalar.value;
+                        const char *sval = (const char *)sv->data.scalar.value;
+                        if (strcmp(skey, "path") == 0)
+                            strncpy(att_path, sval, sizeof(att_path) - 1);
+                        else if (strcmp(skey, "description") == 0)
+                            strncpy(att_description, sval, sizeof(att_description) - 1);
+                    }
+                    if (att_path[0] != '\0') {
+                        append_trace_entry(out->attachment.attachments,
+                                           sizeof(out->attachment.attachments),
+                                           &out->attachment.count,
+                                           att_path, att_description);
+                    }
+                }
+                continue;
+            }
+        }
+
+        /* test_procedure expected_result — scalar companion to preconditions/steps */
+        if (val_node && val_node->type == YAML_SCALAR_NODE &&
+            strcmp(key, "expected_result") == 0) {
+            const char *val = (const char *)val_node->data.scalar.value;
+            copy_field(out->test_procedure.expected_result,
+                       sizeof(out->test_procedure.expected_result), val);
+            continue;
         }
 
         /* Mapping fields — assumption, constraint, and doc_meta components */

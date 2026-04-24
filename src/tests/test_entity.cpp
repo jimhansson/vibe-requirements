@@ -1097,3 +1097,317 @@ TEST(EntityHasComponentTest, UnknownComponentNameReturnsFalse)
     strncpy(e.assumption.text, "x", sizeof(e.assumption.text) - 1);
     EXPECT_EQ(entity_has_component(&e, "no-such-component"), 0);
 }
+
+TEST(EntityHasComponentTest, TestProcedureAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "test-procedure"), 0);
+    EXPECT_EQ(entity_has_component(&e, "test_procedure"), 0);
+
+    e.test_procedure.step_count = 1;
+    EXPECT_EQ(entity_has_component(&e, "test-procedure"), 1);
+    EXPECT_EQ(entity_has_component(&e, "test_procedure"), 1);
+}
+
+TEST(EntityHasComponentTest, ClauseCollectionAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "clause-collection"), 0);
+    EXPECT_EQ(entity_has_component(&e, "clause_collection"), 0);
+    EXPECT_EQ(entity_has_component(&e, "clauses"),           0);
+
+    e.clause_collection.count = 2;
+    EXPECT_EQ(entity_has_component(&e, "clause-collection"), 1);
+    EXPECT_EQ(entity_has_component(&e, "clause_collection"), 1);
+    EXPECT_EQ(entity_has_component(&e, "clauses"),           1);
+}
+
+TEST(EntityHasComponentTest, AttachmentAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "attachment"),  0);
+    EXPECT_EQ(entity_has_component(&e, "attachments"), 0);
+
+    e.attachment.count = 1;
+    EXPECT_EQ(entity_has_component(&e, "attachment"),  1);
+    EXPECT_EQ(entity_has_component(&e, "attachments"), 1);
+}
+
+/* =========================================================================
+ * Tests — TestProcedureComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, TestProcedureFullParse)
+{
+    /* A test-case entity with all TestProcedureComponent fields present. */
+    const char *path = write_yaml("ent_test_procedure.yaml",
+        "id: TC-SW-002\n"
+        "title: Login with valid credentials\n"
+        "type: test-case\n"
+        "status: approved\n"
+        "preconditions:\n"
+        "  - A registered user account exists.\n"
+        "  - The endpoint is reachable.\n"
+        "steps:\n"
+        "  - step: 1\n"
+        "    action: Submit login request.\n"
+        "    expected_output: System returns HTTP 200.\n"
+        "  - step: 2\n"
+        "    action: Access protected resource.\n"
+        "    expected_output: Resource content is returned.\n"
+        "expected_result: User gains access to the protected resource.\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind,                      ENTITY_KIND_TEST_CASE);
+    EXPECT_STREQ(e.identity.id,                     "TC-SW-002");
+    EXPECT_EQ(e.test_procedure.precondition_count,  2);
+    EXPECT_NE(strstr(e.test_procedure.preconditions, "A registered user account exists."), nullptr);
+    EXPECT_NE(strstr(e.test_procedure.preconditions, "The endpoint is reachable."),        nullptr);
+    EXPECT_EQ(e.test_procedure.step_count,          2);
+    EXPECT_NE(strstr(e.test_procedure.steps, "Submit login request."),         nullptr);
+    EXPECT_NE(strstr(e.test_procedure.steps, "System returns HTTP 200."),      nullptr);
+    EXPECT_NE(strstr(e.test_procedure.steps, "Access protected resource."),    nullptr);
+    EXPECT_NE(strstr(e.test_procedure.steps, "Resource content is returned."), nullptr);
+    EXPECT_STREQ(e.test_procedure.expected_result,
+                 "User gains access to the protected resource.");
+    EXPECT_EQ(entity_has_component(&e, "test-procedure"), 1);
+    EXPECT_EQ(entity_has_component(&e, "test_procedure"), 1);
+}
+
+TEST(YamlParseEntityTest, TestProcedurePreconditionsOnly)
+{
+    /* A test-case entity with preconditions but no steps or expected_result. */
+    const char *path = write_yaml("ent_test_precond_only.yaml",
+        "id: TC-SW-003\n"
+        "title: Preconditions only\n"
+        "type: test-case\n"
+        "preconditions:\n"
+        "  - System is running.\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.test_procedure.precondition_count, 1);
+    EXPECT_NE(strstr(e.test_procedure.preconditions, "System is running."), nullptr);
+    EXPECT_EQ(e.test_procedure.step_count,         0);
+    EXPECT_EQ(e.test_procedure.expected_result[0], '\0');
+    EXPECT_EQ(entity_has_component(&e, "test-procedure"), 1);
+}
+
+TEST(YamlParseEntityTest, TestProcedureAbsentWhenMissing)
+{
+    /* An entity without any TestProcedureComponent fields. */
+    const char *path = write_yaml("ent_no_test_proc.yaml",
+        "id: REQ-014\n"
+        "title: Requirement without test procedure\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.test_procedure.precondition_count,  0);
+    EXPECT_EQ(e.test_procedure.step_count,          0);
+    EXPECT_EQ(e.test_procedure.expected_result[0],  '\0');
+    EXPECT_EQ(entity_has_component(&e, "test-procedure"), 0);
+}
+
+TEST(YamlParseEntityTest, TestProcedureOnNonTestCaseEntity)
+{
+    /* Any entity kind can carry TestProcedureComponent. */
+    const char *path = write_yaml("ent_req_test_proc.yaml",
+        "id: REQ-015\n"
+        "title: Requirement with embedded test procedure\n"
+        "type: functional\n"
+        "expected_result: System behaves correctly.\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind, ENTITY_KIND_REQUIREMENT);
+    EXPECT_STREQ(e.test_procedure.expected_result, "System behaves correctly.");
+    EXPECT_EQ(entity_has_component(&e, "test-procedure"), 1);
+}
+
+/* =========================================================================
+ * Tests — ClauseCollectionComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, ClauseCollectionFullParse)
+{
+    /* An external entity with a clauses sequence. */
+    const char *path = write_yaml("ent_clause_collection.yaml",
+        "id: EXT-MACH-DIR\n"
+        "title: EU Machinery Directive 2006/42/EC\n"
+        "type: directive\n"
+        "clauses:\n"
+        "  - id: annex-I-1.1.2\n"
+        "    title: Principles of safety integration\n"
+        "  - id: annex-I-1.2.1\n"
+        "    title: Safety and reliability of control systems\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind,          ENTITY_KIND_EXTERNAL);
+    EXPECT_STREQ(e.identity.id,         "EXT-MACH-DIR");
+    EXPECT_EQ(e.clause_collection.count, 2);
+    EXPECT_NE(strstr(e.clause_collection.clauses, "annex-I-1.1.2"),                  nullptr);
+    EXPECT_NE(strstr(e.clause_collection.clauses, "Principles of safety integration"), nullptr);
+    EXPECT_NE(strstr(e.clause_collection.clauses, "annex-I-1.2.1"),                  nullptr);
+    EXPECT_EQ(entity_has_component(&e, "clause-collection"), 1);
+    EXPECT_EQ(entity_has_component(&e, "clause_collection"), 1);
+    EXPECT_EQ(entity_has_component(&e, "clauses"),           1);
+}
+
+TEST(YamlParseEntityTest, ClauseCollectionIdOnlyClause)
+{
+    /* A clause with id but no title is stored with empty title. */
+    const char *path = write_yaml("ent_clause_id_only.yaml",
+        "id: EXT-STD-001\n"
+        "title: Some Standard\n"
+        "type: standard\n"
+        "clauses:\n"
+        "  - id: section-4.5\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.clause_collection.count, 1);
+    EXPECT_NE(strstr(e.clause_collection.clauses, "section-4.5"), nullptr);
+    EXPECT_EQ(entity_has_component(&e, "clauses"), 1);
+}
+
+TEST(YamlParseEntityTest, ClauseCollectionAbsentWhenMissing)
+{
+    /* An entity without clauses has an empty clause_collection component. */
+    const char *path = write_yaml("ent_no_clauses.yaml",
+        "id: EXT-002\n"
+        "title: External without clauses\n"
+        "type: external\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.clause_collection.count,      0);
+    EXPECT_EQ(e.clause_collection.clauses[0], '\0');
+    EXPECT_EQ(entity_has_component(&e, "clause-collection"), 0);
+}
+
+/* =========================================================================
+ * Tests — AttachmentComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, AttachmentFullParse)
+{
+    /* An entity with an attachments sequence. */
+    const char *path = write_yaml("ent_attachment.yaml",
+        "id: SRS-CLIENT-002\n"
+        "title: SRS with attachments\n"
+        "type: document\n"
+        "attachments:\n"
+        "  - path: docs/spec.pdf\n"
+        "    description: Original specification document\n"
+        "  - path: images/diagram.png\n"
+        "    description: Architecture overview diagram\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind,     ENTITY_KIND_DOCUMENT);
+    EXPECT_STREQ(e.identity.id,    "SRS-CLIENT-002");
+    EXPECT_EQ(e.attachment.count,  2);
+    EXPECT_NE(strstr(e.attachment.attachments, "docs/spec.pdf"),                nullptr);
+    EXPECT_NE(strstr(e.attachment.attachments, "Original specification document"), nullptr);
+    EXPECT_NE(strstr(e.attachment.attachments, "images/diagram.png"),           nullptr);
+    EXPECT_NE(strstr(e.attachment.attachments, "Architecture overview diagram"), nullptr);
+    EXPECT_EQ(entity_has_component(&e, "attachment"),  1);
+    EXPECT_EQ(entity_has_component(&e, "attachments"), 1);
+}
+
+TEST(YamlParseEntityTest, AttachmentPathOnly)
+{
+    /* An attachment entry with path but no description. */
+    const char *path = write_yaml("ent_attach_path_only.yaml",
+        "id: TC-ATT-001\n"
+        "title: Test case with attachment\n"
+        "type: test-case\n"
+        "attachments:\n"
+        "  - path: reports/test_run.xml\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.attachment.count, 1);
+    EXPECT_NE(strstr(e.attachment.attachments, "reports/test_run.xml"), nullptr);
+    EXPECT_EQ(entity_has_component(&e, "attachment"), 1);
+}
+
+TEST(YamlParseEntityTest, AttachmentAbsentWhenMissing)
+{
+    /* An entity without attachments has an empty attachment component. */
+    const char *path = write_yaml("ent_no_attachment.yaml",
+        "id: REQ-016\n"
+        "title: Requirement without attachments\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.attachment.count,         0);
+    EXPECT_EQ(e.attachment.attachments[0], '\0');
+    EXPECT_EQ(entity_has_component(&e, "attachment"), 0);
+}
+
+TEST(YamlParseEntityTest, AllThreeNewComponentsOnOneEntity)
+{
+    /* An external test-case entity carrying TestProcedure, ClauseCollection,
+     * and Attachment components simultaneously. */
+    const char *path = write_yaml("ent_combined_new.yaml",
+        "id: TC-FULL-001\n"
+        "title: Fully equipped test case\n"
+        "type: test-case\n"
+        "preconditions:\n"
+        "  - Setup complete.\n"
+        "steps:\n"
+        "  - step: 1\n"
+        "    action: Run the test.\n"
+        "    expected_output: Test passes.\n"
+        "expected_result: All assertions pass.\n"
+        "clauses:\n"
+        "  - id: sec-4.1\n"
+        "    title: Scope of test\n"
+        "attachments:\n"
+        "  - path: results/report.html\n"
+        "    description: Test execution report\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind,                      ENTITY_KIND_TEST_CASE);
+    EXPECT_EQ(e.test_procedure.precondition_count,  1);
+    EXPECT_EQ(e.test_procedure.step_count,          1);
+    EXPECT_STREQ(e.test_procedure.expected_result,  "All assertions pass.");
+    EXPECT_EQ(e.clause_collection.count,            1);
+    EXPECT_NE(strstr(e.clause_collection.clauses, "sec-4.1"), nullptr);
+    EXPECT_EQ(e.attachment.count,                   1);
+    EXPECT_NE(strstr(e.attachment.attachments, "results/report.html"), nullptr);
+    EXPECT_EQ(entity_has_component(&e, "test-procedure"),    1);
+    EXPECT_EQ(entity_has_component(&e, "clause-collection"), 1);
+    EXPECT_EQ(entity_has_component(&e, "attachment"),        1);
+}
