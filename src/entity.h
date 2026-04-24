@@ -455,6 +455,40 @@ const char *entity_kind_label(EntityKind kind);
  */
 int entity_has_component(const Entity *entity, const char *comp);
 
+/**
+ * Comparator for qsort() — orders entities lexicographically by identity.id.
+ *
+ * @param a  pointer to first Entity (cast from void*)
+ * @param b  pointer to second Entity (cast from void*)
+ * @return   negative / zero / positive as strcmp semantics
+ */
+int entity_cmp_by_id(const void *a, const void *b);
+
+/**
+ * Build a filtered view of *src into *dst.
+ *
+ * Caller initialises dst before calling and must call entity_list_free() when
+ * done.  Pass NULL (or empty string) for any filter argument to disable that
+ * filter — the matching entities are always copied into dst.
+ *
+ * Filter arguments:
+ * @param src              source entity list (read-only)
+ * @param dst              destination list (already initialised by caller)
+ * @param filter_kind      EntityKind label, e.g. "requirement", "test-case";
+ *                         NULL or "" → accept all kinds
+ * @param filter_comp      component name, e.g. "traceability", "assumption";
+ *                         NULL or "" → accept all
+ * @param filter_status    lifecycle status, e.g. "draft", "approved";
+ *                         NULL or "" → accept all
+ * @param filter_priority  lifecycle priority, e.g. "must", "should";
+ *                         NULL or "" → accept all
+ */
+void entity_apply_filter(const EntityList *src, EntityList *dst,
+                         const char *filter_kind,
+                         const char *filter_comp,
+                         const char *filter_status,
+                         const char *filter_priority);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
