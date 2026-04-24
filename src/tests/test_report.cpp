@@ -24,7 +24,8 @@ using ::testing::Not;
  * ---------------------------------------------------------------------- */
 
 static std::string capture_report(const EntityList *list,
-                                   const TripletStore *store)
+                                   const TripletStore *store,
+                                   ReportFormat fmt = REPORT_FORMAT_MARKDOWN)
 {
     /* Use a temporary file to capture output (portable; avoids fmemopen). */
     char path[] = "/tmp/test_report_XXXXXX";
@@ -37,7 +38,7 @@ static std::string capture_report(const EntityList *list,
     if (!f)
         return "";
 
-    report_write(f, list, store);
+    report_write(f, list, store, fmt);
     fclose(f);
 
     /* Read back */

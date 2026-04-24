@@ -11,6 +11,7 @@
 #include "yaml_simple.h"
 #include "triplet_store_c.h"
 #include "report.h"
+#include "new_cmd.h"
 
 /* ------------------------------------------------------------------ */
 /* Comparison helper for qsort — sort requirements by ID.             */
@@ -920,6 +921,7 @@ int main(int argc, char *argv[])
 
     /* Report-specific options. */
     const char  *report_output = NULL; /* NULL = stdout */
+    ReportFormat report_format = REPORT_FORMAT_MARKDOWN;
 
     int arg_idx = 1;
 
@@ -945,6 +947,12 @@ int main(int argc, char *argv[])
             printf("                  Use --output and filter flags to customise output.\n");
             printf("                  Example: %s report --output report.md\n\n",
                    argv[0]);
+            printf("  new <type> <id> Scaffold a new entity YAML file named <id>.yaml.\n");
+            printf("                  Types: requirement, group, story, design-note,\n");
+            printf("                         section, assumption, constraint, test-case,\n");
+            printf("                         external, document, srs, sdd\n");
+            printf("                  Example: %s new requirement REQ-AUTH-003\n\n",
+                   argv[0]);
             printf("Filter options (for 'list' / 'entities' / 'report'):\n");
             printf("  --kind <kind>        Show only entities of the given kind.\n");
             printf("                       Kinds: requirement, group, story, design-note,\n");
@@ -959,6 +967,8 @@ int main(int argc, char *argv[])
             printf("  --status <status>    Show only entities with the given lifecycle status.\n");
             printf("  --priority <prio>    Show only entities with the given priority.\n\n");
             printf("Report options (for 'report'):\n");
+            printf("  --format md     Output Markdown (default).\n");
+            printf("  --format html   Output a self-contained HTML document.\n");
             printf("  --output <file> Write report to <file> instead of stdout.\n\n");
             printf("Other options:\n");
             printf("  --strict-links  Warn when a known relation is declared in only one\n");
@@ -993,6 +1003,39 @@ int main(int argc, char *argv[])
         } else if (strcmp(argv[1], "report") == 0) {
             show_report = 1;
             arg_idx     = 2;
+        } else if (strcmp(argv[1], "new") == 0) {
+            if (argc < 4) {
+                fprintf(stderr,
+                        "error: 'new' requires a type and an ID argument\n"
+                        "usage: %s new <type> <id> [directory]\n",
+                        argv[0]);
+                return 1;
+            }
+            const char *new_type = argv[2];
+            const char *new_id   = argv[3];
+            const char *new_dir  = (argc >= 5) ? argv[4] : ".";
+            int rc = new_cmd_scaffold(new_type, new_id, new_dir);
+            if (rc == -3) {
+                fprintf(stderr, "error: unrecognised entity type '%s'\n"
+                        "Valid types: requirement, group, story, design-note,\n"
+                        "             section, assumption, constraint, test-case,\n"
+                        "             external, document, srs, sdd\n",
+                        new_type);
+                return 1;
+            }
+            if (rc == -1) {
+                fprintf(stderr, "error: file '%s/%s.yaml' already exists\n",
+                        new_dir, new_id);
+                return 1;
+            }
+            if (rc == -2) {
+                fprintf(stderr,
+                        "error: cannot create '%s/%s.yaml'\n",
+                        new_dir, new_id);
+                return 1;
+            }
+            printf("Created %s/%s.yaml\n", new_dir, new_id);
+            return 0;
         }
     }
 
@@ -1030,6 +1073,22 @@ int main(int argc, char *argv[])
                 return 1;
             }
             report_output = argv[++i];
+        } else if (strcmp(argv[i], "--format") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "error: '--format' requires 'md' or 'html'\n");
+                return 1;
+            }
+            i++;
+            if (strcmp(argv[i], "html") == 0) {
+                report_format = REPORT_FORMAT_HTML;
+            } else if (strcmp(argv[i], "md") == 0) {
+                report_format = REPORT_FORMAT_MARKDOWN;
+            } else {
+                fprintf(stderr,
+                        "error: unknown format '%s'; use 'md' or 'html'\n",
+                        argv[i]);
+                return 1;
+            }
         } else {
             root = argv[i];
         }
@@ -1110,7 +1169,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            report_write(out, src, store);
+            report_write(out, src, store, report_format);
 
             if (report_output)
                 fclose(out);
