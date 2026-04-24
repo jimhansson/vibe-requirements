@@ -1,0 +1,105 @@
+id: DESIGN-CH-9
+title: "Memory Layout and Design Decisions"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - memory
+  - implementation
+body: |
+  The `Entity` struct is the central data container of vibe-req.  Its memory
+  layout is deliberately split into two classes — inline fixed-size fields and
+  heap-allocated pointer fields — to balance cache efficiency against memory
+  footprint for rare/large components.
+---
+id: DESIGN-CH-9-1
+title: "Fixed-Size Inline Fields vs. Heap Pointers"
+type: design-note
+status: approved
+tags:
+  - memory
+  - entity
+  - implementation
+body: |
+  The `Entity` struct uses two distinct memory strategies for its component fields:
+
+  **Inline (fixed-size) char arrays** are used for all fields that are:
+  - Present on the vast majority of entities (identity, lifecycle, text, tags,
+    traceability, sources, assumption, constraint, …).
+  - Bounded by a well-understood maximum that fits within a few kilobytes.
+
+  Keeping these fields inline means the entire `Entity` (roughly 10–12 KB) can
+  be stack-allocated or stored in a contiguous `malloc`'d array without pointer
+  indirection.  This enables cache-friendly batch operations: `entity_list_add()`
+  copies a whole entity with a single `memcpy`; `entity_apply_filter()` iterates
+  the array without pointer chasing; `qsort()` via `entity_cmp_by_id()` moves
+  full records in place.
+
+  **Heap-allocated (`char *`) fields** are used for the four large/rare components:
+  - `DocumentBodyComponent.body` — free-form body text (up to 64 KB)
+  - `TestProcedureComponent.{preconditions, steps, expected_result}` — structured test data
+  - `ClauseCollectionComponent.clauses` — list of normative clauses (up to 8 KB)
+  - `AttachmentComponent.attachments` — list of file references (up to 2 KB)
+
+  A `NULL` pointer means "absent" with no memory cost.  Deep-copy semantics
+  are preserved by `entity_copy()` (calls `strdup`) and `entity_list_add()`.
+  `entity_free()` must be called before discarding any `Entity` that may have
+  been populated by the parser.
+traceability:
+  - id: DESIGN-CH-9
+    relation: part-of
+---
+id: DESIGN-CH-9-2
+title: "Flat Newline-Separated Buffers"
+type: design-note
+status: approved
+tags:
+  - memory
+  - entity
+  - implementation
+body: |
+  Instead of embedded linked lists or variable-length arrays, multi-valued
+  component fields use a **flat newline-separated string** pattern:
+
+  - `TagComponent.tags` — one tag per line
+  - `TraceabilityComponent.entries` — one `"target\trelation"` pair per line
+  - `SourceComponent.sources` — one source reference per line
+  - `AcceptanceCriteriaComponent.criteria` — one criterion per line
+  - `DocumentMembershipComponent.doc_ids` — one document entity ID per line
+
+  The corresponding `count` field records the number of entries.
+  `yaml_append_to_flat()` (in `yaml_helpers.c`) handles appending with
+  truncation when the buffer is full; `yaml_append_pair_entry()` handles tab-
+  separated pairs.
+
+  This design avoids heap allocation for these multi-valued fields while still
+  allowing iteration by splitting on `'\n'`.  The tradeoff is that individual
+  entries cannot exceed the field's array size, and edits to individual entries
+  require reconstructing the whole buffer.
+traceability:
+  - id: DESIGN-CH-9
+    relation: part-of
+---
+id: DESIGN-CH-9-3
+title: "TripletStore Slot-Based Storage"
+type: design-note
+status: approved
+tags:
+  - memory
+  - triplet-store
+  - implementation
+body: |
+  `TripletStore` stores active triples in a `std::vector<std::optional<Triple>>`.
+  Removals leave `std::nullopt` tombstone slots rather than shifting the vector.
+  This means:
+
+  - **TripleId values are stable** across add operations but **invalid after `compact()`**.
+  - **Dead slots are reclaimed lazily**: when `dead_count_` reaches `k_compact_threshold`
+    (currently 16) *and* at least as many dead slots as live triples exist, `compact()` is
+    called automatically, reassigning consecutive IDs from 0.
+  - Callers that hold `TripleId` values must not call (or trigger) `compact()` while those
+    IDs are in use.  In the current CLI implementation no long-lived IDs are held after a
+    bulk load, so lazy compaction is safe.
+traceability:
+  - id: DESIGN-CH-9
+    relation: part-of

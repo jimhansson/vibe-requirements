@@ -1,0 +1,126 @@
+id: DESIGN-CH-10
+title: "Internal State Coupling and Intended Invariants"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - invariants
+  - coupling
+body: |
+  Several modules in vibe-req are tightly coupled to shared internal state.
+  This chapter documents the intended invariants each module must preserve and
+  the coupling boundaries that should not be violated.
+---
+id: DESIGN-CH-10-1
+title: "Entity Struct Invariants"
+type: design-note
+status: approved
+tags:
+  - invariants
+  - entity
+body: |
+  The `Entity` struct has the following invariants that all callers must preserve:
+
+  1. **id is always NUL-terminated.**  The parser writes at most 63 bytes into
+     `identity.id[64]` using `yaml_copy_field()`.  An entity with `id[0] == '\0'`
+     is treated as absent by `entity_list_add()` and discovery.
+
+  2. **Heap pointer consistency.**  If any of `doc_body.body`,
+     `test_procedure.preconditions`, `test_procedure.steps`,
+     `test_procedure.expected_result`, `clause_collection.clauses`, or
+     `attachment.attachments` is non-NULL it points to a valid heap buffer.
+     After `entity_copy()` the destination owns independent copies.
+     After `entity_free()` all these pointers are NULL.
+
+  3. **count fields match buffer contents.**  The `count` field in every
+     multi-valued component must equal the number of `'\n'`-separated entries
+     in the corresponding buffer.  The parser updates both atomically via
+     `yaml_append_to_flat()` and `yaml_append_pair_entry()`.
+
+  4. **EntityList deep-copy ownership.**  `entity_list_add()` always deep-copies
+     the source entity so that the caller may free or reuse it independently.
+     Every `Entity` in `EntityList.items[]` is independently owned and must be
+     freed individually (done by `entity_list_free()`).
+traceability:
+  - id: DESIGN-CH-10
+    relation: part-of
+---
+id: DESIGN-CH-10-2
+title: "TripletStore Invariants"
+type: design-note
+status: approved
+tags:
+  - invariants
+  - triplet-store
+body: |
+  1. **Index consistency.**  The three index maps (`by_subject_`, `by_object_`,
+     `by_predicate_`) always reflect exactly the set of active (non-nullopt)
+     slots in `triples_`.  Any mutation that modifies `triples_` must
+     simultaneously update all three indexes.
+
+  2. **No duplicate triples.**  `add()` and `add_inferred()` reject exact
+     duplicates (same subject, predicate, object) regardless of the `inferred`
+     flag.  The deduplication check is O(n) over same-subject triples; it is
+     acceptable for typical entity-count loads (< 10 000 triples).
+
+  3. **Inferred flag immutability.**  Once a triple is stored its `inferred`
+     flag does not change.  `infer_inverses()` only inserts new triples; it
+     never modifies existing ones.  Coverage and orphan checks must filter on
+     `inferred == false` when they want to consider only user-declared links.
+
+  4. **TripleId validity window.**  A `TripleId` returned by `add()` is valid
+     until the next `compact()` call.  After `compact()` the ID must be
+     discarded.  The C wrapper (`triplet_store_c.h`) does not expose `compact()`
+     to CLI callers; they interact with the store through query functions that
+     return value-copied `CTripleList` results, so they never hold raw IDs.
+traceability:
+  - id: DESIGN-CH-10
+    relation: part-of
+---
+id: DESIGN-CH-10-3
+title: "Parser / Entity Coupling"
+type: design-note
+status: approved
+tags:
+  - coupling
+  - parser
+  - entity
+body: |
+  `entity_parser.c` is the only module that writes to `Entity` component
+  fields directly.  All other modules read entities through the public API
+  (`entity_has_component()`, `entity_apply_filter()`, `entity_kind_label()`,
+  etc.).
+
+  This concentrates the YAML-key-to-struct-offset coupling in a single
+  translation unit.  A field rename in `entity.h` requires only changes in:
+  - `entity_parser.c` — the write path
+  - Any test in `tests/test_entity.cpp` or `tests/test_yaml_simple.cpp` that
+    reads or writes that specific field
+
+  No other module should access `entity.h` struct fields by name except for
+  `entity_free()`, `entity_copy()`, and `entity_list_*` (which are
+  implementation files for the struct itself).
+traceability:
+  - id: DESIGN-CH-10
+    relation: part-of
+---
+id: DESIGN-CH-10-4
+title: "Discovery / Parser Coupling"
+type: design-note
+status: approved
+tags:
+  - coupling
+  - discovery
+  - parser
+body: |
+  `discover_entities()` calls `yaml_parse_entities()` for every YAML file it
+  finds.  It does not inspect entity fields itself.  This separation means that
+  discovery can be tested with mock entity lists and the parser can be tested
+  with hand-crafted files without invoking the file system walker.
+
+  The only shared state between discovery and the parser is the `EntityList`
+  passed by the caller.  Both modules treat it as an append-only output
+  parameter; neither reads entries already in the list.
+traceability:
+  - id: DESIGN-CH-10
+    relation: part-of

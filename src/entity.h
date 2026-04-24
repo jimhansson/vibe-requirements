@@ -1,3 +1,76 @@
+/**
+ * @file entity.h
+ * @brief ECS-inspired entity model for vibe-req.
+ *
+ * ## Overview
+ *
+ * Every artefact managed by vibe-req (requirement, user story, test case,
+ * assumption, design note, …) is represented as an @c Entity — a single
+ * struct that aggregates all optional ECS components.  Parsing one YAML
+ * document produces exactly one @c Entity; the entity's @c identity.id
+ * field is the stable, global primary key used in all traceability links.
+ *
+ * ## Memory Layout Rationale
+ *
+ * Components fall into two memory classes:
+ *
+ * **Fixed-size (inline) components** — stored directly inside the Entity
+ * struct as char arrays.  These cover all fields that are present on the
+ * vast majority of entities (identity, lifecycle, text, tags, traceability,
+ * sources, user-story, acceptance-criteria, assumption, constraint, …).
+ * Keeping them inline means the entire Entity can be stack-allocated or
+ * placed in a contiguous heap array without any pointer chasing, which
+ * makes batch operations (sort, filter, copy) cache-friendly.
+ *
+ * The array sizes are chosen conservatively:
+ *   - Most IDs fit in 64 bytes; titles in 256 bytes.
+ *   - The traceability store (@c TRACE_STORE_LEN = 4096) supports roughly
+ *     40–80 links per entity before truncation.
+ *   - The tag store (@c TAG_STORE_LEN = 1024) holds roughly 20–50 tags.
+ *
+ * **Heap-allocated (pointer) components** — used only for components that
+ * are both rare and potentially large:
+ *   - @c DocumentBodyComponent  (free-form body text, up to @c DOCBODY_LEN)
+ *   - @c TestProcedureComponent (preconditions + steps + expected result)
+ *   - @c ClauseCollectionComponent (external standard clause list)
+ *   - @c AttachmentComponent   (attachment path/description pairs)
+ *
+ * A NULL pointer in any of these components means "absent" and costs
+ * nothing.  Always call @c entity_free() to release heap storage, or use
+ * @c entity_list_free() to release an entire @c EntityList at once.
+ *
+ * ## ECS Design Decisions
+ *
+ * The ECS-like approach was chosen over a monolithic struct or a deep
+ * inheritance tree for three reasons:
+ *
+ *   1. **Extensibility without schema rewrites.**  Adding a new component
+ *      type (e.g. @c RiskComponent) requires adding one new struct and one
+ *      new field to @c Entity — no existing code paths change.
+ *
+ *   2. **Sparse data without waste.**  Optional components that are absent
+ *      on most entities are represented as zero-initialised inline fields
+ *      (pointer components are NULL).  There is no vtable or type-tag
+ *      overhead per entity.
+ *
+ *   3. **Uniform API.**  @c entity_has_component(), @c entity_apply_filter(),
+ *      and @c entity_copy() work generically across all component types
+ *      without special-casing each kind.
+ *
+ * ## Integration Points
+ *
+ *   - **Parsing:**     @c yaml_simple.h exposes @c yaml_parse_entity() and
+ *                      @c yaml_parse_entities() which populate Entity structs
+ *                      from YAML files.
+ *   - **Traceability:** @c entity_traceability_to_triplets() (declared in
+ *                       yaml_simple.h) loads TraceabilityComponent entries
+ *                       into a @c TripletStore for indexed graph queries.
+ *   - **Reporting:**   @c report.h consumes @c EntityList to render Markdown
+ *                      or HTML output.
+ *   - **Discovery:**   @c discovery.h recursively collects all entities from
+ *                      a directory tree into an @c EntityList.
+ */
+
 #ifndef VIBE_ENTITY_H
 #define VIBE_ENTITY_H
 
