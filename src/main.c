@@ -491,14 +491,14 @@ static void cmd_coverage(const EntityList *elist, const TripletStore *store)
     }
 
     int uncovered = total - covered;
-    int pct       = (total > 0) ? (covered * 100 / total) : 0;
+    int pct_cov   = (total > 0) ? (covered   * 100 / total) : 0;
+    int pct_unc   = (total > 0) ? (100 - pct_cov)           : 0;
 
     printf("Coverage Report\n");
     printf("===============\n");
     printf("Total requirements:    %d\n", total);
-    printf("Linked requirements:   %d (%d%%)\n", covered, pct);
-    printf("Unlinked requirements: %d (%d%%)\n", uncovered,
-           total > 0 ? (uncovered * 100 / total) : 0);
+    printf("Linked requirements:   %d (%d%%)\n", covered,   pct_cov);
+    printf("Unlinked requirements: %d (%d%%)\n", uncovered, pct_unc);
 
     if (uncovered > 0) {
         /* Column widths */
