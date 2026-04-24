@@ -275,6 +275,86 @@ TEST(TripletStoreTest, NullSafety)
     triplet_store_destroy(store);
 }
 
+TEST(TripletStoreTest, DestroyNullSafe)
+{
+    /* triplet_store_destroy(NULL) must be a silent no-op. */
+    triplet_store_destroy(nullptr);
+}
+
+TEST(TripletStoreTest, NullSafetyRemoveBy)
+{
+    TripletStore *store = triplet_store_create();
+
+    /* NULL store returns 0. */
+    EXPECT_EQ(triplet_store_remove_by_subject(nullptr, "s"), 0u);
+    EXPECT_EQ(triplet_store_remove_by_object(nullptr, "o"), 0u);
+    EXPECT_EQ(triplet_store_remove_by_predicate(nullptr, "p"), 0u);
+
+    /* NULL key returns 0. */
+    EXPECT_EQ(triplet_store_remove_by_subject(store, nullptr), 0u);
+    EXPECT_EQ(triplet_store_remove_by_object(store, nullptr), 0u);
+    EXPECT_EQ(triplet_store_remove_by_predicate(store, nullptr), 0u);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TripletStoreTest, NullSafetyClear)
+{
+    /* triplet_store_clear(NULL) must be a silent no-op. */
+    triplet_store_clear(nullptr);
+}
+
+TEST(TripletStoreTest, NullSafetyQueryFunctions)
+{
+    TripletStore *store = triplet_store_create();
+
+    /* NULL store returns empty list. */
+    CTripleList l1 = triplet_store_find_by_subject(nullptr, "s");
+    EXPECT_EQ(l1.count, 0u);
+    EXPECT_EQ(l1.triples, nullptr);
+    triplet_store_list_free(l1);
+
+    CTripleList l2 = triplet_store_find_by_object(nullptr, "o");
+    EXPECT_EQ(l2.count, 0u);
+    triplet_store_list_free(l2);
+
+    CTripleList l3 = triplet_store_find_by_predicate(nullptr, "p");
+    EXPECT_EQ(l3.count, 0u);
+    triplet_store_list_free(l3);
+
+    CTripleList l4 = triplet_store_find_all(nullptr);
+    EXPECT_EQ(l4.count, 0u);
+    triplet_store_list_free(l4);
+
+    /* NULL key returns empty list. */
+    CTripleList l5 = triplet_store_find_by_subject(store, nullptr);
+    EXPECT_EQ(l5.count, 0u);
+    triplet_store_list_free(l5);
+
+    CTripleList l6 = triplet_store_find_by_object(store, nullptr);
+    EXPECT_EQ(l6.count, 0u);
+    triplet_store_list_free(l6);
+
+    CTripleList l7 = triplet_store_find_by_predicate(store, nullptr);
+    EXPECT_EQ(l7.count, 0u);
+    triplet_store_list_free(l7);
+
+    triplet_store_destroy(store);
+}
+
+TEST(TripletStoreTest, ListFreeEmptyListIsNoOp)
+{
+    /* Freeing a zero-initialised list must be a silent no-op. */
+    CTripleList empty{};
+    triplet_store_list_free(empty);
+
+    /* Freeing a list with triples == NULL and count == 0 must also be safe. */
+    CTripleList zero_list;
+    zero_list.triples = nullptr;
+    zero_list.count   = 0;
+    triplet_store_list_free(zero_list);
+}
+
 /* -------------------------------------------------------------------------
  * Inferred-inverse tests
  * ---------------------------------------------------------------------- */
