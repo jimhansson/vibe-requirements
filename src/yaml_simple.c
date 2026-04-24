@@ -443,6 +443,41 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                                  &out->doc_membership.count);
                 continue;
             }
+            if (strcmp(key, "sources") == 0) {
+                yaml_node_item_t *item = val_node->data.sequence.items.start;
+                yaml_node_item_t *top  = val_node->data.sequence.items.top;
+                for (; item < top; item++) {
+                    yaml_node_t *src_node = yaml_document_get_node(doc, *item);
+                    if (!src_node)
+                        continue;
+                    if (src_node->type == YAML_SCALAR_NODE) {
+                        /* Plain scalar — store the value directly. */
+                        const char *val = (const char *)src_node->data.scalar.value;
+                        if (val[0] != '\0')
+                            append_to_flat(out->sources.sources,
+                                           sizeof(out->sources.sources),
+                                           &out->sources.count, val);
+                    } else if (src_node->type == YAML_MAPPING_NODE) {
+                        /* Mapping — extract value of first recognised key. */
+                        yaml_node_pair_t *sp = src_node->data.mapping.pairs.start;
+                        yaml_node_pair_t *se = src_node->data.mapping.pairs.top;
+                        for (; sp < se; sp++) {
+                            yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                            yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                            if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                            if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                            const char *sval = (const char *)sv->data.scalar.value;
+                            if (sval[0] != '\0') {
+                                append_to_flat(out->sources.sources,
+                                               sizeof(out->sources.sources),
+                                               &out->sources.count, sval);
+                                break; /* only the first key-value per item */
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
             if (strcmp(key, "traceability") == 0 || strcmp(key, "links") == 0) {
                 yaml_node_item_t *item = val_node->data.sequence.items.start;
                 yaml_node_item_t *top  = val_node->data.sequence.items.top;

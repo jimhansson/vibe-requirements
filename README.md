@@ -433,7 +433,8 @@ Entity (stable ID: e.g. "REQ-SW-001")
 ├── DocumentMetaComponent  — doc type/version/client (sparse)
 ├── DocumentMembershipComponent — parent doc IDs   (sparse)
 ├── DocumentBodyComponent  — free-form body text    (sparse)
-└── TraceabilityComponent  — outgoing relation links (sparse)
+├── TraceabilityComponent  — outgoing relation links (sparse)
+└── SourceComponent        — normative source refs   (sparse)
 ```
 
 Traceability links stored in `TraceabilityComponent` are also loaded into a
@@ -472,6 +473,7 @@ efficient reverse lookup (e.g. "which entities link *to* this one?").
 | `DocumentMembershipComponent` | `documents` (sequence) | `doc_ids` (newline-separated), `count` | Parent document entity IDs |
 | `DocumentBodyComponent` | `body` | `body` | Free-form body text (design notes, sections) |
 | `TraceabilityComponent` | `traceability` or `links` (sequence) | `entries` (newline-separated `target\trelation` pairs), `count` | Outgoing directed relation links |
+| `SourceComponent` | `sources` (sequence) | `sources` (newline-separated), `count` | Normative source references (external standards, requirement IDs) |
 
 Any component can be attached to any entity kind — for example, a
 `requirement` entity can carry a `UserStoryComponent` if it also has `role:`,

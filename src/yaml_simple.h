@@ -60,6 +60,7 @@ int yaml_parse_links(const char *path, const char *subject_id,
  *   doc_meta (mapping)               → doc_meta component {title, doc_type, version, client, status}
  *   documents (sequence)             → doc_membership component {doc_ids, count}
  *   traceability (sequence)          → traceability component {entries, count}
+ *   sources (sequence)               → sources component {sources, count}
  *   body                             → doc_body.body
  *   preconditions (sequence)         → test_procedure component {preconditions, precondition_count}
  *   steps (sequence of mappings)     → test_procedure component {steps, step_count}

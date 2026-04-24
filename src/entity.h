@@ -176,6 +176,33 @@ typedef struct {
     char body[DOCBODY_LEN]; /**< free-form body text (YAML "body:") */
 } DocumentBodyComponent;
 
+/** Maximum byte size of the source reference store. */
+#define SOURCE_STORE_LEN 2048
+
+/**
+ * Source component — normative source references on any entity.
+ *
+ * Records one or more source references (external standards, regulations,
+ * requirement IDs, or document citations) associated with this entity.
+ * Entries are stored as a newline-separated flat string.
+ *
+ * YAML key: "sources" — a sequence of scalars or mappings:
+ *
+ *   sources:
+ *     - external: EU-2016-679:article:32
+ *     - id: REQ-SYS-001
+ *
+ * For mapping items the value of the first key-value pair found is stored,
+ * regardless of the key name (e.g. `external`, `id`, etc.).
+ * Plain scalar items are stored as-is.
+ *
+ * Any entity can carry this component.
+ */
+typedef struct {
+    char sources[SOURCE_STORE_LEN]; /**< newline-separated list of source references */
+    int  count;                      /**< number of sources stored                    */
+} SourceComponent;
+
 /** Maximum byte size of the test-procedure preconditions store. */
 #define TEST_PROC_PRECOND_LEN 2048
 /** Maximum byte size of the test-procedure steps store. */
@@ -317,6 +344,7 @@ typedef struct {
  *   - doc_membership       — any entity belonging to one or more documents
  *   - doc_body             — kind == ENTITY_KIND_DESIGN_NOTE / SECTION
  *   - traceability         — any entity carrying a "traceability:" sequence
+ *   - sources              — any entity carrying a "sources:" sequence
  *   - test_procedure       — any entity carrying preconditions/steps/expected_result
  *   - clause_collection    — any entity carrying a "clauses:" sequence
  *   - attachment           — any entity carrying an "attachments:" sequence
@@ -337,6 +365,7 @@ typedef struct {
     DocumentMembershipComponent doc_membership;
     DocumentBodyComponent      doc_body;
     TraceabilityComponent      traceability;
+    SourceComponent            sources;
     TestProcedureComponent     test_procedure;
     ClauseCollectionComponent  clause_collection;
     AttachmentComponent        attachment;
@@ -414,6 +443,7 @@ const char *entity_kind_label(EntityKind kind);
  *   doc-membership, documents
  *   doc-body, body
  *   traceability
+ *   sources
  *   tags
  *   test-procedure, test_procedure
  *   clause-collection, clause_collection, clauses

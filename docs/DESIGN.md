@@ -393,14 +393,38 @@ traceability:
 - `entity_traceability_to_triplets(entity, store)` loads the component's entries into the store as triples; the store deduplicates automatically.
 - Queries that need global lookup (e.g. "find everything verified by TC-SW-001") are served by `triplet_store_find_by_object()`; per-entity forward reads are served by the component directly.
 
-### 6.5 Why ECS-Like Here
+### 6.5 Source Component
+
+`SourceComponent` is an ECS component that records normative source references associated with any entity — external standards, regulations, requirement IDs, or other document citations.
+
+```c
+SourceComponent {
+    sources: flat newline-separated string of source references
+    count:   number of sources stored
+}
+```
+
+**YAML key:** `sources` — a sequence of scalars or mappings:
+
+```yaml
+sources:
+  - external: EU-2016-679:article:32   # GDPR Article 32
+  - id: REQ-SYS-005
+  - EN-ISO-13849-2023:clause:4.5.2     # plain scalar
+```
+
+For mapping items, the value of the first key-value pair found is extracted and stored, regardless of the key name (`external`, `id`, etc.).  Plain scalar items are stored as-is.
+
+Any entity kind can carry this component.
+
+### 6.6 Why ECS-Like Here
 
 - Prevents monolithic requirement structs with many optional fields.
 - Makes it easier to add new entity kinds without schema rewrites.
 - Supports GUI features (property panels and graph views) by querying only needed components.
 - Helps separate regular and irregular data for better memory behavior.
 
-### 6.6 ECS Mutation API (Disk-Synchronized)
+### 6.7 ECS Mutation API (Disk-Synchronized)
 
 Related requirements: REQ-066, REQ-067, REQ-068.
 
