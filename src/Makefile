@@ -17,7 +17,7 @@ GTEST_LDFLAGS = -L$(GTEST_PREFIX)/lib -Wl,-rpath,$(GTEST_PREFIX)/lib \
                 -lgtest_main -lgtest -lgmock -pthread
 
 # Main binary sources (C and C++)
-C_SRCS   = main.c entity.c yaml_simple.c discovery.c config.c report.c new_cmd.c coverage.c cli_args.c
+C_SRCS   = main.c entity.c yaml_simple.c discovery.c config.c report.c new_cmd.c coverage.c cli_args.c list_cmd.c
 CPP_SRCS = triplet_store.cpp triplet_store_c.cpp
 C_OBJS   = $(addprefix $(BUILD_DIR)/,$(C_SRCS:.c=.o))
 CPP_OBJS = $(addprefix $(BUILD_DIR)/,$(CPP_SRCS:.cpp=.o))
@@ -71,6 +71,12 @@ TEST_CLI_ARGS_OBJS   = $(BUILD_DIR)/tests/test_cli_args.o \
                        $(BUILD_DIR)/entity.o $(BUILD_DIR)/yaml_simple.o \
                        $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
+TEST_MAIN_TARGET = $(BIN_DIR)/tests/test_main
+TEST_MAIN_OBJS   = $(BUILD_DIR)/tests/test_main.o \
+                   $(BUILD_DIR)/list_cmd.o \
+                   $(BUILD_DIR)/entity.o $(BUILD_DIR)/yaml_simple.o \
+                   $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
+
 .PHONY: all clean test
 
 all: $(TARGET)
@@ -106,7 +112,10 @@ $(TEST_COVERAGE_TARGET): $(TEST_COVERAGE_OBJS) | $(BIN_DIR)/tests
 $(TEST_CLI_ARGS_TARGET): $(TEST_CLI_ARGS_OBJS) | $(BIN_DIR)/tests
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
-test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET) $(TEST_ENTITY_TARGET) $(TEST_REPORT_TARGET) $(TEST_NEW_CMD_TARGET) $(TEST_COVERAGE_TARGET) $(TEST_CLI_ARGS_TARGET)
+$(TEST_MAIN_TARGET): $(TEST_MAIN_OBJS) | $(BIN_DIR)/tests
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
+
+test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET) $(TEST_ENTITY_TARGET) $(TEST_REPORT_TARGET) $(TEST_NEW_CMD_TARGET) $(TEST_COVERAGE_TARGET) $(TEST_CLI_ARGS_TARGET) $(TEST_MAIN_TARGET)
 	./$(TEST_TRIPLET_TARGET)
 	./$(TEST_CONFIG_TARGET)
 	./$(TEST_YAML_TARGET)
@@ -116,6 +125,7 @@ test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DI
 	./$(TEST_NEW_CMD_TARGET)
 	./$(TEST_COVERAGE_TARGET)
 	./$(TEST_CLI_ARGS_TARGET)
+	./$(TEST_MAIN_TARGET)
 
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
@@ -140,7 +150,8 @@ $(BIN_DIR) $(BIN_DIR)/tests $(BUILD_DIR) $(BUILD_DIR)/tests:
          $(TEST_REPORT_OBJS:.o=.d) \
          $(TEST_NEW_CMD_OBJS:.o=.d) \
          $(TEST_COVERAGE_OBJS:.o=.d) \
-         $(TEST_CLI_ARGS_OBJS:.o=.d)
+         $(TEST_CLI_ARGS_OBJS:.o=.d) \
+         $(TEST_MAIN_OBJS:.o=.d)
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
