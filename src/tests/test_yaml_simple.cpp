@@ -12,7 +12,7 @@
 
 extern "C" {
 #include "yaml_simple.h"
-#include "requirement.h"
+#include "entity.h"
 #include "triplet_store_c.h"
 }
 
@@ -33,7 +33,7 @@ static const char *write_yaml(const char *filename, const char *content)
 }
 
 /* -------------------------------------------------------------------------
- * Tests — yaml_parse_requirements (multi-document)
+ * Tests — yaml_parse_entities (multi-document)
  * ---------------------------------------------------------------------- */
 
 TEST(YamlSimpleTest, SingleDocument)
@@ -46,19 +46,19 @@ TEST(YamlSimpleTest, SingleDocument)
         "priority: must\n");
     ASSERT_NE(path, nullptr);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int rc = yaml_parse_requirements(path, &list);
+    int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 1);
     EXPECT_EQ(list.count, 1);
-    EXPECT_STREQ(list.items[0].id,       "REQ-001");
-    EXPECT_STREQ(list.items[0].title,    "Single document");
-    EXPECT_STREQ(list.items[0].type,     "functional");
-    EXPECT_STREQ(list.items[0].status,   "draft");
-    EXPECT_STREQ(list.items[0].priority, "must");
+    EXPECT_STREQ(list.items[0].identity.id,        "REQ-001");
+    EXPECT_STREQ(list.items[0].identity.title,     "Single document");
+    EXPECT_STREQ(list.items[0].identity.type_raw,  "functional");
+    EXPECT_STREQ(list.items[0].lifecycle.status,   "draft");
+    EXPECT_STREQ(list.items[0].lifecycle.priority, "must");
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 TEST(YamlSimpleTest, MultiDocument)
@@ -83,23 +83,23 @@ TEST(YamlSimpleTest, MultiDocument)
         "priority: could\n");
     ASSERT_NE(path, nullptr);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int rc = yaml_parse_requirements(path, &list);
+    int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 3);
     EXPECT_EQ(list.count, 3);
 
-    EXPECT_STREQ(list.items[0].id,    "REQ-001");
-    EXPECT_STREQ(list.items[0].title, "First requirement");
+    EXPECT_STREQ(list.items[0].identity.id,    "REQ-001");
+    EXPECT_STREQ(list.items[0].identity.title, "First requirement");
 
-    EXPECT_STREQ(list.items[1].id,    "REQ-002");
-    EXPECT_STREQ(list.items[1].title, "Second requirement");
+    EXPECT_STREQ(list.items[1].identity.id,    "REQ-002");
+    EXPECT_STREQ(list.items[1].identity.title, "Second requirement");
 
-    EXPECT_STREQ(list.items[2].id,    "REQ-003");
-    EXPECT_STREQ(list.items[2].title, "Third requirement");
+    EXPECT_STREQ(list.items[2].identity.id,    "REQ-003");
+    EXPECT_STREQ(list.items[2].identity.title, "Third requirement");
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 TEST(YamlSimpleTest, MultiDocumentSkipsNoId)
@@ -115,28 +115,28 @@ TEST(YamlSimpleTest, MultiDocumentSkipsNoId)
         "title: Also has id\n");
     ASSERT_NE(path, nullptr);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int rc = yaml_parse_requirements(path, &list);
+    int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 2);
     EXPECT_EQ(list.count, 2);
-    EXPECT_STREQ(list.items[0].id, "REQ-001");
-    EXPECT_STREQ(list.items[1].id, "REQ-003");
+    EXPECT_STREQ(list.items[0].identity.id, "REQ-001");
+    EXPECT_STREQ(list.items[1].identity.id, "REQ-003");
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 TEST(YamlSimpleTest, NonexistentFile)
 {
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int rc = yaml_parse_requirements("/tmp/no_such_file_xyz.yaml", &list);
+    int rc = yaml_parse_entities("/tmp/no_such_file_xyz.yaml", &list);
     EXPECT_EQ(rc, -1);
     EXPECT_EQ(list.count, 0);
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 TEST(YamlSimpleTest, FilePathStoredPerDocument)
@@ -149,89 +149,89 @@ TEST(YamlSimpleTest, FilePathStoredPerDocument)
         "title: Second\n");
     ASSERT_NE(path, nullptr);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    yaml_parse_requirements(path, &list);
+    yaml_parse_entities(path, &list);
     EXPECT_EQ(list.count, 2);
-    /* Both requirements should record the same file path. */
-    EXPECT_STREQ(list.items[0].file_path, path);
-    EXPECT_STREQ(list.items[1].file_path, path);
+    /* Both entities should record the same file path. */
+    EXPECT_STREQ(list.items[0].identity.file_path, path);
+    EXPECT_STREQ(list.items[1].identity.file_path, path);
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 /* -------------------------------------------------------------------------
- * Tests — yaml_parse_links with multi-document files
+ * Tests — traceability via "traceability:" and "links:" keys
  * ---------------------------------------------------------------------- */
 
-TEST(YamlSimpleTest, LinksSingleDocument)
+TEST(YamlSimpleTest, TraceabilitySingleDocument)
 {
-    const char *path = write_yaml("test_links_single.yaml",
+    const char *path = write_yaml("test_trace_single.yaml",
         "id: REQ-001\n"
-        "title: Has links\n"
-        "links:\n"
+        "title: Has traceability\n"
+        "traceability:\n"
         "  - id: REQ-002\n"
         "    relation: implements\n"
         "  - id: REQ-003\n"
         "    relation: refines\n");
     ASSERT_NE(path, nullptr);
 
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(e.traceability.count, 2);
+
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
 
-    int rc = yaml_parse_links(path, "REQ-001", store);
-    EXPECT_EQ(rc, 2);
+    int added = entity_traceability_to_triplets(&e, store);
+    EXPECT_EQ(added, 2);
 
     triplet_store_destroy(store);
 }
 
-TEST(YamlSimpleTest, LinksMultiDocumentCorrectSubject)
+TEST(YamlSimpleTest, TraceabilityMultiDocumentCorrectSubject)
 {
-    /* A two-document file; links belong to REQ-002 only. */
-    const char *path = write_yaml("test_links_multi.yaml",
+    /* A two-document file; traceability belongs to REQ-002 only. */
+    const char *path = write_yaml("test_trace_multi.yaml",
         "id: REQ-001\n"
-        "title: No links\n"
+        "title: No traceability\n"
         "---\n"
         "id: REQ-002\n"
-        "title: Has links\n"
-        "links:\n"
+        "title: Has traceability\n"
+        "traceability:\n"
         "  - id: REQ-003\n"
         "    relation: implements\n");
     ASSERT_NE(path, nullptr);
 
-    TripletStore *store = triplet_store_create();
-    ASSERT_NE(store, nullptr);
+    EntityList list;
+    entity_list_init(&list);
+    int rc = yaml_parse_entities(path, &list);
+    ASSERT_EQ(rc, 2);
 
-    /* Asking for links of REQ-001 should yield 0 — it has none. */
-    int rc1 = yaml_parse_links(path, "REQ-001", store);
-    EXPECT_EQ(rc1, 0);
+    /* REQ-001 should have no traceability links. */
+    EXPECT_EQ(list.items[0].traceability.count, 0);
+    /* REQ-002 should have one traceability link. */
+    EXPECT_EQ(list.items[1].traceability.count, 1);
 
-    /* Asking for links of REQ-002 should yield 1. */
-    int rc2 = yaml_parse_links(path, "REQ-002", store);
-    EXPECT_EQ(rc2, 1);
-
-    triplet_store_destroy(store);
+    entity_list_free(&list);
 }
 
-TEST(YamlSimpleTest, LinksNonexistentFile)
+TEST(YamlSimpleTest, TraceabilityNonexistentFile)
 {
-    TripletStore *store = triplet_store_create();
-    ASSERT_NE(store, nullptr);
-
-    int rc = yaml_parse_links("/tmp/no_such_file_xyz.yaml", "REQ-001", store);
+    Entity e;
+    int rc = yaml_parse_entity("/tmp/no_such_file_xyz.yaml", &e);
     EXPECT_EQ(rc, -1);
-
-    triplet_store_destroy(store);
 }
 
-TEST(YamlSimpleTest, LinksArtefactKey)
+TEST(YamlSimpleTest, TraceabilityArtefactKey)
 {
     /* Artefact-based links use "artefact" instead of "id" as the target key. */
-    const char *path = write_yaml("test_links_artefact.yaml",
+    const char *path = write_yaml("test_trace_artefact.yaml",
         "id: TC-001\n"
         "title: Test case with artefact links\n"
-        "links:\n"
+        "traceability:\n"
         "  - id: REQ-005\n"
         "    relation: verifies\n"
         "  - artefact: src/tests/test_foo.cpp\n"
@@ -240,18 +240,22 @@ TEST(YamlSimpleTest, LinksArtefactKey)
         "    relation: implemented-by-test\n");
     ASSERT_NE(path, nullptr);
 
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(e.traceability.count, 3);
+
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
 
-    int rc = yaml_parse_links(path, "TC-001", store);
-    EXPECT_EQ(rc, 3);
+    int added = entity_traceability_to_triplets(&e, store);
+    EXPECT_EQ(added, 3);
 
-    /* Verify that each triple was stored with the correct object. */
     CTripleList list = triplet_store_find_by_subject(store, "TC-001");
     EXPECT_EQ(list.count, 3u);
 
-    int found_verifies          = 0;
-    int found_implemented_by    = 0;
+    int found_verifies            = 0;
+    int found_implemented_by      = 0;
     int found_implemented_by_test = 0;
     for (size_t i = 0; i < list.count; i++) {
         const CTriple *t = &list.triples[i];

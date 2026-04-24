@@ -17,7 +17,7 @@ GTEST_LDFLAGS = -L$(GTEST_PREFIX)/lib -Wl,-rpath,$(GTEST_PREFIX)/lib \
                 -lgtest_main -lgtest -lgmock -pthread
 
 # Main binary sources (C and C++)
-C_SRCS   = main.c requirement.c entity.c yaml_simple.c discovery.c config.c report.c new_cmd.c
+C_SRCS   = main.c entity.c yaml_simple.c discovery.c config.c report.c new_cmd.c
 CPP_SRCS = triplet_store.cpp triplet_store_c.cpp
 C_OBJS   = $(addprefix $(BUILD_DIR)/,$(C_SRCS:.c=.o))
 CPP_OBJS = $(addprefix $(BUILD_DIR)/,$(CPP_SRCS:.cpp=.o))
@@ -33,33 +33,31 @@ TEST_CONFIG_OBJS    = $(BUILD_DIR)/tests/test_config.o $(BUILD_DIR)/config.o
 
 TEST_YAML_TARGET    = $(BIN_DIR)/tests/test_yaml_simple
 TEST_YAML_OBJS      = $(BUILD_DIR)/tests/test_yaml_simple.o \
-                      $(BUILD_DIR)/yaml_simple.o $(BUILD_DIR)/requirement.o \
+                      $(BUILD_DIR)/yaml_simple.o \
                       $(BUILD_DIR)/entity.o $(BUILD_DIR)/triplet_store.o \
                       $(BUILD_DIR)/triplet_store_c.o
 
 TEST_DISCOVERY_TARGET = $(BIN_DIR)/tests/test_discovery_ignore
 TEST_DISCOVERY_OBJS   = $(BUILD_DIR)/tests/test_discovery_ignore.o \
-                        $(BUILD_DIR)/discovery.o $(BUILD_DIR)/requirement.o \
+                        $(BUILD_DIR)/discovery.o \
                         $(BUILD_DIR)/yaml_simple.o $(BUILD_DIR)/config.o \
                         $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o \
                         $(BUILD_DIR)/entity.o
 
 TEST_ENTITY_TARGET = $(BIN_DIR)/tests/test_entity
 TEST_ENTITY_OBJS   = $(BUILD_DIR)/tests/test_entity.o $(BUILD_DIR)/entity.o \
-                     $(BUILD_DIR)/yaml_simple.o $(BUILD_DIR)/requirement.o \
+                     $(BUILD_DIR)/yaml_simple.o \
                      $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
 TEST_REPORT_TARGET = $(BIN_DIR)/tests/test_report
 TEST_REPORT_OBJS   = $(BUILD_DIR)/tests/test_report.o $(BUILD_DIR)/report.o \
                      $(BUILD_DIR)/entity.o $(BUILD_DIR)/yaml_simple.o \
-                     $(BUILD_DIR)/requirement.o $(BUILD_DIR)/triplet_store.o \
-                     $(BUILD_DIR)/triplet_store_c.o
+                     $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
 TEST_NEW_CMD_TARGET = $(BIN_DIR)/tests/test_new_cmd
 TEST_NEW_CMD_OBJS   = $(BUILD_DIR)/tests/test_new_cmd.o $(BUILD_DIR)/new_cmd.o \
                       $(BUILD_DIR)/entity.o $(BUILD_DIR)/yaml_simple.o \
-                      $(BUILD_DIR)/requirement.o $(BUILD_DIR)/triplet_store.o \
-                      $(BUILD_DIR)/triplet_store_c.o
+                      $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
 .PHONY: all clean test
 

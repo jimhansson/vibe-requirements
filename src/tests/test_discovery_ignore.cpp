@@ -2,7 +2,7 @@
  * @file test_discovery_ignore.cpp
  * @brief Automated test for TC-IGNORE-DIRS-001 — verifies that directories
  *        listed in ignore_dirs of .vibe-req.yaml are not scanned during
- *        requirement auto-discovery, using gtest/gmock.
+ *        entity auto-discovery, using gtest/gmock.
  */
 
 #include <gtest/gtest.h>
@@ -15,7 +15,7 @@
 extern "C" {
 #include "discovery.h"
 #include "config.h"
-#include "requirement.h"
+#include "entity.h"
 }
 
 /* -------------------------------------------------------------------------
@@ -48,9 +48,9 @@ static int write_file(const char *path, const char *content)
  *   /tmp/vibe_disco_test/
  *     .vibe-req.yaml          — config: ignore_dirs: [examples]
  *     requirements/
- *       req1.yaml             — valid requirement REQ-001
+ *       req1.yaml             — valid entity REQ-001
  *     examples/
- *       ex1.yaml              — valid requirement EX-001 (must be ignored)
+ *       ex1.yaml              — valid entity EX-001 (must be ignored)
  *
  * Returns 0 on success.
  */
@@ -98,10 +98,10 @@ static int setup_test_tree(const char *root)
 }
 
 /* Return true if any item in list has the given id. */
-static bool list_contains_id(const RequirementList *list, const char *id)
+static bool list_contains_id(const EntityList *list, const char *id)
 {
     for (int i = 0; i < list->count; i++) {
-        if (strcmp(list->items[i].id, id) == 0)
+        if (strcmp(list->items[i].identity.id, id) == 0)
             return true;
     }
     return false;
@@ -113,7 +113,7 @@ static bool list_contains_id(const RequirementList *list, const char *id)
 
 /*
  * TC-IGNORE-DIRS-001 core test:
- * Requirements inside an ignored directory must not appear; requirements
+ * Entities inside an ignored directory must not appear; entities
  * inside a non-ignored directory must appear.
  */
 TEST(DiscoveryIgnoreTest, IgnoredDirNotScanned)
@@ -126,12 +126,12 @@ TEST(DiscoveryIgnoreTest, IgnoredDirNotScanned)
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(cfg.ignore_dirs_count, 1);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int found = discover_requirements(root, &list, &cfg);
+    int found = discover_entities(root, &list, &cfg);
 
-    /* At least one requirement must be found (from requirements/). */
+    /* At least one entity must be found (from requirements/). */
     EXPECT_GE(found, 1);
     EXPECT_GE(list.count, 1);
 
@@ -141,29 +141,29 @@ TEST(DiscoveryIgnoreTest, IgnoredDirNotScanned)
     /* EX-001 (from examples/) must NOT be present. */
     EXPECT_FALSE(list_contains_id(&list, "EX-001"));
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 /*
  * Without a config (cfg == NULL) both directories are scanned, so both
- * requirements must appear.
+ * entities must appear.
  */
 TEST(DiscoveryIgnoreTest, NoCfgScansAllDirs)
 {
     const char *root = "/tmp/vibe_disco_test";
     ASSERT_EQ(setup_test_tree(root), 0);
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int found = discover_requirements(root, &list, nullptr);
+    int found = discover_entities(root, &list, nullptr);
 
     EXPECT_GE(found, 2);
     EXPECT_GE(list.count, 2);
     EXPECT_TRUE(list_contains_id(&list, "REQ-001"));
     EXPECT_TRUE(list_contains_id(&list, "EX-001"));
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
 /*
@@ -177,31 +177,31 @@ TEST(DiscoveryIgnoreTest, EmptyIgnoreListScansAllDirs)
     VibeConfig cfg;
     memset(&cfg, 0, sizeof(cfg));   /* ignore_dirs_count == 0 */
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int found = discover_requirements(root, &list, &cfg);
+    int found = discover_entities(root, &list, &cfg);
 
     EXPECT_GE(found, 2);
     EXPECT_GE(list.count, 2);
     EXPECT_TRUE(list_contains_id(&list, "REQ-001"));
     EXPECT_TRUE(list_contains_id(&list, "EX-001"));
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
 
-/* discover_requirements must return -1 for a nonexistent root. */
+/* discover_entities must return -1 for a nonexistent root. */
 TEST(DiscoveryIgnoreTest, NonexistentRoot)
 {
     VibeConfig cfg;
     memset(&cfg, 0, sizeof(cfg));
 
-    RequirementList list;
-    req_list_init(&list);
+    EntityList list;
+    entity_list_init(&list);
 
-    int rc = discover_requirements("/tmp/vibe_disco_no_such_dir_xyz", &list, &cfg);
+    int rc = discover_entities("/tmp/vibe_disco_no_such_dir_xyz", &list, &cfg);
     EXPECT_EQ(rc, -1);
     EXPECT_EQ(list.count, 0);
 
-    req_list_free(&list);
+    entity_list_free(&list);
 }
