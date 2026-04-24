@@ -283,9 +283,6 @@ vibe-req report [--format md|html] [--output <file>] \
 | `--priority <prio>` | Include only entities with the given priority |
 | `--component <comp>` | Include only entities that carry the named ECS component |
 
-When no filter flags are given the report covers all entities found in the
-scanned directory tree.
-
 #### Examples
 
 ```bash
@@ -327,6 +324,58 @@ The system shall support email and password authentication for all users.
 - `[implemented-by]` ← STORY-SW-001
 
 ---
+```
+
+---
+
+### new
+
+Scaffold a new entity YAML file.  Creates `<id>.yaml` in the given
+directory (default: current directory) containing a minimal template for
+the requested entity type.
+
+```bash
+vibe-req new <type> <id> [directory]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `<type>` | Entity type (see table below) |
+| `<id>` | Entity identifier; also used as the file name (`<id>.yaml`) |
+| `directory` | Output directory (default: `.`) |
+
+**`<type>` values:**
+
+| Value | Entity kind |
+|-------|-------------|
+| `requirement`, `functional`, `non-functional` | Functional / non-functional requirement |
+| `group` | Requirement group / section heading |
+| `story`, `user-story` | User story |
+| `design-note`, `design` | SDD free-form design note |
+| `section` | Non-normative document section |
+| `assumption` | Recorded assumption |
+| `constraint` | Technical, legal, or environmental constraint |
+| `test-case`, `test` | Explicit test case |
+| `external`, `directive`, `standard`, `regulation` | External normative source |
+| `document`, `srs`, `sdd` | Document entity |
+
+The command fails with exit code `1` if:
+- the file `<id>.yaml` already exists in the target directory, or
+- the type string is not recognised.
+
+**Examples:**
+
+```bash
+# Scaffold a new requirement in the current directory
+vibe-req new requirement REQ-AUTH-003
+
+# Scaffold a user story in a specific directory
+vibe-req new story STORY-LOGIN-001 requirements/sw/
+
+# Scaffold a test case
+vibe-req new test-case TC-AUTH-001
 ```
 
 ---

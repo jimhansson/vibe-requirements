@@ -13,7 +13,7 @@ GTEST_LDFLAGS = -L$(GTEST_PREFIX)/lib -Wl,-rpath,$(GTEST_PREFIX)/lib \
                 -lgtest_main -lgtest -lgmock -pthread
 
 # Main binary sources (C and C++)
-C_SRCS   = main.c requirement.c entity.c yaml_simple.c discovery.c config.c report.c
+C_SRCS   = main.c requirement.c entity.c yaml_simple.c discovery.c config.c report.c new_cmd.c
 CPP_SRCS = triplet_store.cpp triplet_store_c.cpp
 C_OBJS   = $(C_SRCS:.c=.o)
 CPP_OBJS = $(CPP_SRCS:.cpp=.o)
@@ -43,6 +43,10 @@ TEST_REPORT_TARGET = tests/test_report
 TEST_REPORT_OBJS   = tests/test_report.o report.o entity.o yaml_simple.o \
                      requirement.o triplet_store.o triplet_store_c.o
 
+TEST_NEW_CMD_TARGET = tests/test_new_cmd
+TEST_NEW_CMD_OBJS   = tests/test_new_cmd.o new_cmd.o entity.o yaml_simple.o \
+                      requirement.o triplet_store.o triplet_store_c.o
+
 .PHONY: all clean test
 
 all: $(TARGET)
@@ -69,13 +73,17 @@ $(TEST_ENTITY_TARGET): $(TEST_ENTITY_OBJS)
 $(TEST_REPORT_TARGET): $(TEST_REPORT_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
-test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET) $(TEST_ENTITY_TARGET) $(TEST_REPORT_TARGET)
+$(TEST_NEW_CMD_TARGET): $(TEST_NEW_CMD_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
+
+test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET) $(TEST_ENTITY_TARGET) $(TEST_REPORT_TARGET) $(TEST_NEW_CMD_TARGET)
 	./$(TEST_TRIPLET_TARGET)
 	./$(TEST_CONFIG_TARGET)
 	./$(TEST_YAML_TARGET)
 	./$(TEST_DISCOVERY_TARGET)
 	./$(TEST_ENTITY_TARGET)
 	./$(TEST_REPORT_TARGET)
+	./$(TEST_NEW_CMD_TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
@@ -93,7 +101,8 @@ tests/%.o: tests/%.cpp
          $(TEST_YAML_OBJS:.o=.d) \
          $(TEST_DISCOVERY_OBJS:.o=.d) \
          $(TEST_ENTITY_OBJS:.o=.d) \
-         $(TEST_REPORT_OBJS:.o=.d)
+         $(TEST_REPORT_OBJS:.o=.d) \
+         $(TEST_NEW_CMD_OBJS:.o=.d)
 
 clean:
 	rm -f $(OBJS) $(TARGET) \
@@ -103,10 +112,12 @@ clean:
 	      $(TEST_DISCOVERY_OBJS) $(TEST_DISCOVERY_TARGET) \
 	      $(TEST_ENTITY_OBJS) $(TEST_ENTITY_TARGET) \
 	      $(TEST_REPORT_OBJS) $(TEST_REPORT_TARGET) \
+	      $(TEST_NEW_CMD_OBJS) $(TEST_NEW_CMD_TARGET) \
 	      $(OBJS:.o=.d) \
 	      $(TEST_TRIPLET_OBJS:.o=.d) \
 	      $(TEST_CONFIG_OBJS:.o=.d) \
 	      $(TEST_YAML_OBJS:.o=.d) \
 	      $(TEST_DISCOVERY_OBJS:.o=.d) \
 	      $(TEST_ENTITY_OBJS:.o=.d) \
-	      $(TEST_REPORT_OBJS:.o=.d)
+	      $(TEST_REPORT_OBJS:.o=.d) \
+	      $(TEST_NEW_CMD_OBJS:.o=.d)

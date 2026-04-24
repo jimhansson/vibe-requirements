@@ -462,6 +462,7 @@ recursively scans `.yaml` / `.yml` files with a top-level `id:` field.
 | `orphan` | List requirements and test cases with no traceability links in either direction |
 | `links` | Print all relations as a Subject → Relation → Object table |
 | `report` | Generate a Markdown or HTML report of all entities (or a filtered subset) |
+| `new <type> <id>` | Scaffold a new entity YAML file in the current (or specified) directory |
 
 ### Filter flags (for `list` / `entities` / `report`)
 
@@ -498,7 +499,6 @@ vibe-req report [--kind <kind>] [--component <comp>] [--status <status>] [--prio
 | Command | Description |
 |---|---|
 | `init` | Initialize a new vibe-req project in the current directory |
-| `new <type> <id>` | Create a new requirement / story / SDD / test-case / external-source file |
 | `validate` | Validate all files: schema, IDs, links |
 | `status` | Print counts by status and priority |
 | `export <format>` | Export to CSV or ReqIF |
