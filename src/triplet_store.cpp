@@ -95,6 +95,8 @@ bool TripletStore::remove(TripleId id)
 
     triples_[id] = std::nullopt;
     --count_;
+    ++dead_count_;
+    maybe_compact();
     return true;
 }
 
@@ -114,9 +116,11 @@ std::size_t TripletStore::remove_by_subject(const std::string &subject)
         index_remove(by_predicate_, t.predicate, id);
         triples_[id] = std::nullopt;
         --count_;
+        ++dead_count_;
         ++removed;
     }
     by_subject_.erase(it);
+    maybe_compact();
     return removed;
 }
 
@@ -135,9 +139,11 @@ std::size_t TripletStore::remove_by_object(const std::string &object)
         index_remove(by_predicate_, t.predicate, id);
         triples_[id] = std::nullopt;
         --count_;
+        ++dead_count_;
         ++removed;
     }
     by_object_.erase(it);
+    maybe_compact();
     return removed;
 }
 
@@ -156,9 +162,11 @@ std::size_t TripletStore::remove_by_predicate(const std::string &predicate)
         index_remove(by_object_,  t.object,  id);
         triples_[id] = std::nullopt;
         --count_;
+        ++dead_count_;
         ++removed;
     }
     by_predicate_.erase(it);
+    maybe_compact();
     return removed;
 }
 
@@ -169,6 +177,50 @@ void TripletStore::clear() noexcept
     by_object_.clear();
     by_predicate_.clear();
     count_ = 0;
+    dead_count_ = 0;
+}
+
+std::size_t TripletStore::compact()
+{
+    if (dead_count_ == 0) return 0;
+
+    /* Build a remapping table: old slot index -> new consecutive index. */
+    std::vector<TripleId> remap(triples_.size(), INVALID_TRIPLE_ID);
+
+    std::vector<std::optional<Triple>> new_triples;
+    new_triples.reserve(count_);
+
+    TripleId new_id = 0;
+    for (std::size_t old_id = 0; old_id < triples_.size(); ++old_id) {
+        if (triples_[old_id]) {
+            remap[old_id] = new_id;
+            Triple t      = std::move(*triples_[old_id]);
+            t.id          = new_id;
+            new_triples.push_back(std::move(t));
+            ++new_id;
+        }
+    }
+
+    triples_ = std::move(new_triples);
+
+    /* Remap every ID stored in the three index maps. */
+    auto remap_vec = [&](std::vector<TripleId> &vec) {
+        for (TripleId &id : vec) id = remap[id];
+    };
+
+    for (auto &[key, vec] : by_subject_)   remap_vec(vec);
+    for (auto &[key, vec] : by_object_)    remap_vec(vec);
+    for (auto &[key, vec] : by_predicate_) remap_vec(vec);
+
+    std::size_t reclaimed = dead_count_;
+    dead_count_ = 0;
+    return reclaimed;
+}
+
+void TripletStore::maybe_compact()
+{
+    if (dead_count_ >= k_compact_threshold && dead_count_ >= count_)
+        compact();
 }
 
 TripleId TripletStore::add_inferred(const std::string &subject,

@@ -39,8 +39,28 @@ struct Triple {
 /**
  * In-memory triplet store backed by STL containers.
  *
- * Design invariant: the three index maps always reflect exactly the set of
- * active (non-nullopt) entries in @c triples_.
+ * ## Design invariants
+ *
+ * 1. The three index maps (@c by_subject_, @c by_object_, @c by_predicate_)
+ *    always reflect exactly the set of active (non-nullopt) entries in
+ *    @c triples_.  Removed entries have their slot set to @c std::nullopt
+ *    and their ID is simultaneously removed from all three index vectors,
+ *    so index vectors never contain dead (nullopt) IDs.
+ *
+ * 2. @c triples_ uses slot-based storage: removing a triple leaves a
+ *    @c std::nullopt gap.  In high add/remove churn the number of dead slots
+ *    can exceed the number of active triples, wasting memory and making
+ *    @c find_all() traverse tombstones needlessly.
+ *
+ * 3. **Lazy compaction** automatically reclaims dead slots: whenever the
+ *    number of dead slots (@c dead_count_) reaches the auto-compact threshold
+ *    (@c k_compact_threshold dead slots and at least as many dead as alive),
+ *    @c compact() is called implicitly after the removal that crossed the
+ *    threshold.  Callers may also invoke @c compact() explicitly at any time.
+ *
+ * 4. @c compact() reassigns consecutive IDs starting from 0.  Any
+ *    @c TripleId obtained before a compaction must be considered invalid
+ *    afterwards; do not hold @c TripleId values across a @c compact() call.
  */
 class TripletStore {
 public:
@@ -98,6 +118,22 @@ public:
     void clear() noexcept;
 
     /**
+     * Compact the store by removing dead (nullopt) slots from @c triples_
+     * and reassigning consecutive IDs starting from 0.  All three index maps
+     * are rebuilt to reflect the new IDs.
+     *
+     * After this call @c slot_count() == @c count().  Any @c TripleId
+     * obtained before this call must be considered invalid.
+     *
+     * This is called automatically (lazy compaction) when the number of dead
+     * slots reaches the built-in threshold; callers may also invoke it
+     * explicitly, e.g. after a bulk-remove pass.
+     *
+     * @return  Number of dead slots reclaimed.
+     */
+    std::size_t compact();
+
+    /**
      * For every user-declared triple (A, rel, B) where @c rel has a known
      * inverse @c inv(rel) in the built-in relation-pair registry, add a
      * synthetic triple (B, inv(rel), A) marked as inferred — unless an
@@ -144,6 +180,16 @@ public:
     /** Number of active (non-removed) triples. */
     std::size_t count() const noexcept { return count_; }
 
+    /**
+     * Total number of allocated slots in @c triples_, including dead
+     * (nullopt) slots left by previous removals.
+     *
+     * @c slot_count() - @c count() gives the number of dead slots that a
+     * future @c compact() call would reclaim.  After a @c compact() call,
+     * @c slot_count() == @c count().
+     */
+    std::size_t slot_count() const noexcept { return triples_.size(); }
+
 private:
     /** Slot-based storage; removed entries become std::nullopt. */
     std::vector<std::optional<Triple>> triples_;
@@ -155,6 +201,18 @@ private:
 
     /** Cached count of active triples. */
     std::size_t count_{0};
+
+    /** Number of nullopt (dead) slots currently in @c triples_. */
+    std::size_t dead_count_{0};
+
+    /**
+     * Minimum number of dead slots required before auto-compaction fires.
+     * Keeps tiny stores from compacting on every single removal.
+     */
+    static constexpr std::size_t k_compact_threshold = 16;
+
+    /** Trigger compact() if the lazy-compaction threshold has been reached. */
+    void maybe_compact();
 
     /** Remove @p id from an index entry; erase the entry if it becomes empty. */
     static void index_remove(
