@@ -1477,3 +1477,198 @@ TEST(YamlParseEntityTest, AllThreeNewComponentsOnOneEntity)
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 1);
     EXPECT_EQ(entity_has_component(&e, "attachment"),        1);
 }
+
+/* =========================================================================
+ * Tests — entity_cmp_by_id
+ * ======================================================================= */
+
+TEST(EntityCmpByIdTest, SortsTwoEntities)
+{
+    Entity a, b;
+    memset(&a, 0, sizeof(a));
+    memset(&b, 0, sizeof(b));
+    strncpy(a.identity.id, "REQ-002", sizeof(a.identity.id) - 1);
+    strncpy(b.identity.id, "REQ-001", sizeof(b.identity.id) - 1);
+
+    /* a > b alphabetically */
+    EXPECT_GT(entity_cmp_by_id(&a, &b), 0);
+    EXPECT_LT(entity_cmp_by_id(&b, &a), 0);
+    EXPECT_EQ(entity_cmp_by_id(&a, &a), 0);
+}
+
+TEST(EntityCmpByIdTest, UsableWithQsort)
+{
+    EntityList list;
+    entity_list_init(&list);
+
+    Entity e;
+    memset(&e, 0, sizeof(e));
+
+    strncpy(e.identity.id, "REQ-003", sizeof(e.identity.id) - 1);
+    entity_list_add(&list, &e);
+    strncpy(e.identity.id, "REQ-001", sizeof(e.identity.id) - 1);
+    entity_list_add(&list, &e);
+    strncpy(e.identity.id, "REQ-002", sizeof(e.identity.id) - 1);
+    entity_list_add(&list, &e);
+
+    qsort(list.items, (size_t)list.count, sizeof(Entity), entity_cmp_by_id);
+
+    EXPECT_STREQ(list.items[0].identity.id, "REQ-001");
+    EXPECT_STREQ(list.items[1].identity.id, "REQ-002");
+    EXPECT_STREQ(list.items[2].identity.id, "REQ-003");
+
+    entity_list_free(&list);
+}
+
+/* =========================================================================
+ * Tests — entity_apply_filter
+ * ======================================================================= */
+
+static Entity make_test_entity(const char *id, EntityKind kind,
+                                const char *status, const char *priority)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    strncpy(e.identity.id, id, sizeof(e.identity.id) - 1);
+    e.identity.kind = kind;
+    strncpy(e.lifecycle.status,   status,   sizeof(e.lifecycle.status)   - 1);
+    strncpy(e.lifecycle.priority, priority, sizeof(e.lifecycle.priority) - 1);
+    return e;
+}
+
+TEST(EntityApplyFilterTest, NullFiltersPassesAll)
+{
+    EntityList src, dst;
+    entity_list_init(&src);
+    entity_list_init(&dst);
+
+    Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
+                                  "draft", "must");
+    Entity e2 = make_test_entity("TC-001",  ENTITY_KIND_TEST_CASE,
+                                  "approved", "should");
+    entity_list_add(&src, &e1);
+    entity_list_add(&src, &e2);
+
+    entity_apply_filter(&src, &dst, nullptr, nullptr, nullptr, nullptr);
+    EXPECT_EQ(dst.count, 2);
+
+    entity_list_free(&src);
+    entity_list_free(&dst);
+}
+
+TEST(EntityApplyFilterTest, KindFilterSelectsOnlyRequirements)
+{
+    EntityList src, dst;
+    entity_list_init(&src);
+    entity_list_init(&dst);
+
+    Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
+                                  "draft", "must");
+    Entity e2 = make_test_entity("TC-001",  ENTITY_KIND_TEST_CASE,
+                                  "draft", "must");
+    entity_list_add(&src, &e1);
+    entity_list_add(&src, &e2);
+
+    entity_apply_filter(&src, &dst, "requirement", nullptr, nullptr, nullptr);
+    EXPECT_EQ(dst.count, 1);
+    EXPECT_STREQ(dst.items[0].identity.id, "REQ-001");
+
+    entity_list_free(&src);
+    entity_list_free(&dst);
+}
+
+TEST(EntityApplyFilterTest, StatusFilterSelectsApproved)
+{
+    EntityList src, dst;
+    entity_list_init(&src);
+    entity_list_init(&dst);
+
+    Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
+                                  "approved", "must");
+    Entity e2 = make_test_entity("REQ-002", ENTITY_KIND_REQUIREMENT,
+                                  "draft", "must");
+    entity_list_add(&src, &e1);
+    entity_list_add(&src, &e2);
+
+    entity_apply_filter(&src, &dst, nullptr, nullptr, "approved", nullptr);
+    EXPECT_EQ(dst.count, 1);
+    EXPECT_STREQ(dst.items[0].identity.id, "REQ-001");
+
+    entity_list_free(&src);
+    entity_list_free(&dst);
+}
+
+TEST(EntityApplyFilterTest, PriorityFilterSelectsMust)
+{
+    EntityList src, dst;
+    entity_list_init(&src);
+    entity_list_init(&dst);
+
+    Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
+                                  "draft", "must");
+    Entity e2 = make_test_entity("REQ-002", ENTITY_KIND_REQUIREMENT,
+                                  "draft", "should");
+    entity_list_add(&src, &e1);
+    entity_list_add(&src, &e2);
+
+    entity_apply_filter(&src, &dst, nullptr, nullptr, nullptr, "must");
+    EXPECT_EQ(dst.count, 1);
+    EXPECT_STREQ(dst.items[0].identity.id, "REQ-001");
+
+    entity_list_free(&src);
+    entity_list_free(&dst);
+}
+
+TEST(EntityApplyFilterTest, CombinedKindAndStatusFilters)
+{
+    EntityList src, dst;
+    entity_list_init(&src);
+    entity_list_init(&dst);
+
+    Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
+                                  "approved", "must");
+    Entity e2 = make_test_entity("REQ-002", ENTITY_KIND_REQUIREMENT,
+                                  "draft", "must");
+    Entity e3 = make_test_entity("TC-001",  ENTITY_KIND_TEST_CASE,
+                                  "approved", "must");
+    entity_list_add(&src, &e1);
+    entity_list_add(&src, &e2);
+    entity_list_add(&src, &e3);
+
+    entity_apply_filter(&src, &dst, "requirement", nullptr, "approved", nullptr);
+    EXPECT_EQ(dst.count, 1);
+    EXPECT_STREQ(dst.items[0].identity.id, "REQ-001");
+
+    entity_list_free(&src);
+    entity_list_free(&dst);
+}
+
+TEST(EntityApplyFilterTest, NoMatchGivesEmptyDst)
+{
+    EntityList src, dst;
+    entity_list_init(&src);
+    entity_list_init(&dst);
+
+    Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
+                                  "draft", "must");
+    entity_list_add(&src, &e1);
+
+    entity_apply_filter(&src, &dst, "test-case", nullptr, nullptr, nullptr);
+    EXPECT_EQ(dst.count, 0);
+
+    entity_list_free(&src);
+    entity_list_free(&dst);
+}
+
+TEST(EntityApplyFilterTest, EmptySourceGivesEmptyDst)
+{
+    EntityList src, dst;
+    entity_list_init(&src);
+    entity_list_init(&dst);
+
+    entity_apply_filter(&src, &dst, "requirement", nullptr, nullptr, nullptr);
+    EXPECT_EQ(dst.count, 0);
+
+    entity_list_free(&src);
+    entity_list_free(&dst);
+}

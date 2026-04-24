@@ -1,4 +1,5 @@
 #include "entity.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -166,4 +167,61 @@ int entity_has_component(const Entity *entity, const char *comp)
         return entity->attachment.count > 0;
 
     return 0; /* unrecognised component name */
+}
+
+/* -----------------------------------------------------------------------
+ * Sorting comparator
+ * --------------------------------------------------------------------- */
+
+int entity_cmp_by_id(const void *a, const void *b)
+{
+    const Entity *ea = (const Entity *)a;
+    const Entity *eb = (const Entity *)b;
+    return strcmp(ea->identity.id, eb->identity.id);
+}
+
+/* -----------------------------------------------------------------------
+ * Entity list filtering
+ * --------------------------------------------------------------------- */
+
+void entity_apply_filter(const EntityList *src, EntityList *dst,
+                         const char *filter_kind,
+                         const char *filter_comp,
+                         const char *filter_status,
+                         const char *filter_priority)
+{
+    /* Resolve kind filter once up-front. */
+    int has_kind = (filter_kind && filter_kind[0] != '\0');
+    EntityKind kind_val = ENTITY_KIND_UNKNOWN;
+    if (has_kind) {
+        kind_val = entity_kind_from_string(filter_kind);
+        if (kind_val == ENTITY_KIND_UNKNOWN &&
+            strcmp(filter_kind, "unknown") != 0) {
+            fprintf(stderr, "warning: unrecognised kind '%s'\n", filter_kind);
+        }
+    }
+
+    for (int i = 0; i < src->count; i++) {
+        const Entity *e = &src->items[i];
+
+        if (has_kind && e->identity.kind != kind_val)
+            continue;
+
+        if (filter_comp && filter_comp[0] != '\0' &&
+            !entity_has_component(e, filter_comp)) {
+            continue;
+        }
+
+        if (filter_status && filter_status[0] != '\0' &&
+            strcmp(e->lifecycle.status, filter_status) != 0) {
+            continue;
+        }
+
+        if (filter_priority && filter_priority[0] != '\0' &&
+            strcmp(e->lifecycle.priority, filter_priority) != 0) {
+            continue;
+        }
+
+        entity_list_add(dst, e);
+    }
 }
