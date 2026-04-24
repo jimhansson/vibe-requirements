@@ -1,6 +1,6 @@
 /**
  * @file test_report.cpp
- * @brief Unit tests for report.c — report_write() Markdown and HTML output.
+ * @brief Unit tests for report.c — report_write() Markdown output.
  */
 
 #include <gtest/gtest.h>
@@ -24,8 +24,7 @@ using ::testing::Not;
  * ---------------------------------------------------------------------- */
 
 static std::string capture_report(const EntityList *list,
-                                   const TripletStore *store,
-                                   ReportFormat format)
+                                   const TripletStore *store)
 {
     /* Use a temporary file to capture output (portable; avoids fmemopen). */
     char path[] = "/tmp/test_report_XXXXXX";
@@ -38,7 +37,7 @@ static std::string capture_report(const EntityList *list,
     if (!f)
         return "";
 
-    report_write(f, list, store, format);
+    report_write(f, list, store);
     fclose(f);
 
     /* Read back */
@@ -86,7 +85,7 @@ TEST(ReportMdTest, EmptyListProducesHeadingOnly)
     EntityList list;
     entity_list_init(&list);
 
-    std::string out = capture_report(&list, nullptr, REPORT_FORMAT_MARKDOWN);
+    std::string out = capture_report(&list, nullptr);
 
     EXPECT_THAT(out, HasSubstr("# Requirements Report"));
     /* No entity sections expected */
@@ -104,7 +103,7 @@ TEST(ReportMdTest, SingleRequirementHeadingAndMeta)
                             ENTITY_KIND_REQUIREMENT, "approved", "must");
     entity_list_add(&list, &e);
 
-    std::string out = capture_report(&list, nullptr, REPORT_FORMAT_MARKDOWN);
+    std::string out = capture_report(&list, nullptr);
 
     EXPECT_THAT(out, HasSubstr("## Requirements (1)"));
     EXPECT_THAT(out, HasSubstr("### REQ-001 — Login required"));
@@ -127,7 +126,7 @@ TEST(ReportMdTest, MultipleKindsProduceMultipleSections)
     entity_list_add(&list, &req);
     entity_list_add(&list, &tc);
 
-    std::string out = capture_report(&list, nullptr, REPORT_FORMAT_MARKDOWN);
+    std::string out = capture_report(&list, nullptr);
 
     EXPECT_THAT(out, HasSubstr("## Requirements (1)"));
     EXPECT_THAT(out, HasSubstr("## Test-cases (1)"));
@@ -149,7 +148,7 @@ TEST(ReportMdTest, DescriptionAndRationaleRendered)
             sizeof(e.text.rationale) - 1);
     entity_list_add(&list, &e);
 
-    std::string out = capture_report(&list, nullptr, REPORT_FORMAT_MARKDOWN);
+    std::string out = capture_report(&list, nullptr);
 
     EXPECT_THAT(out, HasSubstr("The system must do X."));
     EXPECT_THAT(out, HasSubstr("**Rationale:** Because of Y."));
@@ -173,8 +172,7 @@ TEST(ReportMdTest, TraceabilityLinksRendered)
 
     std::string out = capture_report(&list, store, REPORT_FORMAT_MARKDOWN);
 
-    EXPECT_THAT(out, HasSubstr("**Traceability:**"));
-    EXPECT_THAT(out, HasSubstr("`[implements]` → REQ-020"));
+    EXPECT_THAT(out, HasSubstr("**Traceability:**"));    EXPECT_THAT(out, HasSubstr("`[implements]` → REQ-020"));
     EXPECT_THAT(out, HasSubstr("`[refines]` ← STORY-001"));
 
     triplet_store_destroy(store);
