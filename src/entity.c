@@ -150,5 +150,20 @@ int entity_has_component(const Entity *entity, const char *comp)
     if (strcmp(comp, "tags") == 0)
         return entity->tags.count > 0;
 
+    if (strcmp(comp, "test-procedure") == 0 ||
+        strcmp(comp, "test_procedure") == 0)
+        return entity->test_procedure.precondition_count > 0 ||
+               entity->test_procedure.step_count > 0 ||
+               entity->test_procedure.expected_result[0] != '\0';
+
+    if (strcmp(comp, "clause-collection") == 0 ||
+        strcmp(comp, "clause_collection") == 0 ||
+        strcmp(comp, "clauses") == 0)
+        return entity->clause_collection.count > 0;
+
+    if (strcmp(comp, "attachment") == 0 ||
+        strcmp(comp, "attachments") == 0)
+        return entity->attachment.count > 0;
+
     return 0; /* unrecognised component name */
 }

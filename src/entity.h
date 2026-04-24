@@ -203,6 +203,91 @@ typedef struct {
     int  count;                      /**< number of sources stored                    */
 } SourceComponent;
 
+/** Maximum byte size of the test-procedure preconditions store. */
+#define TEST_PROC_PRECOND_LEN 2048
+/** Maximum byte size of the test-procedure steps store. */
+#define TEST_PROC_STEPS_LEN   4096
+/** Maximum byte size of the test-procedure expected-result field. */
+#define TEST_PROC_RESULT_LEN  1024
+
+/**
+ * Test-procedure component — present on test-case entities.
+ *
+ * Captures the structured procedure of a test case.
+ *
+ * Schema:
+ *   preconditions (sequence)   — list of pre-conditions (newline-separated)
+ *   steps (sequence of mappings) — each step has "action" and "expected_output"
+ *                                  stored as newline-separated "action\texpected_output" pairs
+ *   expected_result (scalar)   — overall expected result of the test
+ *
+ * YAML keys:
+ *   preconditions:
+ *     - A registered user account exists.
+ *   steps:
+ *     - step: 1
+ *       action: "Submit login request."
+ *       expected_output: "System returns HTTP 200."
+ *   expected_result: "The user gains access."
+ */
+typedef struct {
+    char preconditions[TEST_PROC_PRECOND_LEN]; /**< newline-separated pre-conditions       */
+    int  precondition_count;                    /**< number of pre-conditions stored        */
+    char steps[TEST_PROC_STEPS_LEN];            /**< newline-separated "action\texpected_output" pairs */
+    int  step_count;                            /**< number of steps stored                 */
+    char expected_result[TEST_PROC_RESULT_LEN]; /**< overall expected result (YAML "expected_result:") */
+} TestProcedureComponent;
+
+/** Maximum byte size of the clause-collection store. */
+#define CLAUSE_STORE_LEN 8192
+
+/**
+ * Clause-collection component — present on external-source entities.
+ *
+ * Holds the list of clauses, articles, or annexes defined by an external
+ * normative document (standard, directive, regulation).  Each clause is
+ * stored as a "id\ttitle" pair in a newline-separated flat string.
+ *
+ * YAML key: "clauses" — a sequence of {id, title, [summary]} mappings:
+ *
+ *   clauses:
+ *     - id: annex-I-1.1.2
+ *       title: "Principles of safety integration"
+ *       summary: |
+ *         Machinery must be designed …
+ *
+ * Note: the "summary" field is not stored in the fixed-size struct; it is
+ * available in the source YAML for human reading but is omitted from the
+ * in-memory component to keep the Entity stack-allocatable.
+ */
+typedef struct {
+    char clauses[CLAUSE_STORE_LEN]; /**< newline-separated "id\ttitle" pairs */
+    int  count;                      /**< number of clauses stored            */
+} ClauseCollectionComponent;
+
+/** Maximum byte size of the attachment store. */
+#define ATTACH_STORE_LEN 2048
+
+/**
+ * Attachment component — references to binary or generated artefacts.
+ *
+ * Any entity may carry one or more attachment references (e.g. specification
+ * PDFs, generated diagrams, test reports).  Each attachment is stored as a
+ * "path\tdescription" pair in a newline-separated flat string.
+ *
+ * YAML key: "attachments" — a sequence of {path, [description]} mappings:
+ *
+ *   attachments:
+ *     - path: docs/spec.pdf
+ *       description: "Original specification document"
+ *     - path: images/diagram.png
+ *       description: "Architecture overview diagram"
+ */
+typedef struct {
+    char attachments[ATTACH_STORE_LEN]; /**< newline-separated "path\tdescription" pairs */
+    int  count;                          /**< number of attachments stored                */
+} AttachmentComponent;
+
 /** Maximum byte size of the traceability link store. */
 #define TRACE_STORE_LEN 4096
 
@@ -260,6 +345,9 @@ typedef struct {
  *   - doc_body             — kind == ENTITY_KIND_DESIGN_NOTE / SECTION
  *   - traceability         — any entity carrying a "traceability:" sequence
  *   - sources              — any entity carrying a "sources:" sequence
+ *   - test_procedure       — any entity carrying preconditions/steps/expected_result
+ *   - clause_collection    — any entity carrying a "clauses:" sequence
+ *   - attachment           — any entity carrying an "attachments:" sequence
  */
 typedef struct {
     IdentityComponent          identity;
@@ -278,6 +366,9 @@ typedef struct {
     DocumentBodyComponent      doc_body;
     TraceabilityComponent      traceability;
     SourceComponent            sources;
+    TestProcedureComponent     test_procedure;
+    ClauseCollectionComponent  clause_collection;
+    AttachmentComponent        attachment;
 } Entity;
 
 /** Dynamic array of Entity records (mirrors RequirementList). */
@@ -354,6 +445,9 @@ const char *entity_kind_label(EntityKind kind);
  *   traceability
  *   sources
  *   tags
+ *   test-procedure, test_procedure
+ *   clause-collection, clause_collection, clauses
+ *   attachment, attachments
  *
  * @param entity  pointer to the Entity to inspect (must not be NULL)
  * @param comp    component name string (case-sensitive); NULL or "" → always 1

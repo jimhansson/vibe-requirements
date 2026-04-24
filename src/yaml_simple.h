@@ -62,10 +62,16 @@ int yaml_parse_links(const char *path, const char *subject_id,
  *   traceability (sequence)          → traceability component {entries, count}
  *   sources (sequence)               → sources component {sources, count}
  *   body                             → doc_body.body
+ *   preconditions (sequence)         → test_procedure component {preconditions, precondition_count}
+ *   steps (sequence of mappings)     → test_procedure component {steps, step_count}
+ *   expected_result                  → test_procedure.expected_result
+ *   clauses (sequence of mappings)   → clause_collection component {clauses, count}
+ *   attachments (sequence of mappings) → attachment component {attachments, count}
  *
  * The user_story, epic_membership, acceptance_criteria, assumption,
- * constraint, doc_meta, doc_membership, traceability, and sources components
- * may appear on any entity, regardless of the "type" field value.
+ * constraint, doc_meta, doc_membership, traceability, sources,
+ * test_procedure, clause_collection, and attachment components may appear
+ * on any entity, regardless of the "type" field value.
  *
  * Returns  0 on success (file has at least a top-level "id:" field).
  * Returns -1 if the file cannot be opened or contains no "id:" field.
