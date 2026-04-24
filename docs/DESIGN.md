@@ -461,11 +461,14 @@ recursively scans `.yaml` / `.yml` files with a top-level `id:` field.
 | `coverage` | Report how many requirements have traceability links to tests or code |
 | `orphan` | List requirements and test cases with no traceability links in either direction |
 | `links` | Print all relations as a Subject → Relation → Object table |
+| `report` | Generate a Markdown or HTML report of all entities (or a filtered subset) |
 
-### Filter flags (for `list` / `entities`)
+### Filter flags (for `list` / `entities` / `report`)
 
 ```
 vibe-req list [--kind <kind>] [--component <comp>] [--status <status>] [--priority <prio>]
+vibe-req report [--kind <kind>] [--component <comp>] [--status <status>] [--priority <prio>] \
+                [--format md|html] [--output <file>]
 ```
 
 | Flag | Values |
@@ -474,6 +477,14 @@ vibe-req list [--kind <kind>] [--component <comp>] [--status <status>] [--priori
 | `--component <comp>` | `user-story`, `acceptance-criteria`, `epic`, `assumption`, `constraint`, `doc-meta`, `doc-membership`, `doc-body`, `traceability`, `tags` |
 | `--status <status>` | e.g. `draft`, `approved`, `deprecated` |
 | `--priority <prio>` | e.g. `must`, `should`, `could` |
+
+### Report options (for `report`)
+
+| Option | Description |
+|---|---|
+| `--format md` | Output Markdown (default) |
+| `--format html` | Output a self-contained HTML document |
+| `--output <file>` | Write the report to a file instead of stdout |
 
 ### Other options
 
@@ -490,7 +501,6 @@ vibe-req list [--kind <kind>] [--component <comp>] [--status <status>] [--priori
 | `new <type> <id>` | Create a new requirement / story / SDD / test-case / external-source file |
 | `validate` | Validate all files: schema, IDs, links |
 | `status` | Print counts by status and priority |
-| `report` | Generate a Markdown / HTML requirements report |
 | `export <format>` | Export to CSV or ReqIF |
 
 ## 8. Implementation Language Trade-offs
