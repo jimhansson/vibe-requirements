@@ -1,4 +1,7 @@
 # vibe-requirements
+
+[![CI](https://github.com/jimhansson/vibe-requirements/actions/workflows/ci.yml/badge.svg)](https://github.com/jimhansson/vibe-requirements/actions/workflows/ci.yml)
+
 I am trying to use copilot to build a tool for requirements handling
 
 ## Documentation
