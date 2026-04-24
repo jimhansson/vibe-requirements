@@ -1,7 +1,71 @@
+#define _POSIX_C_SOURCE 200809L  /* for strdup */
 #include "entity.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* -----------------------------------------------------------------------
+ * Entity heap lifecycle
+ * --------------------------------------------------------------------- */
+
+void entity_free(Entity *entity)
+{
+    if (!entity)
+        return;
+
+    free(entity->doc_body.body);
+    entity->doc_body.body = NULL;
+
+    free(entity->test_procedure.preconditions);
+    entity->test_procedure.preconditions = NULL;
+    free(entity->test_procedure.steps);
+    entity->test_procedure.steps = NULL;
+    free(entity->test_procedure.expected_result);
+    entity->test_procedure.expected_result = NULL;
+
+    free(entity->clause_collection.clauses);
+    entity->clause_collection.clauses = NULL;
+
+    free(entity->attachment.attachments);
+    entity->attachment.attachments = NULL;
+}
+
+int entity_copy(Entity *dst, const Entity *src)
+{
+    /* Shallow copy covers all fixed-size fields. */
+    *dst = *src;
+
+    /* Null out heap pointers in dst before deep copying, so that a partial
+     * failure in entity_free(dst) does not double-free src's buffers. */
+    dst->doc_body.body                 = NULL;
+    dst->test_procedure.preconditions  = NULL;
+    dst->test_procedure.steps          = NULL;
+    dst->test_procedure.expected_result = NULL;
+    dst->clause_collection.clauses     = NULL;
+    dst->attachment.attachments        = NULL;
+
+#define DUP_FIELD(ptr) \
+    do { \
+        if (src->ptr) { \
+            dst->ptr = strdup(src->ptr); \
+            if (!dst->ptr) goto oom; \
+        } \
+    } while (0)
+
+    DUP_FIELD(doc_body.body);
+    DUP_FIELD(test_procedure.preconditions);
+    DUP_FIELD(test_procedure.steps);
+    DUP_FIELD(test_procedure.expected_result);
+    DUP_FIELD(clause_collection.clauses);
+    DUP_FIELD(attachment.attachments);
+
+#undef DUP_FIELD
+    return 0;
+
+oom:
+    entity_free(dst);
+    return -1;
+}
 
 /* -----------------------------------------------------------------------
  * EntityList lifecycle
@@ -24,12 +88,16 @@ int entity_list_add(EntityList *list, const Entity *entity)
         list->items    = tmp;
         list->capacity = new_cap;
     }
-    list->items[list->count++] = *entity;
+    if (entity_copy(&list->items[list->count], entity) != 0)
+        return -1;
+    list->count++;
     return 0;
 }
 
 void entity_list_free(EntityList *list)
 {
+    for (int i = 0; i < list->count; i++)
+        entity_free(&list->items[i]);
     free(list->items);
     list->items    = NULL;
     list->count    = 0;
@@ -140,7 +208,7 @@ int entity_has_component(const Entity *entity, const char *comp)
         return entity->doc_membership.count > 0;
 
     if (strcmp(comp, "doc-body") == 0 || strcmp(comp, "body") == 0)
-        return entity->doc_body.body[0] != '\0';
+        return entity->doc_body.body != NULL && entity->doc_body.body[0] != '\0';
 
     if (strcmp(comp, "traceability") == 0)
         return entity->traceability.count > 0;
@@ -155,7 +223,8 @@ int entity_has_component(const Entity *entity, const char *comp)
         strcmp(comp, "test_procedure") == 0)
         return entity->test_procedure.precondition_count > 0 ||
                entity->test_procedure.step_count > 0 ||
-               entity->test_procedure.expected_result[0] != '\0';
+               (entity->test_procedure.expected_result != NULL &&
+                entity->test_procedure.expected_result[0] != '\0');
 
     if (strcmp(comp, "clause-collection") == 0 ||
         strcmp(comp, "clause_collection") == 0 ||

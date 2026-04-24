@@ -1,7 +1,9 @@
+#define _POSIX_C_SOURCE 200809L  /* for strdup */
 #include "yaml_simple.h"
 #include "entity.h"
 #include <yaml.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /*
@@ -296,9 +298,15 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
             COPY_FIELD_IF_MATCH("so_that",         out->user_story.reason,        sizeof(out->user_story.reason))
             /* epic-membership component */
             COPY_FIELD_IF_MATCH("epic",            out->epic_membership.epic_id,  sizeof(out->epic_membership.epic_id))
-            COPY_FIELD_IF_MATCH("body",            out->doc_body.body,            sizeof(out->doc_body.body))
 
 #undef COPY_FIELD_IF_MATCH
+
+            /* doc_body — heap-allocated, use strdup */
+            if (strcmp(key, "body") == 0) {
+                free(out->doc_body.body);
+                out->doc_body.body = strdup(val);
+                continue;
+            }
         }
 
         /* Sequence fields */
@@ -393,13 +401,23 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 continue;
             }
             if (strcmp(key, "preconditions") == 0) {
-                collect_sequence(doc, val_node,
-                                 out->test_procedure.preconditions,
-                                 sizeof(out->test_procedure.preconditions),
-                                 &out->test_procedure.precondition_count);
+                if (!out->test_procedure.preconditions) {
+                    out->test_procedure.preconditions =
+                        (char *)calloc(1, TEST_PROC_PRECOND_LEN);
+                }
+                if (out->test_procedure.preconditions) {
+                    collect_sequence(doc, val_node,
+                                     out->test_procedure.preconditions,
+                                     TEST_PROC_PRECOND_LEN,
+                                     &out->test_procedure.precondition_count);
+                }
                 continue;
             }
             if (strcmp(key, "steps") == 0) {
+                if (!out->test_procedure.steps) {
+                    out->test_procedure.steps =
+                        (char *)calloc(1, TEST_PROC_STEPS_LEN);
+                }
                 yaml_node_item_t *item = val_node->data.sequence.items.start;
                 yaml_node_item_t *top  = val_node->data.sequence.items.top;
                 for (; item < top; item++) {
@@ -424,9 +442,9 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                         else if (strcmp(skey, "expected_output") == 0)
                             strncpy(expected_output, sval, sizeof(expected_output) - 1);
                     }
-                    if (action[0] != '\0') {
+                    if (action[0] != '\0' && out->test_procedure.steps) {
                         append_trace_entry(out->test_procedure.steps,
-                                           sizeof(out->test_procedure.steps),
+                                           TEST_PROC_STEPS_LEN,
                                            &out->test_procedure.step_count,
                                            action, expected_output);
                     }
@@ -434,6 +452,10 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 continue;
             }
             if (strcmp(key, "clauses") == 0) {
+                if (!out->clause_collection.clauses) {
+                    out->clause_collection.clauses =
+                        (char *)calloc(1, CLAUSE_STORE_LEN);
+                }
                 yaml_node_item_t *item = val_node->data.sequence.items.start;
                 yaml_node_item_t *top  = val_node->data.sequence.items.top;
                 for (; item < top; item++) {
@@ -458,9 +480,9 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                         else if (strcmp(skey, "title") == 0)
                             strncpy(clause_title, sval, sizeof(clause_title) - 1);
                     }
-                    if (clause_id[0] != '\0') {
+                    if (clause_id[0] != '\0' && out->clause_collection.clauses) {
                         append_trace_entry(out->clause_collection.clauses,
-                                           sizeof(out->clause_collection.clauses),
+                                           CLAUSE_STORE_LEN,
                                            &out->clause_collection.count,
                                            clause_id, clause_title);
                     }
@@ -468,6 +490,10 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 continue;
             }
             if (strcmp(key, "attachments") == 0) {
+                if (!out->attachment.attachments) {
+                    out->attachment.attachments =
+                        (char *)calloc(1, ATTACH_STORE_LEN);
+                }
                 yaml_node_item_t *item = val_node->data.sequence.items.start;
                 yaml_node_item_t *top  = val_node->data.sequence.items.top;
                 for (; item < top; item++) {
@@ -492,9 +518,9 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                         else if (strcmp(skey, "description") == 0)
                             strncpy(att_description, sval, sizeof(att_description) - 1);
                     }
-                    if (att_path[0] != '\0') {
+                    if (att_path[0] != '\0' && out->attachment.attachments) {
                         append_trace_entry(out->attachment.attachments,
-                                           sizeof(out->attachment.attachments),
+                                           ATTACH_STORE_LEN,
                                            &out->attachment.count,
                                            att_path, att_description);
                     }
@@ -507,8 +533,8 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
         if (val_node && val_node->type == YAML_SCALAR_NODE &&
             strcmp(key, "expected_result") == 0) {
             const char *val = (const char *)val_node->data.scalar.value;
-            copy_field(out->test_procedure.expected_result,
-                       sizeof(out->test_procedure.expected_result), val);
+            free(out->test_procedure.expected_result);
+            out->test_procedure.expected_result = strdup(val);
             continue;
         }
 
@@ -654,6 +680,8 @@ int yaml_parse_entities(const char *path, EntityList *list)
                         path);
             }
         }
+        /* entity_list_add() deep-copies all heap fields; free the local copy. */
+        entity_free(&entity);
     }
 
     yaml_parser_delete(&parser);

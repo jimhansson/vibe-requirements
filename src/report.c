@@ -91,7 +91,7 @@ static void md_write_entity(FILE *out, const Entity *e,
         fprintf(out, "**Rationale:** %s\n\n", e->text.rationale);
 
     /* ---- Document body (design notes / sections) ---- */
-    if (e->doc_body.body[0] != '\0')
+    if (e->doc_body.body != NULL && e->doc_body.body[0] != '\0')
         fprintf(out, "%s\n\n", e->doc_body.body);
 
     /* ---- Tags ---- */
@@ -248,7 +248,7 @@ static void html_write_entity(FILE *out, const Entity *e,
     }
 
     /* ---- Document body ---- */
-    if (e->doc_body.body[0] != '\0') {
+    if (e->doc_body.body != NULL && e->doc_body.body[0] != '\0') {
         fprintf(out, "<pre>");
         html_escape(out, e->doc_body.body);
         fprintf(out, "</pre>\n");
