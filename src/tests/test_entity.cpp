@@ -946,9 +946,11 @@ TEST(YamlParseEntityTest, DocumentBodyShortContent)
     EXPECT_EQ(rc, 0);
     EXPECT_STREQ(e.identity.id,    "DN-001");
     EXPECT_EQ(e.identity.kind,     ENTITY_KIND_DESIGN_NOTE);
+    ASSERT_NE(e.doc_body.body,     nullptr);
     EXPECT_STREQ(e.doc_body.body,  "This is a short body text.");
     EXPECT_EQ(entity_has_component(&e, "doc-body"), 1);
     EXPECT_EQ(entity_has_component(&e, "body"),     1);
+    entity_free(&e);
 }
 
 TEST(YamlParseEntityTest, DocumentBodyLargeContent)
@@ -971,8 +973,10 @@ TEST(YamlParseEntityTest, DocumentBodyLargeContent)
     EXPECT_STREQ(e.identity.id, "DN-LARGE-001");
     EXPECT_EQ(e.identity.kind,  ENTITY_KIND_DESIGN_NOTE);
     /* Body must be stored in full — length matches the generated string. */
+    ASSERT_NE(e.doc_body.body, nullptr);
     EXPECT_EQ((int)strlen(e.doc_body.body), 8192);
     EXPECT_EQ(entity_has_component(&e, "doc-body"), 1);
+    entity_free(&e);
 }
 
 TEST(YamlParseEntityTest, DocumentBodyNearMaxContent)
@@ -995,13 +999,15 @@ TEST(YamlParseEntityTest, DocumentBodyNearMaxContent)
     EXPECT_STREQ(e.identity.id, "DN-NEARMAX-001");
     EXPECT_EQ(e.identity.kind,  ENTITY_KIND_DESIGN_NOTE);
     /* Body must be stored in full — length matches the generated string. */
+    ASSERT_NE(e.doc_body.body, nullptr);
     EXPECT_EQ((int)strlen(e.doc_body.body), 60000);
     EXPECT_EQ(entity_has_component(&e, "doc-body"), 1);
+    entity_free(&e);
 }
 
-TEST(YamlParseEntityTest, DocumentBodyEmptyWhenAbsent)
+TEST(YamlParseEntityTest, DocumentBodyNullWhenAbsent)
 {
-    /* Entities without a body key have an empty doc_body component. */
+    /* Entities without a body key have a NULL doc_body.body pointer. */
     const char *path = write_yaml("ent_no_doc_body.yaml",
         "id: REQ-013\n"
         "title: Requirement without body\n"
@@ -1011,8 +1017,9 @@ TEST(YamlParseEntityTest, DocumentBodyEmptyWhenAbsent)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.doc_body.body[0], '\0');
+    EXPECT_EQ(e.doc_body.body, nullptr);
     EXPECT_EQ(entity_has_component(&e, "doc-body"), 0);
+    entity_free(&e);
 }
 
 /* =========================================================================
@@ -1119,10 +1126,11 @@ TEST(EntityHasComponentTest, DocBodyAbsentAndPresent)
     EXPECT_EQ(entity_has_component(&e, "doc-body"), 0);
     EXPECT_EQ(entity_has_component(&e, "body"),     0);
 
-    strncpy(e.doc_body.body, "Some body text",
-            sizeof(e.doc_body.body) - 1);
+    e.doc_body.body = strdup("Some body text");
+    ASSERT_NE(e.doc_body.body, nullptr);
     EXPECT_EQ(entity_has_component(&e, "doc-body"), 1);
     EXPECT_EQ(entity_has_component(&e, "body"),     1);
+    entity_free(&e);
 }
 
 TEST(EntityHasComponentTest, TraceabilityAbsentAndPresent)
@@ -1233,17 +1241,21 @@ TEST(YamlParseEntityTest, TestProcedureFullParse)
     EXPECT_EQ(e.identity.kind,                      ENTITY_KIND_TEST_CASE);
     EXPECT_STREQ(e.identity.id,                     "TC-SW-002");
     EXPECT_EQ(e.test_procedure.precondition_count,  2);
+    ASSERT_NE(e.test_procedure.preconditions,       nullptr);
     EXPECT_NE(strstr(e.test_procedure.preconditions, "A registered user account exists."), nullptr);
     EXPECT_NE(strstr(e.test_procedure.preconditions, "The endpoint is reachable."),        nullptr);
     EXPECT_EQ(e.test_procedure.step_count,          2);
+    ASSERT_NE(e.test_procedure.steps,               nullptr);
     EXPECT_NE(strstr(e.test_procedure.steps, "Submit login request."),         nullptr);
     EXPECT_NE(strstr(e.test_procedure.steps, "System returns HTTP 200."),      nullptr);
     EXPECT_NE(strstr(e.test_procedure.steps, "Access protected resource."),    nullptr);
     EXPECT_NE(strstr(e.test_procedure.steps, "Resource content is returned."), nullptr);
+    ASSERT_NE(e.test_procedure.expected_result,     nullptr);
     EXPECT_STREQ(e.test_procedure.expected_result,
                  "User gains access to the protected resource.");
     EXPECT_EQ(entity_has_component(&e, "test-procedure"), 1);
     EXPECT_EQ(entity_has_component(&e, "test_procedure"), 1);
+    entity_free(&e);
 }
 
 TEST(YamlParseEntityTest, TestProcedurePreconditionsOnly)
@@ -1261,10 +1273,12 @@ TEST(YamlParseEntityTest, TestProcedurePreconditionsOnly)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.test_procedure.precondition_count, 1);
+    ASSERT_NE(e.test_procedure.preconditions,      nullptr);
     EXPECT_NE(strstr(e.test_procedure.preconditions, "System is running."), nullptr);
     EXPECT_EQ(e.test_procedure.step_count,         0);
-    EXPECT_EQ(e.test_procedure.expected_result[0], '\0');
+    EXPECT_EQ(e.test_procedure.expected_result,    nullptr);
     EXPECT_EQ(entity_has_component(&e, "test-procedure"), 1);
+    entity_free(&e);
 }
 
 TEST(YamlParseEntityTest, TestProcedureAbsentWhenMissing)
@@ -1279,10 +1293,13 @@ TEST(YamlParseEntityTest, TestProcedureAbsentWhenMissing)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.test_procedure.precondition_count,  0);
-    EXPECT_EQ(e.test_procedure.step_count,          0);
-    EXPECT_EQ(e.test_procedure.expected_result[0],  '\0');
+    EXPECT_EQ(e.test_procedure.precondition_count,   0);
+    EXPECT_EQ(e.test_procedure.step_count,           0);
+    EXPECT_EQ(e.test_procedure.preconditions,        nullptr);
+    EXPECT_EQ(e.test_procedure.steps,                nullptr);
+    EXPECT_EQ(e.test_procedure.expected_result,      nullptr);
     EXPECT_EQ(entity_has_component(&e, "test-procedure"), 0);
+    entity_free(&e);
 }
 
 TEST(YamlParseEntityTest, TestProcedureOnNonTestCaseEntity)
@@ -1299,8 +1316,10 @@ TEST(YamlParseEntityTest, TestProcedureOnNonTestCaseEntity)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.identity.kind, ENTITY_KIND_REQUIREMENT);
+    ASSERT_NE(e.test_procedure.expected_result, nullptr);
     EXPECT_STREQ(e.test_procedure.expected_result, "System behaves correctly.");
     EXPECT_EQ(entity_has_component(&e, "test-procedure"), 1);
+    entity_free(&e);
 }
 
 /* =========================================================================
@@ -1324,15 +1343,17 @@ TEST(YamlParseEntityTest, ClauseCollectionFullParse)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.identity.kind,          ENTITY_KIND_EXTERNAL);
-    EXPECT_STREQ(e.identity.id,         "EXT-MACH-DIR");
+    EXPECT_EQ(e.identity.kind,           ENTITY_KIND_EXTERNAL);
+    EXPECT_STREQ(e.identity.id,          "EXT-MACH-DIR");
     EXPECT_EQ(e.clause_collection.count, 2);
+    ASSERT_NE(e.clause_collection.clauses, nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "annex-I-1.1.2"),                  nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "Principles of safety integration"), nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "annex-I-1.2.1"),                  nullptr);
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 1);
     EXPECT_EQ(entity_has_component(&e, "clause_collection"), 1);
     EXPECT_EQ(entity_has_component(&e, "clauses"),           1);
+    entity_free(&e);
 }
 
 TEST(YamlParseEntityTest, ClauseCollectionIdOnlyClause)
@@ -1350,13 +1371,15 @@ TEST(YamlParseEntityTest, ClauseCollectionIdOnlyClause)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.clause_collection.count, 1);
+    ASSERT_NE(e.clause_collection.clauses, nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "section-4.5"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "clauses"), 1);
+    entity_free(&e);
 }
 
-TEST(YamlParseEntityTest, ClauseCollectionAbsentWhenMissing)
+TEST(YamlParseEntityTest, ClauseCollectionNullWhenMissing)
 {
-    /* An entity without clauses has an empty clause_collection component. */
+    /* An entity without clauses has a NULL clause_collection.clauses pointer. */
     const char *path = write_yaml("ent_no_clauses.yaml",
         "id: EXT-002\n"
         "title: External without clauses\n"
@@ -1366,9 +1389,10 @@ TEST(YamlParseEntityTest, ClauseCollectionAbsentWhenMissing)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.clause_collection.count,      0);
-    EXPECT_EQ(e.clause_collection.clauses[0], '\0');
+    EXPECT_EQ(e.clause_collection.count,   0);
+    EXPECT_EQ(e.clause_collection.clauses, nullptr);
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 0);
+    entity_free(&e);
 }
 
 /* =========================================================================
@@ -1395,12 +1419,14 @@ TEST(YamlParseEntityTest, AttachmentFullParse)
     EXPECT_EQ(e.identity.kind,     ENTITY_KIND_DOCUMENT);
     EXPECT_STREQ(e.identity.id,    "SRS-CLIENT-002");
     EXPECT_EQ(e.attachment.count,  2);
+    ASSERT_NE(e.attachment.attachments, nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "docs/spec.pdf"),                nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "Original specification document"), nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "images/diagram.png"),           nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "Architecture overview diagram"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "attachment"),  1);
     EXPECT_EQ(entity_has_component(&e, "attachments"), 1);
+    entity_free(&e);
 }
 
 TEST(YamlParseEntityTest, AttachmentPathOnly)
@@ -1418,13 +1444,15 @@ TEST(YamlParseEntityTest, AttachmentPathOnly)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.attachment.count, 1);
+    ASSERT_NE(e.attachment.attachments, nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "reports/test_run.xml"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "attachment"), 1);
+    entity_free(&e);
 }
 
-TEST(YamlParseEntityTest, AttachmentAbsentWhenMissing)
+TEST(YamlParseEntityTest, AttachmentNullWhenMissing)
 {
-    /* An entity without attachments has an empty attachment component. */
+    /* An entity without attachments has a NULL attachment.attachments pointer. */
     const char *path = write_yaml("ent_no_attachment.yaml",
         "id: REQ-016\n"
         "title: Requirement without attachments\n"
@@ -1434,9 +1462,10 @@ TEST(YamlParseEntityTest, AttachmentAbsentWhenMissing)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.attachment.count,         0);
-    EXPECT_EQ(e.attachment.attachments[0], '\0');
+    EXPECT_EQ(e.attachment.count,       0);
+    EXPECT_EQ(e.attachment.attachments, nullptr);
     EXPECT_EQ(entity_has_component(&e, "attachment"), 0);
+    entity_free(&e);
 }
 
 TEST(YamlParseEntityTest, AllThreeNewComponentsOnOneEntity)
@@ -1468,14 +1497,18 @@ TEST(YamlParseEntityTest, AllThreeNewComponentsOnOneEntity)
     EXPECT_EQ(e.identity.kind,                      ENTITY_KIND_TEST_CASE);
     EXPECT_EQ(e.test_procedure.precondition_count,  1);
     EXPECT_EQ(e.test_procedure.step_count,          1);
+    ASSERT_NE(e.test_procedure.expected_result,     nullptr);
     EXPECT_STREQ(e.test_procedure.expected_result,  "All assertions pass.");
     EXPECT_EQ(e.clause_collection.count,            1);
+    ASSERT_NE(e.clause_collection.clauses,          nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "sec-4.1"), nullptr);
     EXPECT_EQ(e.attachment.count,                   1);
+    ASSERT_NE(e.attachment.attachments,             nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "results/report.html"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "test-procedure"),    1);
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 1);
     EXPECT_EQ(entity_has_component(&e, "attachment"),        1);
+    entity_free(&e);
 }
 
 /* =========================================================================
@@ -1671,4 +1704,288 @@ TEST(EntityApplyFilterTest, EmptySourceGivesEmptyDst)
 
     entity_list_free(&src);
     entity_list_free(&dst);
+}
+
+/* =========================================================================
+ * Tests — entity_free / entity_copy / memory management
+ * ======================================================================= */
+
+TEST(EntityFreeTest, FreeOnZeroInitialisedEntityIsSafe)
+{
+    /* entity_free() on a fully-zeroed entity must not crash. */
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    entity_free(&e);
+    /* All heap pointers must still be NULL after free. */
+    EXPECT_EQ(e.doc_body.body,                 nullptr);
+    EXPECT_EQ(e.test_procedure.preconditions,  nullptr);
+    EXPECT_EQ(e.test_procedure.steps,          nullptr);
+    EXPECT_EQ(e.test_procedure.expected_result, nullptr);
+    EXPECT_EQ(e.clause_collection.clauses,     nullptr);
+    EXPECT_EQ(e.attachment.attachments,        nullptr);
+}
+
+TEST(EntityFreeTest, FreeNullEntityIsSafe)
+{
+    /* entity_free(NULL) must not crash. */
+    entity_free(nullptr);
+}
+
+TEST(EntityFreeTest, FreeSetsPointersToNull)
+{
+    /* After entity_free(), heap pointers are set to NULL. */
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    e.doc_body.body                  = strdup("body content");
+    e.test_procedure.expected_result = strdup("expected");
+    e.test_procedure.preconditions   = (char *)calloc(1, 64);
+    e.test_procedure.steps           = (char *)calloc(1, 64);
+    e.clause_collection.clauses      = (char *)calloc(1, 64);
+    e.attachment.attachments         = (char *)calloc(1, 64);
+    ASSERT_NE(e.doc_body.body,                  nullptr);
+    ASSERT_NE(e.test_procedure.expected_result, nullptr);
+    ASSERT_NE(e.test_procedure.preconditions,   nullptr);
+    ASSERT_NE(e.test_procedure.steps,           nullptr);
+    ASSERT_NE(e.clause_collection.clauses,      nullptr);
+    ASSERT_NE(e.attachment.attachments,         nullptr);
+
+    entity_free(&e);
+
+    EXPECT_EQ(e.doc_body.body,                 nullptr);
+    EXPECT_EQ(e.test_procedure.preconditions,  nullptr);
+    EXPECT_EQ(e.test_procedure.steps,          nullptr);
+    EXPECT_EQ(e.test_procedure.expected_result, nullptr);
+    EXPECT_EQ(e.clause_collection.clauses,     nullptr);
+    EXPECT_EQ(e.attachment.attachments,        nullptr);
+}
+
+TEST(EntityFreeTest, FreeTwiceIsSafe)
+{
+    /* Calling entity_free() twice on the same entity must not crash
+     * (pointers are NULLed on first free). */
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    e.doc_body.body = strdup("hello");
+    ASSERT_NE(e.doc_body.body, nullptr);
+    entity_free(&e);
+    entity_free(&e);  /* second call: all pointers already NULL */
+    EXPECT_EQ(e.doc_body.body, nullptr);
+}
+
+TEST(EntityCopyTest, CopyZeroEntityIsOk)
+{
+    Entity src, dst;
+    memset(&src, 0, sizeof(src));
+    memset(&dst, 0, sizeof(dst));
+    strncpy(src.identity.id, "REQ-CPY-001", sizeof(src.identity.id) - 1);
+
+    int rc = entity_copy(&dst, &src);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(dst.identity.id, "REQ-CPY-001");
+    /* No heap fields were set — all pointers should still be NULL. */
+    EXPECT_EQ(dst.doc_body.body, nullptr);
+    EXPECT_EQ(dst.test_procedure.expected_result, nullptr);
+    EXPECT_EQ(dst.clause_collection.clauses, nullptr);
+    EXPECT_EQ(dst.attachment.attachments, nullptr);
+
+    entity_free(&dst);
+}
+
+TEST(EntityCopyTest, CopyDeepCopiesHeapFields)
+{
+    /* Build a source entity with all heap fields populated. */
+    Entity src;
+    memset(&src, 0, sizeof(src));
+    strncpy(src.identity.id, "DN-CPY-001", sizeof(src.identity.id) - 1);
+    src.doc_body.body                  = strdup("body text");
+    src.test_procedure.expected_result = strdup("result");
+    src.test_procedure.preconditions   = (char *)calloc(1, 64);
+    src.clause_collection.clauses      = (char *)calloc(1, 64);
+    src.attachment.attachments         = (char *)calloc(1, 64);
+    ASSERT_NE(src.doc_body.body,                  nullptr);
+    ASSERT_NE(src.test_procedure.expected_result, nullptr);
+    ASSERT_NE(src.test_procedure.preconditions,   nullptr);
+    ASSERT_NE(src.clause_collection.clauses,      nullptr);
+    ASSERT_NE(src.attachment.attachments,         nullptr);
+    strncpy(src.test_procedure.preconditions, "precond one", 63);
+    src.test_procedure.precondition_count = 1;
+    strncpy(src.clause_collection.clauses, "cl-1\ttitle one", 63);
+    src.clause_collection.count = 1;
+    strncpy(src.attachment.attachments, "file.pdf\tdesc", 63);
+    src.attachment.count = 1;
+
+    Entity dst;
+    memset(&dst, 0, sizeof(dst));
+    int rc = entity_copy(&dst, &src);
+    EXPECT_EQ(rc, 0);
+
+    /* dst must have its own copies — different pointers. */
+    ASSERT_NE(dst.doc_body.body, nullptr);
+    EXPECT_NE(dst.doc_body.body, src.doc_body.body);
+    EXPECT_STREQ(dst.doc_body.body, "body text");
+
+    ASSERT_NE(dst.test_procedure.expected_result, nullptr);
+    EXPECT_NE(dst.test_procedure.expected_result, src.test_procedure.expected_result);
+    EXPECT_STREQ(dst.test_procedure.expected_result, "result");
+
+    ASSERT_NE(dst.test_procedure.preconditions, nullptr);
+    EXPECT_NE(dst.test_procedure.preconditions, src.test_procedure.preconditions);
+    EXPECT_EQ(dst.test_procedure.precondition_count, 1);
+
+    ASSERT_NE(dst.clause_collection.clauses, nullptr);
+    EXPECT_NE(dst.clause_collection.clauses, src.clause_collection.clauses);
+    EXPECT_EQ(dst.clause_collection.count, 1);
+
+    ASSERT_NE(dst.attachment.attachments, nullptr);
+    EXPECT_NE(dst.attachment.attachments, src.attachment.attachments);
+    EXPECT_EQ(dst.attachment.count, 1);
+
+    entity_free(&src);
+    entity_free(&dst);
+}
+
+TEST(EntityCopyTest, MutatingCopyDoesNotAffectSource)
+{
+    /* Verify true independence: modifying dst's heap buffer does not affect src. */
+    Entity src;
+    memset(&src, 0, sizeof(src));
+    src.doc_body.body = strdup("original");
+    ASSERT_NE(src.doc_body.body, nullptr);
+
+    Entity dst;
+    memset(&dst, 0, sizeof(dst));
+    ASSERT_EQ(entity_copy(&dst, &src), 0);
+
+    /* Overwrite dst's body. */
+    free(dst.doc_body.body);
+    dst.doc_body.body = strdup("modified");
+    ASSERT_NE(dst.doc_body.body, nullptr);
+
+    EXPECT_STREQ(src.doc_body.body, "original");
+    EXPECT_STREQ(dst.doc_body.body, "modified");
+
+    entity_free(&src);
+    entity_free(&dst);
+}
+
+TEST(EntityListAddTest, ListAddDeepCopiesHeapFields)
+{
+    /* Verify that entity_list_add() performs a deep copy and the source
+     * entity can be freed independently after adding. */
+    EntityList list;
+    entity_list_init(&list);
+
+    Entity src;
+    memset(&src, 0, sizeof(src));
+    strncpy(src.identity.id, "DN-LIST-001", sizeof(src.identity.id) - 1);
+    src.doc_body.body = strdup("list body");
+    ASSERT_NE(src.doc_body.body, nullptr);
+
+    EXPECT_EQ(entity_list_add(&list, &src), 0);
+    EXPECT_EQ(list.count, 1);
+
+    /* Free the source — the list copy must still be valid. */
+    entity_free(&src);
+    EXPECT_EQ(src.doc_body.body, nullptr);
+
+    /* List item must still have its own copy. */
+    ASSERT_NE(list.items[0].doc_body.body, nullptr);
+    EXPECT_STREQ(list.items[0].doc_body.body, "list body");
+
+    entity_list_free(&list);
+}
+
+TEST(EntityListFreeTest, FreeReleasesAllEntityHeapFields)
+{
+    /* Build a list from yaml_parse_entities with a body field, then free. */
+    const char *yaml =
+        "id: DN-MEM-001\n"
+        "title: Design note for memory test\n"
+        "type: design-note\n"
+        "body: heap allocated body text\n"
+        "---\n"
+        "id: TC-MEM-001\n"
+        "title: Test case for memory test\n"
+        "type: test-case\n"
+        "preconditions:\n"
+        "  - System is ready.\n"
+        "expected_result: Test passes.\n";
+
+    /* Write to tmp */
+    FILE *f = fopen("/tmp/mem_test.yaml", "w");
+    ASSERT_NE(f, nullptr);
+    fputs(yaml, f);
+    fclose(f);
+
+    EntityList list;
+    entity_list_init(&list);
+    int added = yaml_parse_entities("/tmp/mem_test.yaml", &list);
+    EXPECT_EQ(added, 2);
+    EXPECT_EQ(list.count, 2);
+
+    /* Verify heap fields were set. */
+    EXPECT_NE(list.items[0].doc_body.body, nullptr);
+    EXPECT_NE(list.items[1].test_procedure.preconditions, nullptr);
+    EXPECT_NE(list.items[1].test_procedure.expected_result, nullptr);
+
+    /* This must free all heap fields without leaking. */
+    entity_list_free(&list);
+    EXPECT_EQ(list.items,    nullptr);
+    EXPECT_EQ(list.count,    0);
+    EXPECT_EQ(list.capacity, 0);
+}
+
+TEST(EntityMemoryTest, ParseEntityBodyIsHeapAllocated)
+{
+    /* Regression: doc_body.body is heap-allocated and the caller must
+     * call entity_free() to release it. */
+    const char *path = write_yaml("mem_parse_body.yaml",
+        "id: DN-HEAP-001\n"
+        "title: Heap body\n"
+        "type: design-note\n"
+        "body: some content\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    ASSERT_NE(e.doc_body.body, nullptr);
+    EXPECT_STREQ(e.doc_body.body, "some content");
+
+    entity_free(&e);
+    EXPECT_EQ(e.doc_body.body, nullptr);
+}
+
+TEST(EntityMemoryTest, ParsedEntityHeapFieldsAreIndependentFromList)
+{
+    /* Parsing the same file twice and adding to the same list must not
+     * corrupt either entry (each list slot has its own deep copy). */
+    const char *path = write_yaml("mem_two_copies.yaml",
+        "id: REQ-DUP-001\n"
+        "title: Duplicate test\n"
+        "type: design-note\n"
+        "body: shared body\n");
+    ASSERT_NE(path, nullptr);
+
+    EntityList list;
+    entity_list_init(&list);
+
+    /* Add the same entity twice via two separate parses. */
+    Entity e1, e2;
+    ASSERT_EQ(yaml_parse_entity(path, &e1), 0);
+    ASSERT_EQ(yaml_parse_entity(path, &e2), 0);
+    EXPECT_EQ(entity_list_add(&list, &e1), 0);
+    EXPECT_EQ(entity_list_add(&list, &e2), 0);
+    entity_free(&e1);
+    entity_free(&e2);
+
+    EXPECT_EQ(list.count, 2);
+    /* Both items have independent heap pointers. */
+    ASSERT_NE(list.items[0].doc_body.body, nullptr);
+    ASSERT_NE(list.items[1].doc_body.body, nullptr);
+    EXPECT_NE(list.items[0].doc_body.body, list.items[1].doc_body.body);
+    EXPECT_STREQ(list.items[0].doc_body.body, "shared body");
+    EXPECT_STREQ(list.items[1].doc_body.body, "shared body");
+
+    entity_list_free(&list);
 }

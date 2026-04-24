@@ -27,8 +27,11 @@ typedef enum {
 
 /* -----------------------------------------------------------------------
  * Component structs
- * Every field is a fixed-size char array so that the whole Entity can be
- * stack-allocated and memset to zero with no heap involvement.
+ * Most fields are fixed-size char arrays.  Large optional components
+ * (DocumentBodyComponent, TestProcedureComponent, ClauseCollectionComponent,
+ * AttachmentComponent) use heap-allocated char * pointers so that entities
+ * that do not carry those components consume no extra memory.  NULL means
+ * "absent"; call entity_free() to release any heap storage.
  * --------------------------------------------------------------------- */
 
 /** Core identity — every entity has exactly one of these. */
@@ -171,9 +174,14 @@ typedef struct {
 /** Maximum byte size of the document body store. */
 #define DOCBODY_LEN 65536
 
-/** Document body — present when kind == ENTITY_KIND_DESIGN_NOTE / SECTION. */
+/**
+ * Document body — present when kind == ENTITY_KIND_DESIGN_NOTE / SECTION.
+ *
+ * @note body is heap-allocated (via malloc/strdup).  NULL means absent.
+ *       Call entity_free() to release.
+ */
 typedef struct {
-    char body[DOCBODY_LEN]; /**< free-form body text (YAML "body:") */
+    char *body; /**< free-form body text (YAML "body:"); heap-alloc'd, NULL if absent */
 } DocumentBodyComponent;
 
 /** Maximum byte size of the source reference store. */
@@ -229,13 +237,16 @@ typedef struct {
  *       action: "Submit login request."
  *       expected_output: "System returns HTTP 200."
  *   expected_result: "The user gains access."
+ *
+ * @note preconditions, steps, and expected_result are heap-allocated (NULL if
+ *       absent).  Call entity_free() to release.
  */
 typedef struct {
-    char preconditions[TEST_PROC_PRECOND_LEN]; /**< newline-separated pre-conditions       */
-    int  precondition_count;                    /**< number of pre-conditions stored        */
-    char steps[TEST_PROC_STEPS_LEN];            /**< newline-separated "action\texpected_output" pairs */
-    int  step_count;                            /**< number of steps stored                 */
-    char expected_result[TEST_PROC_RESULT_LEN]; /**< overall expected result (YAML "expected_result:") */
+    char *preconditions;   /**< newline-separated pre-conditions; heap-alloc'd, NULL if absent */
+    int   precondition_count; /**< number of pre-conditions stored                             */
+    char *steps;           /**< newline-separated "action\texpected_output" pairs; heap-alloc'd */
+    int   step_count;      /**< number of steps stored                                          */
+    char *expected_result; /**< overall expected result; heap-alloc'd (strdup), NULL if absent  */
 } TestProcedureComponent;
 
 /** Maximum byte size of the clause-collection store. */
@@ -256,13 +267,14 @@ typedef struct {
  *       summary: |
  *         Machinery must be designed …
  *
- * Note: the "summary" field is not stored in the fixed-size struct; it is
- * available in the source YAML for human reading but is omitted from the
- * in-memory component to keep the Entity stack-allocatable.
+ * Note: the "summary" field is not stored in the component.
+ *
+ * @note clauses is heap-allocated (NULL if absent).  Call entity_free() to
+ *       release.
  */
 typedef struct {
-    char clauses[CLAUSE_STORE_LEN]; /**< newline-separated "id\ttitle" pairs */
-    int  count;                      /**< number of clauses stored            */
+    char *clauses; /**< newline-separated "id\ttitle" pairs; heap-alloc'd, NULL if absent */
+    int   count;   /**< number of clauses stored                                           */
 } ClauseCollectionComponent;
 
 /** Maximum byte size of the attachment store. */
@@ -282,10 +294,13 @@ typedef struct {
  *       description: "Original specification document"
  *     - path: images/diagram.png
  *       description: "Architecture overview diagram"
+ *
+ * @note attachments is heap-allocated (NULL if absent).  Call entity_free()
+ *       to release.
  */
 typedef struct {
-    char attachments[ATTACH_STORE_LEN]; /**< newline-separated "path\tdescription" pairs */
-    int  count;                          /**< number of attachments stored                */
+    char *attachments; /**< newline-separated "path\tdescription" pairs; heap-alloc'd, NULL if absent */
+    int   count;       /**< number of attachments stored                                               */
 } AttachmentComponent;
 
 /** Maximum byte size of the traceability link store. */
@@ -323,6 +338,10 @@ typedef struct {
 /* -----------------------------------------------------------------------
  * Entity — the unified record that replaces the old Requirement struct.
  * Sparse components are zero-initialised when not applicable.
+ * Large optional components (doc_body, test_procedure, clause_collection,
+ * attachment) use heap-allocated char * pointers; NULL means absent.
+ * Always call entity_free() to release heap resources, or let
+ * entity_list_free() do it for all entities in a list.
  * --------------------------------------------------------------------- */
 
 /**
@@ -334,7 +353,7 @@ typedef struct {
  *   - text       — description / rationale
  *   - tags       — optional tag list
  *
- * Sparse / optional components (zero if absent):
+ * Sparse / optional components (zero/NULL if absent):
  *   - user_story           — any entity can become a user story by carrying this
  *   - acceptance_criteria  — any entity can carry acceptance criteria
  *   - epic_membership      — any entity can belong to an epic
@@ -342,12 +361,12 @@ typedef struct {
  *   - constraint           — any entity carrying a "constraint:" mapping
  *   - doc_meta             — any entity representing a document (SRS, SDD, …)
  *   - doc_membership       — any entity belonging to one or more documents
- *   - doc_body             — kind == ENTITY_KIND_DESIGN_NOTE / SECTION
+ *   - doc_body             — kind == ENTITY_KIND_DESIGN_NOTE / SECTION (heap)
  *   - traceability         — any entity carrying a "traceability:" sequence
  *   - sources              — any entity carrying a "sources:" sequence
- *   - test_procedure       — any entity carrying preconditions/steps/expected_result
- *   - clause_collection    — any entity carrying a "clauses:" sequence
- *   - attachment           — any entity carrying an "attachments:" sequence
+ *   - test_procedure       — any entity carrying preconditions/steps/expected_result (heap)
+ *   - clause_collection    — any entity carrying a "clauses:" sequence (heap)
+ *   - attachment           — any entity carrying an "attachments:" sequence (heap)
  */
 typedef struct {
     IdentityComponent          identity;
@@ -379,6 +398,36 @@ typedef struct {
 } EntityList;
 
 /* -----------------------------------------------------------------------
+ * Entity lifecycle API
+ * --------------------------------------------------------------------- */
+
+/**
+ * Release heap-allocated fields inside *entity.
+ *
+ * Frees the heap buffers for doc_body, test_procedure, clause_collection,
+ * and attachment components and sets their pointers to NULL.  Does NOT free
+ * the entity struct itself — the caller owns that memory.
+ *
+ * Safe to call on a zero-initialised (memset) entity.
+ *
+ * @param entity  pointer to the Entity whose heap fields should be freed
+ */
+void entity_free(Entity *entity);
+
+/**
+ * Deep-copy *src into *dst.
+ *
+ * Performs a shallow copy of all fixed-size fields and a deep copy (strdup)
+ * of all heap-allocated fields.  *dst must not already contain live heap
+ * pointers; zero-initialise it first (e.g. with memset) or call
+ * entity_free() before passing it here.
+ *
+ * Returns  0 on success.
+ * Returns -1 on allocation failure; *dst is freed and zeroed on failure.
+ */
+int entity_copy(Entity *dst, const Entity *src);
+
+/* -----------------------------------------------------------------------
  * EntityList lifecycle API
  * --------------------------------------------------------------------- */
 
@@ -386,14 +435,21 @@ typedef struct {
 void entity_list_init(EntityList *list);
 
 /**
- * Append a copy of *entity to list, growing the backing array if needed.
+ * Append a deep copy of *entity to list, growing the backing array if needed.
+ *
+ * Heap-allocated fields (doc_body, test_procedure, clause_collection,
+ * attachment) are duplicated so that the caller may independently free or
+ * reuse *entity after this call returns.
  *
  * Returns  0 on success.
  * Returns -1 on allocation failure (list is unmodified).
  */
 int entity_list_add(EntityList *list, const Entity *entity);
 
-/** Free the backing array and reset all fields to zero. */
+/**
+ * Free all entities in the list (including their heap fields) and the
+ * backing array, then reset all fields to zero.
+ */
 void entity_list_free(EntityList *list);
 
 /* -----------------------------------------------------------------------
