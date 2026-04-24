@@ -1,0 +1,19 @@
+id: DESIGN-CH-8
+title: "Implementation Language Trade-offs"
+type: design-note
+status: approved
+tags:
+  - implementation
+  - language
+body: |
+  | Language | Distribution | Ecosystem | Known to author | Suitability |
+  |---|---|---|---|---|
+  | **C / C++** | Single binary | libyaml / RapidYAML; GTK / Qt for GUI | Yes | Good; GUI is straightforward with Qt |
+  | **Common Lisp** | Single binary (SBCL `--save-lisp-and-die`) | cl-yaml; McCLIM for GUI | Yes | Excellent for DSL; GUI ecosystem is limited |
+  | **Rust** | Single static binary | `serde_yaml`; `egui` / GTK for GUI | To explore | Excellent distribution story; memory safety |
+  | **Go** | Single static binary | `gopkg.in/yaml.v3`; Fyne / `gio` for GUI | To explore | Very easy cross-compilation; moderate GUI |
+
+  **Recommendation for evaluation:** Prototype the core parser and CLI in both
+  Rust and Go, compare ergonomics and binary size, then decide. The GUI can be
+  deferred to a later phase and use whichever GUI toolkit fits the chosen
+  language.

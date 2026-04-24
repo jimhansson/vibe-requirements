@@ -1,0 +1,184 @@
+id: DESIGN-CH-5
+title: "In-Memory Graph Model (Triplet Store)"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - triplet-store
+  - graph-model
+body: |
+  To support fast traceability queries and GUI editing, the core model should
+  maintain an in-memory triplet store:
+
+  ```
+  (subject, predicate, object)
+  ```
+
+  Examples:
+
+  ```
+  (REQ-SW-001, derives-from, REQ-SYS-005)
+  (REQ-SW-001, implemented-in, src/auth/login.c)
+  (TC-SW-001, verifies, REQ-SW-001)
+  (REQ-SW-001, cites, EU-2016-679:article:32)
+  ```
+
+  Suggested internal structures:
+
+  - `triples: Vec<Triple>` (or equivalent)
+  - `by_subject: HashMap<EntityId, Vec<TripleId>>`
+  - `by_object: HashMap<EntityId, Vec<TripleId>>`
+  - `by_predicate: HashMap<Relation, Vec<TripleId>>`
+
+  This keeps write operations simple while enabling efficient traversal for
+  `trace`, `lint`, and GUI graph views.
+---
+id: DESIGN-CH-5-1
+title: "Link Mutation API (GUI + CLI)"
+type: design-note
+status: approved
+tags:
+  - triplet-store
+  - api
+  - mutation
+body: |
+  Related requirements: REQ-066, REQ-068, REQ-069.
+
+  The core library should expose link mutation operations instead of letting
+  GUI/CLI modify file models directly:
+
+  ```
+  add_link(subject, relation, object) -> Result<LinkId, Error>
+  remove_link(link_id) -> Result<(), Error>
+  remove_links(filter) -> Result<usize, Error>
+  ```
+
+  Write-through variants for immediate persistence to disk:
+
+  ```
+  add_link_and_flush(subject, relation, object) -> Result<LinkId, Error>
+  remove_link_and_flush(link_id) -> Result<(), Error>
+  remove_links_and_flush(filter) -> Result<usize, Error>
+  ```
+
+  Required behavior:
+
+  - Validate entity existence before insertion.
+  - Reject exact duplicate links unless relation explicitly allows multiplicity.
+  - Enforce relation constraints (`verifies` should typically originate from
+    test-case entities, etc.).
+  - Preserve consistency between in-memory graph and per-file object model.
+  - In write-through mode, update YAML files atomically as part of the same
+    operation.
+traceability:
+  - id: DESIGN-CH-5
+    relation: part-of
+---
+id: DESIGN-CH-5-2
+title: "Persistence Strategy"
+type: design-note
+status: approved
+tags:
+  - triplet-store
+  - persistence
+body: |
+  Related requirements: REQ-066, NFR-006.
+
+  For deterministic file output and clean diffs:
+
+  - Keep the graph as the working model during editing.
+  - Default mode: write-through (every accepted mutation is persisted immediately).
+  - Optional future mode: delayed/batched writes with explicit `flush()`.
+  - Sort links by `(relation, target)` before writing.
+  - Avoid rewriting untouched files.
+traceability:
+  - id: DESIGN-CH-5
+    relation: part-of
+---
+id: DESIGN-CH-5-3
+title: "Entity Origin Tracking (File Provenance)"
+type: design-note
+status: approved
+tags:
+  - triplet-store
+  - provenance
+body: |
+  Related requirements: REQ-007, REQ-067.
+
+  Every loaded entity must carry provenance metadata so the system knows
+  exactly which file to patch when data changes.
+
+  Suggested metadata:
+
+  ```
+  EntityOrigin {
+    entity_id: EntityId,
+    file_path: RepoRelativePath,
+    document_index: u32,          // 0-based position in YAML stream
+    doc_kind: requirement | test_case | external_source | story | design_doc,
+    format: yaml,
+    loaded_revision: u64
+  }
+  ```
+
+  Indexes:
+
+  - `origin_by_entity: HashMap<EntityId, EntityOrigin>`
+  - `entities_by_file: HashMap<RepoRelativePath, Vec<EntityId>>`
+  - `entities_by_file_doc: HashMap<(RepoRelativePath, u32), EntityId>`
+  - `file_revision: HashMap<RepoRelativePath, u64>`
+
+  Rules:
+
+  - Each `EntityId` maps to exactly one owning YAML document in one file.
+  - Cross-file links are allowed; ownership of the link record is the subject
+    entity's file.
+  - For multi-document files, ownership of a link record is the subject
+    entity's YAML document.
+  - Rename/move operations must update origin indexes transactionally.
+traceability:
+  - id: DESIGN-CH-5
+    relation: part-of
+---
+id: DESIGN-CH-5-4
+title: "Repository API (Write-Through First)"
+type: design-note
+status: approved
+tags:
+  - triplet-store
+  - api
+  - persistence
+body: |
+  Related requirements: REQ-066, REQ-067, REQ-068, REQ-069, REQ-007.
+
+  Expose a repository-level API that combines in-memory mutation and disk
+  persistence in one call:
+
+  ```
+  update_component_and_flush(entity_id, component_patch) -> Result<(), Error>
+  remove_component_and_flush(entity_id, component_type) -> Result<(), Error>
+  add_link_and_flush(subject, relation, object) -> Result<LinkId, Error>
+  remove_link_and_flush(link_id) -> Result<(), Error>
+  ```
+
+  Execution model for each call:
+
+  1. Resolve origin file(s) for affected entities.
+  2. Validate schema + relation constraints against current graph.
+  3. Apply mutation in memory.
+  4. Serialize only affected entity document(s).
+  5. Atomically write to disk (temp file + rename).
+  6. Reindex provenance and graph indexes.
+
+  In multi-document YAML files, step 4 means replacing only the affected YAML
+  document node in the in-memory file representation before writing the full
+  file atomically.
+
+  Failure policy:
+
+  - If disk write fails, roll back the in-memory mutation.
+  - Return structured errors with file path and operation context.
+  - Never leave memory and disk diverged after a failed write-through call.
+traceability:
+  - id: DESIGN-CH-5
+    relation: part-of

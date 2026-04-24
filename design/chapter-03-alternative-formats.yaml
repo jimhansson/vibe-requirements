@@ -1,0 +1,22 @@
+id: DESIGN-CH-3
+title: "Alternative Format Candidates"
+type: design-note
+status: approved
+tags:
+  - file-format
+  - alternatives
+body: |
+  | Format | Pros | Cons |
+  |---|---|---|
+  | **YAML** | Widely known, good tooling, human-readable | Indentation-sensitive, complex edge cases |
+  | **TOML** | Simpler syntax, unambiguous, good for flat structures | Less natural for nested/long text blocks |
+  | **S-expressions** | Trivial to parse in Common Lisp, extensible | Unfamiliar to most engineers |
+  | **Markdown + front-matter** | Requirements as prose documents, renders on GitHub | Harder to parse structured fields reliably |
+  | **Custom DSL** | Full control over syntax | Maintenance burden, no existing tooling |
+
+  The initial implementation uses YAML. The parser layer shall be abstracted
+  so that additional formats can be added by implementing a format-specific
+  reader/writer module.
+traceability:
+  - id: REQ-003
+    relation: elaborates
