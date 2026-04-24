@@ -305,6 +305,8 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
             if (strcmp(key, "body") == 0) {
                 free(out->doc_body.body);
                 out->doc_body.body = strdup(val);
+                if (!out->doc_body.body && val[0] != '\0')
+                    fprintf(stderr, "warning: failed to allocate doc_body\n");
                 continue;
             }
         }
@@ -535,6 +537,8 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
             const char *val = (const char *)val_node->data.scalar.value;
             free(out->test_procedure.expected_result);
             out->test_procedure.expected_result = strdup(val);
+            if (!out->test_procedure.expected_result && val[0] != '\0')
+                fprintf(stderr, "warning: failed to allocate expected_result\n");
             continue;
         }
 

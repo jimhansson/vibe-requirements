@@ -1127,6 +1127,7 @@ TEST(EntityHasComponentTest, DocBodyAbsentAndPresent)
     EXPECT_EQ(entity_has_component(&e, "body"),     0);
 
     e.doc_body.body = strdup("Some body text");
+    ASSERT_NE(e.doc_body.body, nullptr);
     EXPECT_EQ(entity_has_component(&e, "doc-body"), 1);
     EXPECT_EQ(entity_has_component(&e, "body"),     1);
     entity_free(&e);
@@ -1741,7 +1742,12 @@ TEST(EntityFreeTest, FreeSetsPointersToNull)
     e.test_procedure.steps           = (char *)calloc(1, 64);
     e.clause_collection.clauses      = (char *)calloc(1, 64);
     e.attachment.attachments         = (char *)calloc(1, 64);
-    ASSERT_NE(e.doc_body.body, nullptr);
+    ASSERT_NE(e.doc_body.body,                  nullptr);
+    ASSERT_NE(e.test_procedure.expected_result, nullptr);
+    ASSERT_NE(e.test_procedure.preconditions,   nullptr);
+    ASSERT_NE(e.test_procedure.steps,           nullptr);
+    ASSERT_NE(e.clause_collection.clauses,      nullptr);
+    ASSERT_NE(e.attachment.attachments,         nullptr);
 
     entity_free(&e);
 
@@ -1760,6 +1766,7 @@ TEST(EntityFreeTest, FreeTwiceIsSafe)
     Entity e;
     memset(&e, 0, sizeof(e));
     e.doc_body.body = strdup("hello");
+    ASSERT_NE(e.doc_body.body, nullptr);
     entity_free(&e);
     entity_free(&e);  /* second call: all pointers already NULL */
     EXPECT_EQ(e.doc_body.body, nullptr);
@@ -1793,12 +1800,17 @@ TEST(EntityCopyTest, CopyDeepCopiesHeapFields)
     src.doc_body.body                  = strdup("body text");
     src.test_procedure.expected_result = strdup("result");
     src.test_procedure.preconditions   = (char *)calloc(1, 64);
+    src.clause_collection.clauses      = (char *)calloc(1, 64);
+    src.attachment.attachments         = (char *)calloc(1, 64);
+    ASSERT_NE(src.doc_body.body,                  nullptr);
+    ASSERT_NE(src.test_procedure.expected_result, nullptr);
+    ASSERT_NE(src.test_procedure.preconditions,   nullptr);
+    ASSERT_NE(src.clause_collection.clauses,      nullptr);
+    ASSERT_NE(src.attachment.attachments,         nullptr);
     strncpy(src.test_procedure.preconditions, "precond one", 63);
     src.test_procedure.precondition_count = 1;
-    src.clause_collection.clauses      = (char *)calloc(1, 64);
     strncpy(src.clause_collection.clauses, "cl-1\ttitle one", 63);
     src.clause_collection.count = 1;
-    src.attachment.attachments         = (char *)calloc(1, 64);
     strncpy(src.attachment.attachments, "file.pdf\tdesc", 63);
     src.attachment.count = 1;
 
@@ -1838,6 +1850,7 @@ TEST(EntityCopyTest, MutatingCopyDoesNotAffectSource)
     Entity src;
     memset(&src, 0, sizeof(src));
     src.doc_body.body = strdup("original");
+    ASSERT_NE(src.doc_body.body, nullptr);
 
     Entity dst;
     memset(&dst, 0, sizeof(dst));
@@ -1846,6 +1859,7 @@ TEST(EntityCopyTest, MutatingCopyDoesNotAffectSource)
     /* Overwrite dst's body. */
     free(dst.doc_body.body);
     dst.doc_body.body = strdup("modified");
+    ASSERT_NE(dst.doc_body.body, nullptr);
 
     EXPECT_STREQ(src.doc_body.body, "original");
     EXPECT_STREQ(dst.doc_body.body, "modified");
@@ -1865,6 +1879,7 @@ TEST(EntityListAddTest, ListAddDeepCopiesHeapFields)
     memset(&src, 0, sizeof(src));
     strncpy(src.identity.id, "DN-LIST-001", sizeof(src.identity.id) - 1);
     src.doc_body.body = strdup("list body");
+    ASSERT_NE(src.doc_body.body, nullptr);
 
     EXPECT_EQ(entity_list_add(&list, &src), 0);
     EXPECT_EQ(list.count, 1);
