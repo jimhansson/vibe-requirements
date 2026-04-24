@@ -6,11 +6,139 @@ tags:
   - architecture
   - modules
 body: |
-  | Module | Responsibility |
-  |---|---|
-  | `parser` | Reads and deserializes requirement files from disk; format-pluggable |
-  | `validator` | Checks schema correctness, required fields, unique IDs, and link integrity |
-  | `linker` | Builds the full link graph from all files in the repository |
-  | `reporter` | Renders reports (Markdown, HTML, plain text) from the in-memory model |
-  | `tracer` | Traverses the link graph to produce traceability chains |
-  | `exporter` | Converts the model to other representations (CSV, ReqIF, …) |
+  | Module | Source files | Responsibility |
+  |---|---|---|
+  | `discovery` | `discovery.c`, `discovery.h` | Recursively walks a directory tree and builds an `EntityList` from all YAML files |
+  | `parser` | `yaml/entity_parser.c`, `yaml/yaml_link_parser.c`, `yaml/yaml_helpers.c`, `yaml/yaml_simple.h` | Reads YAML files with libyaml and maps keys to ECS component fields |
+  | `linker` | `list_cmd.c` (`build_entity_relation_store`) | Iterates an `EntityList`, loads each entity's `TraceabilityComponent` into a `TripletStore`, then calls `triplet_store_infer_inverses()` to add synthetic reverse links |
+  | `reporter` | `report.c`, `report.h` | Renders an `EntityList` (optionally filtered) plus a `TripletStore` to Markdown or self-contained HTML |
+  | `coverage` | `coverage.c`, `coverage.h` | Predicates and renderers for requirement-coverage and orphan reports |
+  | `tracer` | `list_cmd.c` (`cmd_trace_entity`) | Prints the full outgoing and incoming traceability chain for a single entity |
+  | `cli_args` | `cli_args.c`, `cli_args.h` | Parses `argc`/`argv` into a `CliOptions` struct; provides `--help` output |
+  | `new_cmd` | `new_cmd.c`, `new_cmd.h` | Scaffolds a new entity YAML file from a type name and ID |
+  | `config` | `config.c`, `config.h` | Reads `.vibe-req.yaml` for per-project settings such as `ignore_dirs` |
+  | `triplet_store` | `triplet_store.cpp`, `triplet_store.hpp`, `triplet_store_c.cpp`, `triplet_store_c.h` | C++ in-memory (subject, predicate, object) triple graph with O(1) indexed lookup; C API wrapper for use from C callers |
+---
+id: DESIGN-CH-4-1
+title: "Discovery Module"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - modules
+  - discovery
+body: |
+  `discover_entities(root_dir, list, cfg)` in `discovery.c` is the entry point
+  for all read operations.  It recursively descends into `root_dir`, skips
+  hidden directories (names starting with `.`) and any directory names listed
+  in `cfg->ignore_dirs`, and calls `yaml_parse_entities()` on every `.yaml` /
+  `.yml` file it encounters.  The results are appended directly into `*list`.
+
+  The discovery module does not interpret or validate entities — it is a pure
+  file walker.  Validation of IDs, kinds, and link targets is the
+  responsibility of the linker/validator layer.
+traceability:
+  - id: DESIGN-CH-4
+    relation: part-of
+---
+id: DESIGN-CH-4-2
+title: "Parser Module"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - modules
+  - parser
+body: |
+  The parser module lives in `src/yaml/` and is exposed through `yaml_simple.h`.
+  It uses **libyaml** for low-level token/event parsing and provides three
+  primary entry points:
+
+  - `yaml_parse_entity(path, out)` — parse the first YAML document in a file.
+  - `yaml_parse_entities(path, list)` — parse all YAML documents in a
+    multi-document file (stream), appending each entity with an `id:` field to
+    `*list`.
+  - `yaml_parse_links(path, subject_id, store)` — parse the legacy top-level
+    `links:` sequence and insert triples into `*store` directly.  This is kept
+    for backward compatibility; new files should use `traceability:` instead.
+
+  The key-to-component mapping inside `entity_parser.c` is the authoritative
+  source of truth for which YAML keys populate which component fields.  Adding
+  support for a new YAML key requires only a change in `entity_parser.c`; no
+  other module needs updating.
+traceability:
+  - id: DESIGN-CH-4
+    relation: part-of
+---
+id: DESIGN-CH-4-3
+title: "Linker / TripletStore Module"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - modules
+  - linker
+  - triplet-store
+body: |
+  The TripletStore (`triplet_store.hpp` / `triplet_store_c.h`) is the global
+  relation graph.  It is populated lazily — each entity's
+  `TraceabilityComponent` is loaded into the store via
+  `entity_traceability_to_triplets()` — rather than being built incrementally
+  during parsing.  This two-phase approach (parse all entities, then build the
+  graph) keeps the parser stateless and the store entirely optional for callers
+  that only need entity metadata.
+
+  After loading all declared links, `triplet_store_infer_inverses()` adds
+  synthetic reverse triples (e.g. `(TC-SW-001, verifies, REQ-SW-001)` →
+  `(REQ-SW-001, verified-by, TC-SW-001)`).  Synthetic triples are flagged with
+  `inferred = true` so that reporters and coverage checks can distinguish them
+  from user-declared links.
+
+  The helper `build_entity_relation_store(list)` in `list_cmd.c` wraps the
+  full populate-then-infer sequence and is the recommended way to obtain a
+  ready-to-query store from an `EntityList`.
+traceability:
+  - id: DESIGN-CH-4
+    relation: part-of
+---
+id: DESIGN-CH-4-4
+title: "Reporter Module"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - modules
+  - reporter
+body: |
+  `report_write(out, list, store, fmt)` in `report.c` is stateless: it takes
+  an `EntityList` (which may already be a filtered subset) and an optional
+  `TripletStore`, and writes the report to any `FILE *` stream.  Entities are
+  grouped by kind.  When `store` is non-NULL each entity section includes an
+  incoming-links summary derived from `triplet_store_find_by_object()`.
+
+  Two output formats are supported: `REPORT_FORMAT_MARKDOWN` (default) and
+  `REPORT_FORMAT_HTML` (self-contained document with inline CSS).
+traceability:
+  - id: DESIGN-CH-4
+    relation: part-of
+---
+id: DESIGN-CH-4-5
+title: "Coverage Module"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - modules
+  - coverage
+body: |
+  `coverage.c` provides two independent layers:
+
+  1. **Predicates** — `is_coverage_predicate(pred)`, `entity_is_covered(store, id)`,
+     `entity_has_any_link(store, id)` — pure boolean tests with no I/O, suitable
+     for unit testing and for use in future validator logic.
+
+  2. **Renderers** — `cmd_coverage(elist, store)` and `cmd_orphan(elist, store)` —
+     print tabular results to stdout and are called directly from `main.c`.
+traceability:
+  - id: DESIGN-CH-4
+    relation: part-of
