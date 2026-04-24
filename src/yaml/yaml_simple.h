@@ -1,3 +1,66 @@
+/**
+ * @file yaml_simple.h
+ * @brief Public API for the YAML parser module.
+ *
+ * ## Module Responsibility
+ *
+ * This header is the single public interface of the parser module.  It is
+ * responsible for reading YAML files from disk and converting them into the
+ * in-memory ECS model (@c Entity, @c EntityList) defined in entity.h.
+ *
+ * The implementation lives in @c src/yaml/:
+ *   - @c entity_parser.c   — maps YAML keys to @c Entity component fields
+ *   - @c yaml_link_parser.c — parses legacy top-level "links:" sequences
+ *   - @c yaml_helpers.c    — shared buffer/sequence utilities
+ *
+ * ## Parsing Pipeline
+ *
+ * A single call to @c yaml_parse_entities() drives the full pipeline:
+ *
+ * ```
+ * disk file
+ *   │
+ *   ▼  open + libyaml stream
+ * yaml_document_t  (per YAML document in the stream)
+ *   │
+ *   ▼  walk top-level mapping keys
+ * Entity  (one per YAML document with a top-level "id:" field)
+ *   │
+ *   ▼  entity_list_add()
+ * EntityList  (caller-owned, contains deep copies)
+ * ```
+ *
+ * For multi-document YAML files (streams), each `---`-separated document
+ * becomes an independent @c Entity.  Documents without a top-level `id:`
+ * field are silently skipped.
+ *
+ * ## Integration with TripletStore
+ *
+ * After a collection of entities has been parsed, the caller bridges the
+ * per-entity @c TraceabilityComponent to the global @c TripletStore by
+ * calling @c entity_traceability_to_triplets() for each entity.  The
+ * TripletStore then supports O(1) average-case reverse lookups (e.g. "find
+ * all triples pointing at REQ-SW-001") that would otherwise require a full
+ * scan of every entity's traceability component.
+ *
+ * ## Error Handling
+ *
+ * All functions in this module return negative values on hard errors (file
+ * not found, libyaml parse error).  Partial results (e.g. a file that
+ * contains some valid and some invalid YAML documents) are handled by
+ * skipping the invalid documents; the caller receives the count of
+ * successfully parsed entities.
+ *
+ * ## Coupling Notes
+ *
+ * The parser is tightly coupled to the field layout of @c Entity and its
+ * component structs.  Any new YAML key that maps to a new ECS component
+ * must be added to @c entity_parser.c and the corresponding component
+ * struct/constant must already exist in @c entity.h.  The YAML key-to-
+ * component mapping is documented in the @c yaml_parse_entity() doc block
+ * below.
+ */
+
 #ifndef VIBE_YAML_SIMPLE_H
 #define VIBE_YAML_SIMPLE_H
 

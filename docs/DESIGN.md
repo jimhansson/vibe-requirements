@@ -158,14 +158,91 @@ The initial implementation uses YAML. The parser layer shall be abstracted so th
 
 ## 4. Core Library Modules
 
-| Module | Responsibility |
-|---|---|
-| `parser` | Reads and deserializes requirement files from disk; format-pluggable |
-| `validator` | Checks schema correctness, required fields, unique IDs, and link integrity |
-| `linker` | Builds the full link graph from all files in the repository |
-| `reporter` | Renders reports (Markdown, HTML, plain text) from the in-memory model |
-| `tracer` | Traverses the link graph to produce traceability chains |
-| `exporter` | Converts the model to other representations (CSV, ReqIF, …) |
+| Module | Source files | Responsibility |
+|---|---|---|
+| `discovery` | `discovery.c`, `discovery.h` | Recursively walks a directory tree and builds an `EntityList` from all YAML files |
+| `parser` | `yaml/entity_parser.c`, `yaml/yaml_link_parser.c`, `yaml/yaml_helpers.c`, `yaml/yaml_simple.h` | Reads YAML files with libyaml and maps keys to ECS component fields |
+| `linker` | `list_cmd.c` (`build_entity_relation_store`) | Iterates an `EntityList`, loads each entity's `TraceabilityComponent` into a `TripletStore`, then calls `triplet_store_infer_inverses()` to add synthetic reverse links |
+| `reporter` | `report.c`, `report.h` | Renders an `EntityList` (optionally filtered) plus a `TripletStore` to Markdown or self-contained HTML |
+| `coverage` | `coverage.c`, `coverage.h` | Predicates and renderers for requirement-coverage and orphan reports |
+| `tracer` | `list_cmd.c` (`cmd_trace_entity`) | Prints the full outgoing and incoming traceability chain for a single entity |
+| `cli_args` | `cli_args.c`, `cli_args.h` | Parses `argc`/`argv` into a `CliOptions` struct; provides `--help` output |
+| `new_cmd` | `new_cmd.c`, `new_cmd.h` | Scaffolds a new entity YAML file from a type name and ID |
+| `config` | `config.c`, `config.h` | Reads `.vibe-req.yaml` for per-project settings such as `ignore_dirs` |
+| `triplet_store` | `triplet_store.cpp`, `triplet_store.hpp`, `triplet_store_c.cpp`, `triplet_store_c.h` | C++ in-memory (subject, predicate, object) triple graph with O(1) indexed lookup; C API wrapper for use from C callers |
+
+### 4.1 Discovery Module
+
+`discover_entities(root_dir, list, cfg)` in `discovery.c` is the entry point
+for all read operations.  It recursively descends into `root_dir`, skips
+hidden directories (names starting with `.`) and any directory names listed
+in `cfg->ignore_dirs`, and calls `yaml_parse_entities()` on every `.yaml` /
+`.yml` file it encounters.  The results are appended directly into `*list`.
+
+The discovery module does not interpret or validate entities — it is a pure
+file walker.  Validation of IDs, kinds, and link targets is the
+responsibility of the linker/validator layer.
+
+### 4.2 Parser Module
+
+The parser module lives in `src/yaml/` and is exposed through `yaml_simple.h`.
+It uses **libyaml** for low-level token/event parsing and provides three
+primary entry points:
+
+- `yaml_parse_entity(path, out)` — parse the first YAML document in a file.
+- `yaml_parse_entities(path, list)` — parse all YAML documents in a
+  multi-document file (stream), appending each entity with an `id:` field to
+  `*list`.
+- `yaml_parse_links(path, subject_id, store)` — parse the legacy top-level
+  `links:` sequence and insert triples into `*store` directly.  This is kept
+  for backward compatibility; new files should use `traceability:` instead.
+
+The key-to-component mapping inside `entity_parser.c` is the authoritative
+source of truth for which YAML keys populate which component fields.  Adding
+support for a new YAML key requires only a change in `entity_parser.c`; no
+other module needs updating.
+
+### 4.3 Linker / TripletStore Module
+
+The TripletStore (`triplet_store.hpp` / `triplet_store_c.h`) is the global
+relation graph.  It is populated lazily — each entity's
+`TraceabilityComponent` is loaded into the store via
+`entity_traceability_to_triplets()` — rather than being built incrementally
+during parsing.  This two-phase approach (parse all entities, then build the
+graph) keeps the parser stateless and the store entirely optional for callers
+that only need entity metadata.
+
+After loading all declared links, `triplet_store_infer_inverses()` adds
+synthetic reverse triples (e.g. `(TC-SW-001, verifies, REQ-SW-001)` →
+`(REQ-SW-001, verified-by, TC-SW-001)`).  Synthetic triples are flagged with
+`inferred = true` so that reporters and coverage checks can distinguish them
+from user-declared links.
+
+The helper `build_entity_relation_store(list)` in `list_cmd.c` wraps the
+full populate-then-infer sequence and is the recommended way to obtain a
+ready-to-query store from an `EntityList`.
+
+### 4.4 Reporter Module
+
+`report_write(out, list, store, fmt)` in `report.c` is stateless: it takes
+an `EntityList` (which may already be a filtered subset) and an optional
+`TripletStore`, and writes the report to any `FILE *` stream.  Entities are
+grouped by kind.  When `store` is non-NULL each entity section includes an
+incoming-links summary derived from `triplet_store_find_by_object()`.
+
+Two output formats are supported: `REPORT_FORMAT_MARKDOWN` (default) and
+`REPORT_FORMAT_HTML` (self-contained document with inline CSS).
+
+### 4.5 Coverage Module
+
+`coverage.c` provides two independent layers:
+
+1. **Predicates** — `is_coverage_predicate(pred)`, `entity_is_covered(store, id)`,
+   `entity_has_any_link(store, id)` — pure boolean tests with no I/O, suitable
+   for unit testing and for use in future validator logic.
+
+2. **Renderers** — `cmd_coverage(elist, store)` and `cmd_orphan(elist, store)` —
+   print tabular results to stdout and are called directly from `main.c`.
 
 ## 5. In-Memory Graph Model (Triplet Store)
 
@@ -513,3 +590,145 @@ vibe-req report [--kind <kind>] [--component <comp>] [--status <status>] [--prio
 | **Go** | Single static binary | `gopkg.in/yaml.v3`; Fyne / `gio` for GUI | To explore | Very easy cross-compilation; moderate GUI |
 
 **Recommendation for evaluation:** Prototype the core parser and CLI in both Rust and Go, compare ergonomics and binary size, then decide. The GUI can be deferred to a later phase and use whichever GUI toolkit fits the chosen language.
+
+## 9. Memory Layout and Design Decisions
+
+### 9.1 Fixed-Size Inline Fields vs. Heap Pointers
+
+The `Entity` struct uses two distinct memory strategies for its component fields:
+
+**Inline (fixed-size) char arrays** are used for all fields that are:
+- Present on the vast majority of entities (identity, lifecycle, text, tags, traceability, sources, assumption, constraint, …).
+- Bounded by a well-understood maximum that fits within a few kilobytes.
+
+Keeping these fields inline means the entire `Entity` (roughly 10–12 KB) can
+be stack-allocated or stored in a contiguous `malloc`'d array without pointer
+indirection.  This enables cache-friendly batch operations: `entity_list_add()`
+copies a whole entity with a single `memcpy`; `entity_apply_filter()` iterates
+the array without pointer chasing; `qsort()` via `entity_cmp_by_id()` moves
+full records in place.
+
+**Heap-allocated (`char *`) fields** are used for the four large/rare components:
+- `DocumentBodyComponent.body` — free-form body text (up to 64 KB)
+- `TestProcedureComponent.{preconditions, steps, expected_result}` — structured test data
+- `ClauseCollectionComponent.clauses` — list of normative clauses (up to 8 KB)
+- `AttachmentComponent.attachments` — list of file references (up to 2 KB)
+
+A `NULL` pointer means "absent" with no memory cost.  Deep-copy semantics
+are preserved by `entity_copy()` (calls `strdup`) and `entity_list_add()`.
+`entity_free()` must be called before discarding any `Entity` that may have
+been populated by the parser.
+
+### 9.2 Flat Newline-Separated Buffers
+
+Instead of embedded linked lists or variable-length arrays, multi-valued
+component fields use a **flat newline-separated string** pattern:
+
+- `TagComponent.tags` — one tag per line
+- `TraceabilityComponent.entries` — one `"target\trelation"` pair per line
+- `SourceComponent.sources` — one source reference per line
+- `AcceptanceCriteriaComponent.criteria` — one criterion per line
+- `DocumentMembershipComponent.doc_ids` — one document entity ID per line
+
+The corresponding `count` field records the number of entries.
+`yaml_append_to_flat()` (in `yaml_helpers.c`) handles appending with
+truncation when the buffer is full; `yaml_append_pair_entry()` handles tab-
+separated pairs.
+
+This design avoids heap allocation for these multi-valued fields while still
+allowing iteration by splitting on `'\n'`.  The tradeoff is that individual
+entries cannot exceed the field's array size, and edits to individual entries
+require reconstructing the whole buffer.
+
+### 9.3 TripletStore Slot-Based Storage
+
+`TripletStore` stores active triples in a `std::vector<std::optional<Triple>>`.
+Removals leave `std::nullopt` tombstone slots rather than shifting the vector.
+This means:
+
+- **TripleId values are stable** across add operations but **invalid after `compact()`**.
+- **Dead slots are reclaimed lazily**: when `dead_count_` reaches `k_compact_threshold`
+  (currently 16) *and* at least as many dead slots as live triples exist, `compact()` is
+  called automatically, reassigning consecutive IDs from 0.
+- Callers that hold `TripleId` values must not call (or trigger) `compact()` while those
+  IDs are in use.  In the current CLI implementation no long-lived IDs are held after a
+  bulk load, so lazy compaction is safe.
+
+## 10. Internal State Coupling and Intended Invariants
+
+### 10.1 Entity Struct Invariants
+
+The `Entity` struct has the following invariants that all callers must preserve:
+
+1. **id is always NUL-terminated.**  The parser writes at most 63 bytes into
+   `identity.id[64]` using `yaml_copy_field()`.  An entity with `id[0] == '\0'`
+   is treated as absent by `entity_list_add()` and discovery.
+
+2. **Heap pointer consistency.**  If any of `doc_body.body`,
+   `test_procedure.preconditions`, `test_procedure.steps`,
+   `test_procedure.expected_result`, `clause_collection.clauses`, or
+   `attachment.attachments` is non-NULL it points to a valid heap buffer.
+   After `entity_copy()` the destination owns independent copies.
+   After `entity_free()` all these pointers are NULL.
+
+3. **count fields match buffer contents.**  The `count` field in every
+   multi-valued component must equal the number of `'\n'`-separated entries
+   in the corresponding buffer.  The parser updates both atomically via
+   `yaml_append_to_flat()` and `yaml_append_pair_entry()`.
+
+4. **EntityList deep-copy ownership.**  `entity_list_add()` always deep-copies
+   the source entity so that the caller may free or reuse it independently.
+   Every `Entity` in `EntityList.items[]` is independently owned and must be
+   freed individually (done by `entity_list_free()`).
+
+### 10.2 TripletStore Invariants
+
+1. **Index consistency.**  The three index maps (`by_subject_`, `by_object_`,
+   `by_predicate_`) always reflect exactly the set of active (non-nullopt)
+   slots in `triples_`.  Any mutation that modifies `triples_` must
+   simultaneously update all three indexes.
+
+2. **No duplicate triples.**  `add()` and `add_inferred()` reject exact
+   duplicates (same subject, predicate, object) regardless of the `inferred`
+   flag.  The deduplication check is O(n) over same-subject triples; it is
+   acceptable for typical entity-count loads (< 10 000 triples).
+
+3. **Inferred flag immutability.**  Once a triple is stored its `inferred`
+   flag does not change.  `infer_inverses()` only inserts new triples; it
+   never modifies existing ones.  Coverage and orphan checks must filter on
+   `inferred == false` when they want to consider only user-declared links.
+
+4. **TripleId validity window.**  A `TripleId` returned by `add()` is valid
+   until the next `compact()` call.  After `compact()` the ID must be
+   discarded.  The C wrapper (`triplet_store_c.h`) does not expose `compact()`
+   to CLI callers; they interact with the store through query functions that
+   return value-copied `CTripleList` results, so they never hold raw IDs.
+
+### 10.3 Parser / Entity Coupling
+
+`entity_parser.c` is the only module that writes to `Entity` component
+fields directly.  All other modules read entities through the public API
+(`entity_has_component()`, `entity_apply_filter()`, `entity_kind_label()`,
+etc.).
+
+This concentrates the YAML-key-to-struct-offset coupling in a single
+translation unit.  A field rename in `entity.h` requires only changes in:
+- `entity_parser.c` — the write path
+- Any test in `tests/test_entity.cpp` or `tests/test_yaml_simple.cpp` that
+  reads or writes that specific field
+
+No other module should access `entity.h` struct fields by name except for
+`entity_free()`, `entity_copy()`, and `entity_list_*` (which are
+implementation files for the struct itself).
+
+### 10.4 Discovery / Parser Coupling
+
+`discover_entities()` calls `yaml_parse_entities()` for every YAML file it
+finds.  It does not inspect entity fields itself.  This separation means that
+discovery can be tested with mock entity lists and the parser can be tested
+with hand-crafted files without invoking the file system walker.
+
+The only shared state between discovery and the parser is the `EntityList`
+passed by the caller.  Both modules treat it as an append-only output
+parameter; neither reads entries already in the list.
+
