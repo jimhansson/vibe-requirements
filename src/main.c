@@ -10,6 +10,7 @@
 #include "config.h"
 #include "yaml_simple.h"
 #include "triplet_store_c.h"
+#include "report.h"
 
 /* ------------------------------------------------------------------ */
 /* Comparison helper for qsort — sort requirements by ID.             */
@@ -907,14 +908,19 @@ int main(int argc, char *argv[])
     int         show_entities = 0;
     int         show_coverage = 0;
     int         show_orphan   = 0;
+    int         show_report   = 0;
     const char *trace_id      = NULL;
     const char *root          = ".";
 
-    /* Filter options (used with 'entities' / 'list' subcommands). */
+    /* Filter options (used with 'entities' / 'list' / 'report' subcommands). */
     const char *filter_kind     = NULL;
     const char *filter_comp     = NULL;
     const char *filter_status   = NULL;
     const char *filter_priority = NULL;
+
+    /* Report-specific options. */
+    ReportFormat report_format = REPORT_FORMAT_MARKDOWN;
+    const char  *report_output = NULL; /* NULL = stdout */
 
     int arg_idx = 1;
 
@@ -935,8 +941,12 @@ int main(int argc, char *argv[])
             printf("                  Example: %s coverage\n", argv[0]);
             printf("  orphan          List requirements and test cases with no traceability\n");
             printf("                  links in either direction.\n");
-            printf("                  Example: %s orphan\n\n", argv[0]);
-            printf("Filter options (for 'list' / 'entities'):\n");
+            printf("                  Example: %s orphan\n", argv[0]);
+            printf("  report          Generate a Markdown or HTML report of all entities.\n");
+            printf("                  Use --format and filter flags to customise output.\n");
+            printf("                  Example: %s report --format html --output report.html\n\n",
+                   argv[0]);
+            printf("Filter options (for 'list' / 'entities' / 'report'):\n");
             printf("  --kind <kind>        Show only entities of the given kind.\n");
             printf("                       Kinds: requirement, group, story, design-note,\n");
             printf("                              section, assumption, constraint, test-case,\n");
@@ -949,6 +959,9 @@ int main(int argc, char *argv[])
             printf("                                  attachment\n");
             printf("  --status <status>    Show only entities with the given lifecycle status.\n");
             printf("  --priority <prio>    Show only entities with the given priority.\n\n");
+            printf("Report options (for 'report'):\n");
+            printf("  --format <fmt>  Output format: md (default) or html.\n");
+            printf("  --output <file> Write report to <file> instead of stdout.\n\n");
             printf("Other options:\n");
             printf("  --strict-links  Warn when a known relation is declared in only one\n");
             printf("                  direction (inverse not explicitly present in YAML).\n");
@@ -978,6 +991,9 @@ int main(int argc, char *argv[])
             arg_idx       = 2;
         } else if (strcmp(argv[1], "orphan") == 0) {
             show_orphan = 1;
+            arg_idx     = 2;
+        } else if (strcmp(argv[1], "report") == 0) {
+            show_report = 1;
             arg_idx     = 2;
         }
     }
@@ -1010,16 +1026,40 @@ int main(int argc, char *argv[])
                 return 1;
             }
             filter_priority = argv[++i];
+        } else if (strcmp(argv[i], "--format") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "error: '--format' requires a value (md or html)\n");
+                return 1;
+            }
+            ++i;
+            if (strcmp(argv[i], "html") == 0) {
+                report_format = REPORT_FORMAT_HTML;
+            } else if (strcmp(argv[i], "md") == 0 ||
+                       strcmp(argv[i], "markdown") == 0) {
+                report_format = REPORT_FORMAT_MARKDOWN;
+            } else {
+                fprintf(stderr,
+                        "error: unknown format '%s' — use 'md' or 'html'\n",
+                        argv[i]);
+                return 1;
+            }
+        } else if (strcmp(argv[i], "--output") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "error: '--output' requires a file path\n");
+                return 1;
+            }
+            report_output = argv[++i];
         } else {
             root = argv[i];
         }
     }
 
     /* ------------------------------------------------------------------
-     * Entity-path subcommands: trace, coverage, orphan, list/entities.
-     * All use the ECS EntityList and entity_traceability_to_triplets.
+     * Entity-path subcommands: trace, coverage, orphan, list/entities,
+     * report.  All use the ECS EntityList.
      * ------------------------------------------------------------------ */
-    if (show_entities || trace_id || show_coverage || show_orphan) {
+    if (show_entities || trace_id || show_coverage || show_orphan ||
+        show_report) {
         EntityList elist;
         entity_list_init(&elist);
 
@@ -1050,6 +1090,52 @@ int main(int argc, char *argv[])
             } else {
                 list_entities(&elist);
             }
+            entity_list_free(&elist);
+            return 0;
+        }
+
+        if (show_report) {
+            /* Build relation store for traceability links in the report. */
+            TripletStore *store = build_entity_relation_store(&elist);
+            if (!store) {
+                fprintf(stderr, "error: failed to create relation store\n");
+                entity_list_free(&elist);
+                return 1;
+            }
+
+            /* Apply filters if any were specified. */
+            EntityList *src = &elist;
+            EntityList  filtered;
+            entity_list_init(&filtered);
+            if (filter_kind || filter_comp || filter_status || filter_priority) {
+                entity_apply_filter(&elist, &filtered,
+                                    filter_kind, filter_comp,
+                                    filter_status, filter_priority);
+                src = &filtered;
+            }
+
+            /* Open output destination. */
+            FILE *out = stdout;
+            if (report_output) {
+                out = fopen(report_output, "w");
+                if (!out) {
+                    fprintf(stderr,
+                            "error: cannot open output file '%s'\n",
+                            report_output);
+                    entity_list_free(&filtered);
+                    triplet_store_destroy(store);
+                    entity_list_free(&elist);
+                    return 1;
+                }
+            }
+
+            report_write(out, src, store, report_format);
+
+            if (report_output)
+                fclose(out);
+
+            entity_list_free(&filtered);
+            triplet_store_destroy(store);
             entity_list_free(&elist);
             return 0;
         }

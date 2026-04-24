@@ -257,6 +257,80 @@ No orphaned requirements or test cases found.
 
 ---
 
+### report
+
+Generate a human-readable Markdown or HTML report of all entities (or a
+filtered subset).  Entities are grouped by kind.  Each entity section
+includes its metadata (kind, status, priority, owner), description,
+rationale, tags, sources, acceptance criteria, user-story fields, and all
+traceability links (outgoing and incoming).
+
+```bash
+vibe-req report [--format md|html] [--output <file>] \
+                [--kind <kind>] [--status <status>] [--priority <prio>] \
+                [--component <comp>] [directory]
+```
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `--format md` | Output Markdown (default) |
+| `--format html` | Output a self-contained HTML document with inline CSS |
+| `--output <file>` | Write the report to `<file>` instead of stdout |
+| `--kind <kind>` | Include only entities of the given kind |
+| `--status <status>` | Include only entities with the given lifecycle status |
+| `--priority <prio>` | Include only entities with the given priority |
+| `--component <comp>` | Include only entities that carry the named ECS component |
+
+When no filter flags are given the report covers all entities found in the
+scanned directory tree.
+
+#### Examples
+
+```bash
+# Markdown report to stdout
+vibe-req report
+
+# Markdown report to a file
+vibe-req report --output report.md
+
+# HTML report to a file
+vibe-req report --format html --output report.html
+
+# Report only requirements
+vibe-req report --kind requirement
+
+# Report only approved requirements as HTML
+vibe-req report --kind requirement --status approved --format html --output approved.html
+
+# Report for a specific directory
+vibe-req report requirements/
+```
+
+**Sample Markdown output (excerpt):**
+
+```markdown
+# Requirements Report
+
+## Requirements (3)
+
+### REQ-AUTH-001 — The system shall support email/password authentication
+
+**Kind:** requirement | **Status:** approved | **Priority:** must
+
+The system shall support email and password authentication for all users.
+
+**Traceability:**
+
+- `[member-of]` → GRP-AUTH-001
+- `[implemented-by]` ← STORY-SW-001
+
+---
+```
+
+---
+
 ### links
 
 Print all relations parsed from the requirement files as a
