@@ -1,6 +1,6 @@
 CC       = gcc
 CXX      = g++
-CFLAGS   = -std=c11 -Wall -Wextra -Wpedantic -O2
+CFLAGS   = -std=c11 -Wall -Wextra -Wpedantic -O2 -I.
 CXXFLAGS = -std=c++17 -Wall -Wextra -O2
 LDLIBS   = -lyaml
 
@@ -16,12 +16,17 @@ GTEST_CFLAGS  = -I$(GTEST_PREFIX)/include
 GTEST_LDFLAGS = -L$(GTEST_PREFIX)/lib -Wl,-rpath,$(GTEST_PREFIX)/lib \
                 -lgtest_main -lgtest -lgmock -pthread
 
+# yaml/ sub-module objects (replaces the old monolithic yaml_simple.o)
+YAML_OBJS = $(BUILD_DIR)/yaml/yaml_helpers.o \
+            $(BUILD_DIR)/yaml/yaml_link_parser.o \
+            $(BUILD_DIR)/yaml/entity_parser.o
+
 # Main binary sources (C and C++)
-C_SRCS   = main.c entity.c yaml_simple.c discovery.c config.c report.c new_cmd.c coverage.c cli_args.c list_cmd.c
+C_SRCS   = main.c entity.c discovery.c config.c report.c new_cmd.c coverage.c cli_args.c list_cmd.c
 CPP_SRCS = triplet_store.cpp triplet_store_c.cpp
 C_OBJS   = $(addprefix $(BUILD_DIR)/,$(C_SRCS:.c=.o))
 CPP_OBJS = $(addprefix $(BUILD_DIR)/,$(CPP_SRCS:.cpp=.o))
-OBJS     = $(C_OBJS) $(CPP_OBJS)
+OBJS     = $(C_OBJS) $(CPP_OBJS) $(YAML_OBJS)
 
 # Test binaries (sources live in tests/)
 TEST_TRIPLET_TARGET = $(BIN_DIR)/tests/test_triplet_store
@@ -33,48 +38,48 @@ TEST_CONFIG_OBJS    = $(BUILD_DIR)/tests/test_config.o $(BUILD_DIR)/config.o
 
 TEST_YAML_TARGET    = $(BIN_DIR)/tests/test_yaml_simple
 TEST_YAML_OBJS      = $(BUILD_DIR)/tests/test_yaml_simple.o \
-                      $(BUILD_DIR)/yaml_simple.o \
+                      $(YAML_OBJS) \
                       $(BUILD_DIR)/entity.o $(BUILD_DIR)/triplet_store.o \
                       $(BUILD_DIR)/triplet_store_c.o
 
 TEST_DISCOVERY_TARGET = $(BIN_DIR)/tests/test_discovery_ignore
 TEST_DISCOVERY_OBJS   = $(BUILD_DIR)/tests/test_discovery_ignore.o \
                         $(BUILD_DIR)/discovery.o \
-                        $(BUILD_DIR)/yaml_simple.o $(BUILD_DIR)/config.o \
+                        $(YAML_OBJS) $(BUILD_DIR)/config.o \
                         $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o \
                         $(BUILD_DIR)/entity.o
 
 TEST_ENTITY_TARGET = $(BIN_DIR)/tests/test_entity
 TEST_ENTITY_OBJS   = $(BUILD_DIR)/tests/test_entity.o $(BUILD_DIR)/entity.o \
-                     $(BUILD_DIR)/yaml_simple.o \
+                     $(YAML_OBJS) \
                      $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
 TEST_REPORT_TARGET = $(BIN_DIR)/tests/test_report
 TEST_REPORT_OBJS   = $(BUILD_DIR)/tests/test_report.o $(BUILD_DIR)/report.o \
-                     $(BUILD_DIR)/entity.o $(BUILD_DIR)/yaml_simple.o \
+                     $(BUILD_DIR)/entity.o $(YAML_OBJS) \
                      $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
 TEST_NEW_CMD_TARGET = $(BIN_DIR)/tests/test_new_cmd
 TEST_NEW_CMD_OBJS   = $(BUILD_DIR)/tests/test_new_cmd.o $(BUILD_DIR)/new_cmd.o \
-                      $(BUILD_DIR)/entity.o $(BUILD_DIR)/yaml_simple.o \
+                      $(BUILD_DIR)/entity.o $(YAML_OBJS) \
                       $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
 TEST_COVERAGE_TARGET = $(BIN_DIR)/tests/test_coverage
 TEST_COVERAGE_OBJS   = $(BUILD_DIR)/tests/test_coverage.o \
                        $(BUILD_DIR)/coverage.o $(BUILD_DIR)/entity.o \
                        $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o \
-                       $(BUILD_DIR)/yaml_simple.o
+                       $(YAML_OBJS)
 
 TEST_CLI_ARGS_TARGET = $(BIN_DIR)/tests/test_cli_args
 TEST_CLI_ARGS_OBJS   = $(BUILD_DIR)/tests/test_cli_args.o \
                        $(BUILD_DIR)/cli_args.o $(BUILD_DIR)/report.o \
-                       $(BUILD_DIR)/entity.o $(BUILD_DIR)/yaml_simple.o \
+                       $(BUILD_DIR)/entity.o $(YAML_OBJS) \
                        $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
 TEST_MAIN_TARGET = $(BIN_DIR)/tests/test_main
 TEST_MAIN_OBJS   = $(BUILD_DIR)/tests/test_main.o \
                    $(BUILD_DIR)/list_cmd.o \
-                   $(BUILD_DIR)/entity.o $(BUILD_DIR)/yaml_simple.o \
+                   $(BUILD_DIR)/entity.o $(YAML_OBJS) \
                    $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
 .PHONY: all clean test
@@ -130,6 +135,9 @@ test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DI
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
 
+$(BUILD_DIR)/yaml/%.o: yaml/%.c | $(BUILD_DIR)/yaml
+	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
+
 $(BUILD_DIR)/%.o: %.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -MMD -MP -c -o $@ $<
 
@@ -137,7 +145,7 @@ $(BUILD_DIR)/tests/%.o: tests/%.cpp | $(BUILD_DIR)/tests
 	$(CXX) $(CXXFLAGS) $(GTEST_CFLAGS) -I. -MMD -MP -c -o $@ $<
 
 # Create output directories on demand
-$(BIN_DIR) $(BIN_DIR)/tests $(BUILD_DIR) $(BUILD_DIR)/tests:
+$(BIN_DIR) $(BIN_DIR)/tests $(BUILD_DIR) $(BUILD_DIR)/tests $(BUILD_DIR)/yaml:
 	mkdir -p $@
 
 # Include auto-generated dependency files (if they exist)

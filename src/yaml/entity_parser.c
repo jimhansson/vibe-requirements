@@ -1,255 +1,33 @@
 #define _POSIX_C_SOURCE 200809L  /* for strdup */
-#include "yaml_simple.h"
-#include "entity.h"
+
+/*
+ * @file entity_parser.c
+ * @brief YAML entity field extraction and multi-document parsing.
+ *
+ * Implements yaml_parse_entity(), yaml_parse_entities(), and
+ * entity_traceability_to_triplets() declared in yaml_simple.h.
+ *
+ * The static helper extract_entity_fields() performs a single-pass walk
+ * over a YAML mapping node and populates every recognised ECS component.
+ */
+
+#include "../yaml_simple.h"
+#include "yaml_helpers.h"
+#include "../entity.h"
 #include <yaml.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-/*
- * Copy at most (dst_size - 1) bytes from src into dst and NUL-terminate.
- * Truncates silently when src is longer than the buffer.
- */
-static void copy_field(char *dst, size_t dst_size, const char *src)
-{
-    strncpy(dst, src, dst_size - 1);
-    dst[dst_size - 1] = '\0';
-}
-
-/*
- * Maximum buffer sizes used when extracting link fields from a YAML
- * link entry.  Entity IDs and artefact paths are capped at
- * LINK_TARGET_LEN; relation names are capped at LINK_RELATION_LEN.
- */
-#define LINK_TARGET_LEN   256
-#define LINK_RELATION_LEN 128
-
-/* Buffer sizes for test-procedure step sub-fields. */
-#define STEP_ACTION_LEN  512
-#define STEP_OUTPUT_LEN  512
-
-/* Buffer sizes for clause-collection sub-fields. */
-#define CLAUSE_ID_LEN    128
-#define CLAUSE_TITLE_LEN 256
-
-/* Buffer sizes for attachment sub-fields. */
-#define ATTACH_PATH_LEN  512
-#define ATTACH_DESC_LEN  512
-
-/*
- * Walk one link mapping node and add a triple to store.
- * Each link is expected to have either an "id" or "artefact" key (the
- * object) plus a "relation" key (the predicate).
- * Returns 1 if a triple was added, 0 otherwise.
- */
-static int add_link_triple(yaml_document_t *doc, yaml_node_t *link_map,
-                            const char *subject_id, TripletStore *store)
-{
-    if (!link_map || link_map->type != YAML_MAPPING_NODE)
-        return 0;
-
-    char target[LINK_TARGET_LEN]     = {0};
-    char relation[LINK_RELATION_LEN] = {0};
-
-    yaml_node_pair_t *pair = link_map->data.mapping.pairs.start;
-    yaml_node_pair_t *end  = link_map->data.mapping.pairs.top;
-
-    for (; pair < end; pair++) {
-        yaml_node_t *key_node = yaml_document_get_node(doc, pair->key);
-        yaml_node_t *val_node = yaml_document_get_node(doc, pair->value);
-
-        if (!key_node || key_node->type != YAML_SCALAR_NODE) continue;
-        if (!val_node || val_node->type != YAML_SCALAR_NODE) continue;
-
-        const char *key = (const char *)key_node->data.scalar.value;
-        const char *val = (const char *)val_node->data.scalar.value;
-
-        if (strcmp(key, "id") == 0 || strcmp(key, "artefact") == 0) {
-            strncpy(target, val, sizeof(target) - 1);
-        } else if (strcmp(key, "relation") == 0) {
-            strncpy(relation, val, sizeof(relation) - 1);
-        }
-    }
-
-    if (target[0] == '\0' || relation[0] == '\0')
-        return 0;
-
-    size_t id = triplet_store_add(store, subject_id, relation, target);
-    return (id != TRIPLE_ID_INVALID) ? 1 : 0;
-}
-
-int yaml_parse_links(const char *path, const char *subject_id,
-                     TripletStore *store)
-{
-    if (!path || !subject_id || !store)
-        return -1;
-
-    FILE *f = fopen(path, "r");
-    if (!f)
-        return -1;
-
-    yaml_parser_t parser;
-    yaml_parser_initialize(&parser);
-    yaml_parser_set_input_file(&parser, f);
-
-    int added = 0;
-
-    while (1) {
-        yaml_document_t doc;
-        if (!yaml_parser_load(&parser, &doc))
-            break; /* parse error — stop, keep any links already added */
-
-        yaml_node_t *root = yaml_document_get_root_node(&doc);
-        if (!root) {
-            yaml_document_delete(&doc);
-            break; /* end of stream */
-        }
-
-        if (root->type == YAML_MAPPING_NODE) {
-            /*
-             * In a multi-document file each document may belong to a
-             * different requirement.  Only process the "links" sequence
-             * of the document whose top-level "id" matches subject_id.
-             */
-            const char *doc_id = NULL;
-            yaml_node_pair_t *pair = root->data.mapping.pairs.start;
-            yaml_node_pair_t *end  = root->data.mapping.pairs.top;
-
-            for (; pair < end; pair++) {
-                yaml_node_t *key_node = yaml_document_get_node(&doc, pair->key);
-                if (!key_node || key_node->type != YAML_SCALAR_NODE)
-                    continue;
-                if (strcmp((const char *)key_node->data.scalar.value, "id") == 0) {
-                    yaml_node_t *val_node = yaml_document_get_node(&doc, pair->value);
-                    if (val_node && val_node->type == YAML_SCALAR_NODE)
-                        doc_id = (const char *)val_node->data.scalar.value;
-                    break;
-                }
-            }
-
-            /* Skip documents that don't belong to subject_id. */
-            if (!doc_id || strcmp(doc_id, subject_id) != 0) {
-                yaml_document_delete(&doc);
-                continue;
-            }
-
-            /* Found the right document — extract its links. */
-            pair = root->data.mapping.pairs.start;
-            end  = root->data.mapping.pairs.top;
-
-            for (; pair < end; pair++) {
-                yaml_node_t *key_node = yaml_document_get_node(&doc, pair->key);
-                if (!key_node || key_node->type != YAML_SCALAR_NODE)
-                    continue;
-
-                const char *key = (const char *)key_node->data.scalar.value;
-                if (strcmp(key, "links") != 0)
-                    continue;
-
-                yaml_node_t *links_node = yaml_document_get_node(&doc, pair->value);
-                if (!links_node || links_node->type != YAML_SEQUENCE_NODE)
-                    break;
-
-                yaml_node_item_t *item = links_node->data.sequence.items.start;
-                yaml_node_item_t *top  = links_node->data.sequence.items.top;
-
-                for (; item < top; item++) {
-                    yaml_node_t *link_map = yaml_document_get_node(&doc, *item);
-                    added += add_link_triple(&doc, link_map, subject_id, store);
-                }
-                break;
-            }
-        }
-
-        yaml_document_delete(&doc);
-    }
-
-    yaml_parser_delete(&parser);
-    fclose(f);
-    return added;
-}
-
-/* =========================================================================
- * Entity parsing — ECS-based parsing functions
- * ======================================================================= */
-
-/*
- * Append text to a newline-separated flat buffer.
- * Returns 1 if the text was appended, 0 if there was not enough space.
- */
-static int append_to_flat(char *buf, size_t buf_size, int *count, const char *text)
-{
-    size_t cur_len  = strlen(buf);
-    size_t text_len = strlen(text);
-
-    /* Need room for text + newline (or just text if buffer is empty) */
-    size_t need = text_len + (cur_len > 0 ? 1u : 0u);
-
-    if (cur_len + need >= buf_size)
-        return 0; /* not enough space */
-
-    if (cur_len > 0)
-        buf[cur_len++] = '\n';
-
-    memcpy(buf + cur_len, text, text_len);
-    buf[cur_len + text_len] = '\0';
-    (*count)++;
-    return 1;
-}
-
-/*
- * Append a traceability entry "target\trelation" to a newline-separated
- * flat buffer.  Entries are separated by '\n'; within each entry the
- * target and relation are separated by '\t'.
- * Returns 1 if the entry was appended, 0 if there was not enough space.
- */
-static int append_trace_entry(char *buf, size_t buf_size, int *count,
-                               const char *target, const char *relation)
-{
-    size_t cur_len = strlen(buf);
-    size_t t_len   = strlen(target);
-    size_t r_len   = strlen(relation);
-    /* Need: [leading newline] + target + '\t' + relation + NUL (1 byte) */
-    size_t need = t_len + 1u + r_len + 1u + (cur_len > 0 ? 1u : 0u);
-
-    if (cur_len + need >= buf_size)
-        return 0;
-
-    if (cur_len > 0)
-        buf[cur_len++] = '\n';
-
-    memcpy(buf + cur_len, target, t_len);
-    cur_len += t_len;
-    buf[cur_len++] = '\t';
-    memcpy(buf + cur_len, relation, r_len);
-    buf[cur_len + r_len] = '\0';
-    (*count)++;
-    return 1;
-}
-
-/*
- * Walk a YAML sequence node and collect scalar items into a flat buffer.
- */
-static void collect_sequence(yaml_document_t *doc, yaml_node_t *seq,
-                              char *buf, size_t buf_size, int *count)
-{
-    if (!seq || seq->type != YAML_SEQUENCE_NODE)
-        return;
-
-    yaml_node_item_t *item = seq->data.sequence.items.start;
-    yaml_node_item_t *top  = seq->data.sequence.items.top;
-
-    for (; item < top; item++) {
-        yaml_node_t *node = yaml_document_get_node(doc, *item);
-        if (!node || node->type != YAML_SCALAR_NODE)
-            continue;
-        const char *val = (const char *)node->data.scalar.value;
-        append_to_flat(buf, buf_size, count, val);
-    }
-}
+/* -------------------------------------------------------------------------
+ * Internal field-extraction helpers
+ * ---------------------------------------------------------------------- */
 
 /*
  * Walk the top-level mapping of a YAML document and populate an Entity.
+ *
+ * All scalar, sequence, and mapping YAML keys recognised by the schema
+ * are handled here.  Unknown keys are silently ignored.
  */
 static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                                    Entity *out)
@@ -269,37 +47,37 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
 
         const char *key = (const char *)key_node->data.scalar.value;
 
-        /* Scalar fields */
+        /* --- Scalar fields ------------------------------------------- */
         if (val_node && val_node->type == YAML_SCALAR_NODE) {
             const char *val = (const char *)val_node->data.scalar.value;
 
-#define COPY_FIELD_IF_MATCH(field_key, dst, dst_size)              \
-            if (strcmp(key, field_key) == 0) {        \
-                copy_field(dst, dst_size, val);       \
-                continue;                             \
+#define COPY_IF(field_key, dst, dst_size)                          \
+            if (strcmp(key, field_key) == 0) {                     \
+                yaml_copy_field(dst, dst_size, val);               \
+                continue;                                          \
             }
 
-            COPY_FIELD_IF_MATCH("id",              out->identity.id,              sizeof(out->identity.id))
-            COPY_FIELD_IF_MATCH("title",           out->identity.title,           sizeof(out->identity.title))
-            COPY_FIELD_IF_MATCH("type",            out->identity.type_raw,        sizeof(out->identity.type_raw))
-            COPY_FIELD_IF_MATCH("status",          out->lifecycle.status,         sizeof(out->lifecycle.status))
-            COPY_FIELD_IF_MATCH("priority",        out->lifecycle.priority,       sizeof(out->lifecycle.priority))
-            COPY_FIELD_IF_MATCH("owner",           out->lifecycle.owner,          sizeof(out->lifecycle.owner))
-            COPY_FIELD_IF_MATCH("version",         out->lifecycle.version,        sizeof(out->lifecycle.version))
-            COPY_FIELD_IF_MATCH("description",     out->text.description,         sizeof(out->text.description))
-            COPY_FIELD_IF_MATCH("rationale",       out->text.rationale,           sizeof(out->text.rationale))
+            COPY_IF("id",       out->identity.id,             sizeof(out->identity.id))
+            COPY_IF("title",    out->identity.title,          sizeof(out->identity.title))
+            COPY_IF("type",     out->identity.type_raw,       sizeof(out->identity.type_raw))
+            COPY_IF("status",   out->lifecycle.status,        sizeof(out->lifecycle.status))
+            COPY_IF("priority", out->lifecycle.priority,      sizeof(out->lifecycle.priority))
+            COPY_IF("owner",    out->lifecycle.owner,         sizeof(out->lifecycle.owner))
+            COPY_IF("version",  out->lifecycle.version,       sizeof(out->lifecycle.version))
+            COPY_IF("description", out->text.description,     sizeof(out->text.description))
+            COPY_IF("rationale",   out->text.rationale,       sizeof(out->text.rationale))
             /* user-story component — canonical keys */
-            COPY_FIELD_IF_MATCH("role",            out->user_story.role,          sizeof(out->user_story.role))
-            COPY_FIELD_IF_MATCH("goal",            out->user_story.goal,          sizeof(out->user_story.goal))
-            COPY_FIELD_IF_MATCH("reason",          out->user_story.reason,        sizeof(out->user_story.reason))
-            /* user-story component — legacy aliases for backward compatibility */
-            COPY_FIELD_IF_MATCH("as_a",            out->user_story.role,          sizeof(out->user_story.role))
-            COPY_FIELD_IF_MATCH("i_want",          out->user_story.goal,          sizeof(out->user_story.goal))
-            COPY_FIELD_IF_MATCH("so_that",         out->user_story.reason,        sizeof(out->user_story.reason))
+            COPY_IF("role",   out->user_story.role,   sizeof(out->user_story.role))
+            COPY_IF("goal",   out->user_story.goal,   sizeof(out->user_story.goal))
+            COPY_IF("reason", out->user_story.reason, sizeof(out->user_story.reason))
+            /* user-story component — legacy aliases */
+            COPY_IF("as_a",    out->user_story.role,   sizeof(out->user_story.role))
+            COPY_IF("i_want",  out->user_story.goal,   sizeof(out->user_story.goal))
+            COPY_IF("so_that", out->user_story.reason, sizeof(out->user_story.reason))
             /* epic-membership component */
-            COPY_FIELD_IF_MATCH("epic",            out->epic_membership.epic_id,  sizeof(out->epic_membership.epic_id))
+            COPY_IF("epic", out->epic_membership.epic_id, sizeof(out->epic_membership.epic_id))
 
-#undef COPY_FIELD_IF_MATCH
+#undef COPY_IF
 
             /* doc_body — heap-allocated, use strdup */
             if (strcmp(key, "body") == 0) {
@@ -309,28 +87,37 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     fprintf(stderr, "warning: failed to allocate doc_body\n");
                 continue;
             }
+
+            /* test_procedure expected_result — heap-allocated */
+            if (strcmp(key, "expected_result") == 0) {
+                free(out->test_procedure.expected_result);
+                out->test_procedure.expected_result = strdup(val);
+                if (!out->test_procedure.expected_result && val[0] != '\0')
+                    fprintf(stderr, "warning: failed to allocate expected_result\n");
+                continue;
+            }
         }
 
-        /* Sequence fields */
+        /* --- Sequence fields ----------------------------------------- */
         if (val_node && val_node->type == YAML_SEQUENCE_NODE) {
             if (strcmp(key, "tags") == 0) {
-                collect_sequence(doc, val_node,
-                                 out->tags.tags, sizeof(out->tags.tags),
-                                 &out->tags.count);
+                yaml_collect_sequence(doc, val_node,
+                                      out->tags.tags, sizeof(out->tags.tags),
+                                      &out->tags.count);
                 continue;
             }
             if (strcmp(key, "acceptance_criteria") == 0) {
-                collect_sequence(doc, val_node,
-                                 out->acceptance_criteria.criteria,
-                                 sizeof(out->acceptance_criteria.criteria),
-                                 &out->acceptance_criteria.count);
+                yaml_collect_sequence(doc, val_node,
+                                      out->acceptance_criteria.criteria,
+                                      sizeof(out->acceptance_criteria.criteria),
+                                      &out->acceptance_criteria.count);
                 continue;
             }
             if (strcmp(key, "documents") == 0) {
-                collect_sequence(doc, val_node,
-                                 out->doc_membership.doc_ids,
-                                 sizeof(out->doc_membership.doc_ids),
-                                 &out->doc_membership.count);
+                yaml_collect_sequence(doc, val_node,
+                                      out->doc_membership.doc_ids,
+                                      sizeof(out->doc_membership.doc_ids),
+                                      &out->doc_membership.count);
                 continue;
             }
             if (strcmp(key, "sources") == 0) {
@@ -344,11 +131,11 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                         /* Plain scalar — store the value directly. */
                         const char *val = (const char *)src_node->data.scalar.value;
                         if (val[0] != '\0')
-                            append_to_flat(out->sources.sources,
-                                           sizeof(out->sources.sources),
-                                           &out->sources.count, val);
+                            yaml_append_to_flat(out->sources.sources,
+                                                sizeof(out->sources.sources),
+                                                &out->sources.count, val);
                     } else if (src_node->type == YAML_MAPPING_NODE) {
-                        /* Mapping — extract value of first recognised key. */
+                        /* Mapping — extract the value of the first key. */
                         yaml_node_pair_t *sp = src_node->data.mapping.pairs.start;
                         yaml_node_pair_t *se = src_node->data.mapping.pairs.top;
                         for (; sp < se; sp++) {
@@ -358,9 +145,9 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                             if (!sv || sv->type != YAML_SCALAR_NODE) continue;
                             const char *sval = (const char *)sv->data.scalar.value;
                             if (sval[0] != '\0') {
-                                append_to_flat(out->sources.sources,
-                                               sizeof(out->sources.sources),
-                                               &out->sources.count, sval);
+                                yaml_append_to_flat(out->sources.sources,
+                                                    sizeof(out->sources.sources),
+                                                    &out->sources.count, sval);
                                 break; /* only the first key-value per item */
                             }
                         }
@@ -394,10 +181,10 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                             strncpy(relation, sval, sizeof(relation) - 1);
                     }
                     if (target[0] != '\0' && relation[0] != '\0') {
-                        append_trace_entry(out->traceability.entries,
-                                           sizeof(out->traceability.entries),
-                                           &out->traceability.count,
-                                           target, relation);
+                        yaml_append_pair_entry(out->traceability.entries,
+                                               sizeof(out->traceability.entries),
+                                               &out->traceability.count,
+                                               target, relation);
                     }
                 }
                 continue;
@@ -408,10 +195,10 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                         (char *)calloc(1, TEST_PROC_PRECOND_LEN);
                 }
                 if (out->test_procedure.preconditions) {
-                    collect_sequence(doc, val_node,
-                                     out->test_procedure.preconditions,
-                                     TEST_PROC_PRECOND_LEN,
-                                     &out->test_procedure.precondition_count);
+                    yaml_collect_sequence(doc, val_node,
+                                          out->test_procedure.preconditions,
+                                          TEST_PROC_PRECOND_LEN,
+                                          &out->test_procedure.precondition_count);
                 }
                 continue;
             }
@@ -427,7 +214,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     if (!step_map || step_map->type != YAML_MAPPING_NODE)
                         continue;
 
-                    char action[STEP_ACTION_LEN]  = {0};
+                    char action[STEP_ACTION_LEN]          = {0};
                     char expected_output[STEP_OUTPUT_LEN] = {0};
 
                     yaml_node_pair_t *sp = step_map->data.mapping.pairs.start;
@@ -445,10 +232,10 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                             strncpy(expected_output, sval, sizeof(expected_output) - 1);
                     }
                     if (action[0] != '\0' && out->test_procedure.steps) {
-                        append_trace_entry(out->test_procedure.steps,
-                                           TEST_PROC_STEPS_LEN,
-                                           &out->test_procedure.step_count,
-                                           action, expected_output);
+                        yaml_append_pair_entry(out->test_procedure.steps,
+                                               TEST_PROC_STEPS_LEN,
+                                               &out->test_procedure.step_count,
+                                               action, expected_output);
                     }
                 }
                 continue;
@@ -465,7 +252,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     if (!clause_map || clause_map->type != YAML_MAPPING_NODE)
                         continue;
 
-                    char clause_id[CLAUSE_ID_LEN]      = {0};
+                    char clause_id[CLAUSE_ID_LEN]       = {0};
                     char clause_title[CLAUSE_TITLE_LEN] = {0};
 
                     yaml_node_pair_t *sp = clause_map->data.mapping.pairs.start;
@@ -483,10 +270,10 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                             strncpy(clause_title, sval, sizeof(clause_title) - 1);
                     }
                     if (clause_id[0] != '\0' && out->clause_collection.clauses) {
-                        append_trace_entry(out->clause_collection.clauses,
-                                           CLAUSE_STORE_LEN,
-                                           &out->clause_collection.count,
-                                           clause_id, clause_title);
+                        yaml_append_pair_entry(out->clause_collection.clauses,
+                                               CLAUSE_STORE_LEN,
+                                               &out->clause_collection.count,
+                                               clause_id, clause_title);
                     }
                 }
                 continue;
@@ -521,28 +308,17 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                             strncpy(att_description, sval, sizeof(att_description) - 1);
                     }
                     if (att_path[0] != '\0' && out->attachment.attachments) {
-                        append_trace_entry(out->attachment.attachments,
-                                           ATTACH_STORE_LEN,
-                                           &out->attachment.count,
-                                           att_path, att_description);
+                        yaml_append_pair_entry(out->attachment.attachments,
+                                               ATTACH_STORE_LEN,
+                                               &out->attachment.count,
+                                               att_path, att_description);
                     }
                 }
                 continue;
             }
         }
 
-        /* test_procedure expected_result — scalar companion to preconditions/steps */
-        if (val_node && val_node->type == YAML_SCALAR_NODE &&
-            strcmp(key, "expected_result") == 0) {
-            const char *val = (const char *)val_node->data.scalar.value;
-            free(out->test_procedure.expected_result);
-            out->test_procedure.expected_result = strdup(val);
-            if (!out->test_procedure.expected_result && val[0] != '\0')
-                fprintf(stderr, "warning: failed to allocate expected_result\n");
-            continue;
-        }
-
-        /* Mapping fields — assumption, constraint, and doc_meta components */
+        /* --- Mapping fields ------------------------------------------ */
         if (val_node && val_node->type == YAML_MAPPING_NODE) {
             if (strcmp(key, "assumption") == 0) {
                 yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
@@ -555,11 +331,14 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     const char *skey = (const char *)sk->data.scalar.value;
                     const char *sval = (const char *)sv->data.scalar.value;
                     if (strcmp(skey, "text") == 0)
-                        copy_field(out->assumption.text,   sizeof(out->assumption.text),   sval);
+                        yaml_copy_field(out->assumption.text,
+                                        sizeof(out->assumption.text), sval);
                     else if (strcmp(skey, "status") == 0)
-                        copy_field(out->assumption.status, sizeof(out->assumption.status), sval);
+                        yaml_copy_field(out->assumption.status,
+                                        sizeof(out->assumption.status), sval);
                     else if (strcmp(skey, "source") == 0)
-                        copy_field(out->assumption.source, sizeof(out->assumption.source), sval);
+                        yaml_copy_field(out->assumption.source,
+                                        sizeof(out->assumption.source), sval);
                 }
                 continue;
             }
@@ -574,11 +353,14 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     const char *skey = (const char *)sk->data.scalar.value;
                     const char *sval = (const char *)sv->data.scalar.value;
                     if (strcmp(skey, "text") == 0)
-                        copy_field(out->constraint.text,   sizeof(out->constraint.text),   sval);
+                        yaml_copy_field(out->constraint.text,
+                                        sizeof(out->constraint.text), sval);
                     else if (strcmp(skey, "kind") == 0)
-                        copy_field(out->constraint.kind,   sizeof(out->constraint.kind),   sval);
+                        yaml_copy_field(out->constraint.kind,
+                                        sizeof(out->constraint.kind), sval);
                     else if (strcmp(skey, "source") == 0)
-                        copy_field(out->constraint.source, sizeof(out->constraint.source), sval);
+                        yaml_copy_field(out->constraint.source,
+                                        sizeof(out->constraint.source), sval);
                 }
                 continue;
             }
@@ -593,15 +375,20 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     const char *skey = (const char *)sk->data.scalar.value;
                     const char *sval = (const char *)sv->data.scalar.value;
                     if (strcmp(skey, "title") == 0)
-                        copy_field(out->doc_meta.title,    sizeof(out->doc_meta.title),    sval);
+                        yaml_copy_field(out->doc_meta.title,
+                                        sizeof(out->doc_meta.title), sval);
                     else if (strcmp(skey, "doc_type") == 0)
-                        copy_field(out->doc_meta.doc_type, sizeof(out->doc_meta.doc_type), sval);
+                        yaml_copy_field(out->doc_meta.doc_type,
+                                        sizeof(out->doc_meta.doc_type), sval);
                     else if (strcmp(skey, "version") == 0)
-                        copy_field(out->doc_meta.version,  sizeof(out->doc_meta.version),  sval);
+                        yaml_copy_field(out->doc_meta.version,
+                                        sizeof(out->doc_meta.version), sval);
                     else if (strcmp(skey, "client") == 0)
-                        copy_field(out->doc_meta.client,   sizeof(out->doc_meta.client),   sval);
+                        yaml_copy_field(out->doc_meta.client,
+                                        sizeof(out->doc_meta.client), sval);
                     else if (strcmp(skey, "status") == 0)
-                        copy_field(out->doc_meta.status,   sizeof(out->doc_meta.status),   sval);
+                        yaml_copy_field(out->doc_meta.status,
+                                        sizeof(out->doc_meta.status), sval);
                 }
                 continue;
             }
@@ -612,6 +399,10 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
     out->identity.kind = entity_kind_from_string(out->identity.type_raw);
 }
 
+/* -------------------------------------------------------------------------
+ * Public API
+ * ---------------------------------------------------------------------- */
+
 int yaml_parse_entity(const char *path, Entity *out)
 {
     FILE *f = fopen(path, "r");
@@ -619,7 +410,8 @@ int yaml_parse_entity(const char *path, Entity *out)
         return -1;
 
     memset(out, 0, sizeof(*out));
-    copy_field(out->identity.file_path, sizeof(out->identity.file_path), path);
+    yaml_copy_field(out->identity.file_path, sizeof(out->identity.file_path),
+                    path);
 
     yaml_parser_t   parser;
     yaml_document_t doc;
@@ -669,7 +461,8 @@ int yaml_parse_entities(const char *path, EntityList *list)
 
         Entity entity;
         memset(&entity, 0, sizeof(entity));
-        copy_field(entity.identity.file_path, sizeof(entity.identity.file_path), path);
+        yaml_copy_field(entity.identity.file_path,
+                        sizeof(entity.identity.file_path), path);
         entity.identity.doc_index = doc_idx++;
 
         extract_entity_fields(&doc, root, &entity);
