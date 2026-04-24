@@ -284,7 +284,7 @@ void entity_list_free(EntityList *list);
  * Map a YAML "type" string to the corresponding EntityKind.
  *
  * Recognised mappings:
- *   "functional", "non-functional", "nonfunctional", ""  → ENTITY_KIND_REQUIREMENT
+ *   "requirement", "functional", "non-functional", "nonfunctional", "" → ENTITY_KIND_REQUIREMENT
  *   "group"                                              → ENTITY_KIND_GROUP
  *   "story", "user-story"                                → ENTITY_KIND_STORY
  *   "design-note", "design_note", "design"               → ENTITY_KIND_DESIGN_NOTE
@@ -308,6 +308,28 @@ EntityKind entity_kind_from_string(const char *type_str);
  * @return pointer to a static string; never NULL
  */
 const char *entity_kind_label(EntityKind kind);
+
+/**
+ * Test whether a named ECS component is present (non-empty / non-zero) on an
+ * entity.
+ *
+ * Recognised component names:
+ *   user-story, user_story
+ *   acceptance-criteria, acceptance_criteria
+ *   epic, epic-membership, epic_membership
+ *   assumption
+ *   constraint
+ *   doc-meta, doc_meta
+ *   doc-membership, documents
+ *   doc-body, body
+ *   traceability
+ *   tags
+ *
+ * @param entity  pointer to the Entity to inspect (must not be NULL)
+ * @param comp    component name string (case-sensitive); NULL or "" → always 1
+ * @return 1 if the component is present, 0 if absent or name is unrecognised
+ */
+int entity_has_component(const Entity *entity, const char *comp);
 
 #ifdef __cplusplus
 } /* extern "C" */

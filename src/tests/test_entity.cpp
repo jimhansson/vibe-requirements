@@ -43,6 +43,7 @@ TEST(EntityKindTest, NullAndEmptyMapsToRequirement)
 
 TEST(EntityKindTest, FunctionalVariants)
 {
+    EXPECT_EQ(entity_kind_from_string("requirement"),   ENTITY_KIND_REQUIREMENT);
     EXPECT_EQ(entity_kind_from_string("functional"),    ENTITY_KIND_REQUIREMENT);
     EXPECT_EQ(entity_kind_from_string("non-functional"), ENTITY_KIND_REQUIREMENT);
     EXPECT_EQ(entity_kind_from_string("nonfunctional"),  ENTITY_KIND_REQUIREMENT);
@@ -867,4 +868,143 @@ TEST(YamlParseEntityTest, AnyEntityCanCarryDocumentComponents)
     EXPECT_STREQ(e.doc_meta.client,     "MegaCorp");
     EXPECT_EQ(e.doc_membership.count,   1);
     EXPECT_NE(strstr(e.doc_membership.doc_ids, "SRS-MEGA-001"), nullptr);
+}
+
+/* =========================================================================
+ * Tests — entity_has_component
+ * ======================================================================= */
+
+TEST(EntityHasComponentTest, NullAndEmptyCompAlwaysMatch)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, nullptr), 1);
+    EXPECT_EQ(entity_has_component(&e, ""),      1);
+}
+
+TEST(EntityHasComponentTest, UserStoryAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "user-story"),  0);
+    EXPECT_EQ(entity_has_component(&e, "user_story"),  0);
+
+    strncpy(e.user_story.role, "developer", sizeof(e.user_story.role) - 1);
+    EXPECT_EQ(entity_has_component(&e, "user-story"),  1);
+    EXPECT_EQ(entity_has_component(&e, "user_story"),  1);
+}
+
+TEST(EntityHasComponentTest, AcceptanceCriteriaAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "acceptance-criteria"), 0);
+    EXPECT_EQ(entity_has_component(&e, "acceptance_criteria"), 0);
+
+    e.acceptance_criteria.count = 1;
+    EXPECT_EQ(entity_has_component(&e, "acceptance-criteria"), 1);
+    EXPECT_EQ(entity_has_component(&e, "acceptance_criteria"), 1);
+}
+
+TEST(EntityHasComponentTest, EpicMembershipAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "epic"),            0);
+    EXPECT_EQ(entity_has_component(&e, "epic-membership"), 0);
+    EXPECT_EQ(entity_has_component(&e, "epic_membership"), 0);
+
+    strncpy(e.epic_membership.epic_id, "EPIC-001",
+            sizeof(e.epic_membership.epic_id) - 1);
+    EXPECT_EQ(entity_has_component(&e, "epic"),            1);
+    EXPECT_EQ(entity_has_component(&e, "epic-membership"), 1);
+    EXPECT_EQ(entity_has_component(&e, "epic_membership"), 1);
+}
+
+TEST(EntityHasComponentTest, AssumptionAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "assumption"), 0);
+
+    strncpy(e.assumption.text, "Some assumption",
+            sizeof(e.assumption.text) - 1);
+    EXPECT_EQ(entity_has_component(&e, "assumption"), 1);
+}
+
+TEST(EntityHasComponentTest, ConstraintAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "constraint"), 0);
+
+    strncpy(e.constraint.text, "Some constraint",
+            sizeof(e.constraint.text) - 1);
+    EXPECT_EQ(entity_has_component(&e, "constraint"), 1);
+}
+
+TEST(EntityHasComponentTest, DocMetaAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "doc-meta"), 0);
+    EXPECT_EQ(entity_has_component(&e, "doc_meta"), 0);
+
+    strncpy(e.doc_meta.doc_type, "SRS", sizeof(e.doc_meta.doc_type) - 1);
+    EXPECT_EQ(entity_has_component(&e, "doc-meta"), 1);
+    EXPECT_EQ(entity_has_component(&e, "doc_meta"), 1);
+}
+
+TEST(EntityHasComponentTest, DocMembershipAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "doc-membership"), 0);
+    EXPECT_EQ(entity_has_component(&e, "documents"),      0);
+
+    e.doc_membership.count = 1;
+    EXPECT_EQ(entity_has_component(&e, "doc-membership"), 1);
+    EXPECT_EQ(entity_has_component(&e, "documents"),      1);
+}
+
+TEST(EntityHasComponentTest, DocBodyAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "doc-body"), 0);
+    EXPECT_EQ(entity_has_component(&e, "body"),     0);
+
+    strncpy(e.doc_body.body, "Some body text",
+            sizeof(e.doc_body.body) - 1);
+    EXPECT_EQ(entity_has_component(&e, "doc-body"), 1);
+    EXPECT_EQ(entity_has_component(&e, "body"),     1);
+}
+
+TEST(EntityHasComponentTest, TraceabilityAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "traceability"), 0);
+
+    e.traceability.count = 1;
+    EXPECT_EQ(entity_has_component(&e, "traceability"), 1);
+}
+
+TEST(EntityHasComponentTest, TagsAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "tags"), 0);
+
+    e.tags.count = 2;
+    EXPECT_EQ(entity_has_component(&e, "tags"), 1);
+}
+
+TEST(EntityHasComponentTest, UnknownComponentNameReturnsFalse)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    /* Fill everything so we can confirm unknown names still return 0. */
+    strncpy(e.assumption.text, "x", sizeof(e.assumption.text) - 1);
+    EXPECT_EQ(entity_has_component(&e, "no-such-component"), 0);
 }

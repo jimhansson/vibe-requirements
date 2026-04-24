@@ -441,6 +441,61 @@ static void list_entities(const EntityList *list)
 }
 
 /* ------------------------------------------------------------------ */
+/* Entity list filtering                                              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Build a filtered view of *src into *dst (caller owns dst and must call
+ * entity_list_free when done).  Pass NULL for any filter to disable it.
+ *
+ * filter_kind      — EntityKind label, e.g. "user-story", "requirement"
+ * filter_comp      — component name, e.g. "assumption", "traceability"
+ * filter_status    — lifecycle status, e.g. "draft", "approved"
+ * filter_priority  — lifecycle priority, e.g. "must", "should"
+ */
+static void entity_apply_filter(const EntityList *src, EntityList *dst,
+                                 const char *filter_kind,
+                                 const char *filter_comp,
+                                 const char *filter_status,
+                                 const char *filter_priority)
+{
+    /* Resolve kind filter once up-front. */
+    int has_kind = (filter_kind && filter_kind[0] != '\0');
+    EntityKind kind_val = ENTITY_KIND_UNKNOWN;
+    if (has_kind) {
+        kind_val = entity_kind_from_string(filter_kind);
+        if (kind_val == ENTITY_KIND_UNKNOWN &&
+            strcmp(filter_kind, "unknown") != 0) {
+            fprintf(stderr, "warning: unrecognised kind '%s'\n", filter_kind);
+        }
+    }
+
+    for (int i = 0; i < src->count; i++) {
+        const Entity *e = &src->items[i];
+
+        if (has_kind && e->identity.kind != kind_val)
+            continue;
+
+        if (filter_comp && filter_comp[0] != '\0' &&
+            !entity_has_component(e, filter_comp)) {
+            continue;
+        }
+
+        if (filter_status && filter_status[0] != '\0' &&
+            strcmp(e->lifecycle.status, filter_status) != 0) {
+            continue;
+        }
+
+        if (filter_priority && filter_priority[0] != '\0' &&
+            strcmp(e->lifecycle.priority, filter_priority) != 0) {
+            continue;
+        }
+
+        entity_list_add(dst, e);
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Discovery for entities                                              */
 /* ------------------------------------------------------------------ */
 
@@ -509,18 +564,37 @@ int main(int argc, char *argv[])
     const char *trace_id      = NULL;
     const char *root          = ".";
 
+    /* Filter options (used with 'entities' / 'list' subcommands). */
+    const char *filter_kind     = NULL;
+    const char *filter_comp     = NULL;
+    const char *filter_status   = NULL;
+    const char *filter_priority = NULL;
+
     int arg_idx = 1;
 
     if (argc >= 2) {
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-            printf("Usage: %s [links|entities|trace <id>] [--strict-links] [directory]\n\n",
+            printf("Usage: %s [command] [options] [directory]\n\n",
                    argv[0]);
             printf("Commands:\n");
             printf("  (default)       List all requirements found in the directory tree.\n");
+            printf("  list            List all entities (all kinds) with optional filters.\n");
+            printf("  entities        Alias for 'list'.\n");
             printf("  links           List all relations parsed from requirement files.\n");
-            printf("  entities        List all entities (all kinds) found in the directory tree.\n");
             printf("  trace <id>      Show full traceability chain for an entity (2 hops).\n\n");
-            printf("Options:\n");
+            printf("Filter options (for 'list' / 'entities'):\n");
+            printf("  --kind <kind>        Show only entities of the given kind.\n");
+            printf("                       Kinds: requirement, group, story, design-note,\n");
+            printf("                              section, assumption, constraint, test-case,\n");
+            printf("                              external, document\n");
+            printf("  --component <comp>   Show only entities that carry the named component.\n");
+            printf("                       Components: user-story, acceptance-criteria, epic,\n");
+            printf("                                  assumption, constraint, doc-meta,\n");
+            printf("                                  doc-membership, doc-body, traceability,\n");
+            printf("                                  tags\n");
+            printf("  --status <status>    Show only entities with the given lifecycle status.\n");
+            printf("  --priority <prio>    Show only entities with the given priority.\n\n");
+            printf("Other options:\n");
             printf("  --strict-links  Warn when a known relation is declared in only one\n");
             printf("                  direction (inverse not explicitly present in YAML).\n");
             printf("                  Exits with a non-zero code if any warnings are found.\n");
@@ -531,7 +605,8 @@ int main(int argc, char *argv[])
         if (strcmp(argv[1], "links") == 0) {
             show_links = 1;
             arg_idx    = 2;
-        } else if (strcmp(argv[1], "entities") == 0) {
+        } else if (strcmp(argv[1], "entities") == 0 ||
+                   strcmp(argv[1], "list") == 0) {
             show_entities = 1;
             arg_idx       = 2;
         } else if (strcmp(argv[1], "trace") == 0) {
@@ -548,13 +623,37 @@ int main(int argc, char *argv[])
     for (int i = arg_idx; i < argc; i++) {
         if (strcmp(argv[i], "--strict-links") == 0) {
             strict_links = 1;
+        } else if (strcmp(argv[i], "--kind") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "error: '--kind' requires a value\n");
+                return 1;
+            }
+            filter_kind = argv[++i];
+        } else if (strcmp(argv[i], "--component") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "error: '--component' requires a value\n");
+                return 1;
+            }
+            filter_comp = argv[++i];
+        } else if (strcmp(argv[i], "--status") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "error: '--status' requires a value\n");
+                return 1;
+            }
+            filter_status = argv[++i];
+        } else if (strcmp(argv[i], "--priority") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "error: '--priority' requires a value\n");
+                return 1;
+            }
+            filter_priority = argv[++i];
         } else {
             root = argv[i];
         }
     }
 
     /* ------------------------------------------------------------------
-     * 'entities' subcommand — use ECS parser path.
+     * 'list' / 'entities' subcommand — use ECS parser path.
      * ------------------------------------------------------------------ */
     if (show_entities) {
         EntityList elist;
@@ -574,7 +673,19 @@ int main(int argc, char *argv[])
             qsort(elist.items, (size_t)elist.count, sizeof(Entity),
                   cmp_entity_by_id);
 
-        list_entities(&elist);
+        /* Apply filters if any were specified. */
+        if (filter_kind || filter_comp || filter_status || filter_priority) {
+            EntityList filtered;
+            entity_list_init(&filtered);
+            entity_apply_filter(&elist, &filtered,
+                                filter_kind, filter_comp,
+                                filter_status, filter_priority);
+            list_entities(&filtered);
+            entity_list_free(&filtered);
+        } else {
+            list_entities(&elist);
+        }
+
         entity_list_free(&elist);
         return 0;
     }

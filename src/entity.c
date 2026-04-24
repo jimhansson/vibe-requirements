@@ -44,7 +44,8 @@ EntityKind entity_kind_from_string(const char *type_str)
     if (!type_str || type_str[0] == '\0')
         return ENTITY_KIND_REQUIREMENT;
 
-    if (strcmp(type_str, "functional")    == 0 ||
+    if (strcmp(type_str, "requirement")   == 0 ||
+        strcmp(type_str, "functional")    == 0 ||
         strcmp(type_str, "non-functional") == 0 ||
         strcmp(type_str, "nonfunctional")  == 0)
         return ENTITY_KIND_REQUIREMENT;
@@ -104,4 +105,47 @@ const char *entity_kind_label(EntityKind kind)
     case ENTITY_KIND_DOCUMENT:    return "document";
     default:                      return "unknown";
     }
+}
+
+int entity_has_component(const Entity *entity, const char *comp)
+{
+    if (!comp || comp[0] == '\0')
+        return 1; /* no filter — always matches */
+
+    if (strcmp(comp, "user-story") == 0 || strcmp(comp, "user_story") == 0)
+        return entity->user_story.role[0] != '\0' ||
+               entity->user_story.goal[0] != '\0';
+
+    if (strcmp(comp, "acceptance-criteria") == 0 ||
+        strcmp(comp, "acceptance_criteria") == 0)
+        return entity->acceptance_criteria.count > 0;
+
+    if (strcmp(comp, "epic") == 0 ||
+        strcmp(comp, "epic-membership") == 0 ||
+        strcmp(comp, "epic_membership") == 0)
+        return entity->epic_membership.epic_id[0] != '\0';
+
+    if (strcmp(comp, "assumption") == 0)
+        return entity->assumption.text[0] != '\0';
+
+    if (strcmp(comp, "constraint") == 0)
+        return entity->constraint.text[0] != '\0';
+
+    if (strcmp(comp, "doc-meta") == 0 || strcmp(comp, "doc_meta") == 0)
+        return entity->doc_meta.doc_type[0] != '\0' ||
+               entity->doc_meta.title[0] != '\0';
+
+    if (strcmp(comp, "doc-membership") == 0 || strcmp(comp, "documents") == 0)
+        return entity->doc_membership.count > 0;
+
+    if (strcmp(comp, "doc-body") == 0 || strcmp(comp, "body") == 0)
+        return entity->doc_body.body[0] != '\0';
+
+    if (strcmp(comp, "traceability") == 0)
+        return entity->traceability.count > 0;
+
+    if (strcmp(comp, "tags") == 0)
+        return entity->tags.count > 0;
+
+    return 0; /* unrecognised component name */
 }
