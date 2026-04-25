@@ -36,6 +36,9 @@ void cli_print_help(const char *prog)
     printf("  report          Generate a Markdown report of all entities.\n");
     printf("                  Use --output and filter flags to customise output.\n");
     printf("                  Example: %s report --output report.md\n\n", prog);
+    printf("  doc <id>        Print a document entity (SRS/SDD) together with all\n");
+    printf("                  entities that are part of it.\n");
+    printf("                  Example: %s doc SRS-CLIENT-001 --output srs.md\n\n", prog);
     printf("  new <type> <id> Scaffold a new entity YAML file named <id>.yaml.\n");
     printf("                  Types: requirement, group, story, design-note,\n");
     printf("                         section, assumption, constraint, test-case,\n");
@@ -54,7 +57,7 @@ void cli_print_help(const char *prog)
     printf("                                  attachment\n");
     printf("  --status <status>    Show only entities with the given lifecycle status.\n");
     printf("  --priority <prio>    Show only entities with the given priority.\n\n");
-    printf("Report options (for 'report'):\n");
+    printf("Report options (for 'report' / 'doc'):\n");
     printf("  --format md     Output Markdown (default).\n");
     printf("  --format html   Output a self-contained HTML document.\n");
     printf("  --output <file> Write report to <file> instead of stdout.\n\n");
@@ -119,6 +122,15 @@ void cli_parse_args(int argc, char *argv[], CliOptions *opts)
     } else if (strcmp(argv[1], "report") == 0) {
         opts->show_report = 1;
         arg_idx = 2;
+    } else if (strcmp(argv[1], "doc") == 0) {
+        if (argc < 3) {
+            opts->parse_error = 1;
+            opts->error_msg   = "error: 'doc' requires a document ID argument";
+            return;
+        }
+        opts->is_doc_cmd = 1;
+        opts->doc_id     = argv[2];
+        arg_idx = 3;
     } else if (strcmp(argv[1], "new") == 0) {
         if (argc < 4) {
             opts->parse_error = 1;

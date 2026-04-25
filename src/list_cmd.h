@@ -79,6 +79,26 @@ void cmd_trace_entity(const EntityList *elist, const TripletStore *store,
  */
 int check_strict_links(const TripletStore *store);
 
+/**
+ * Collect a document entity and all entities that are members of it.
+ *
+ * The output always includes the document entity itself followed by every
+ * entity whose relation graph contains a `part-of -> <doc_id>` edge. This
+ * covers both `documents:` YAML membership and explicit `part-of` /
+ * `contains` traceability relations.
+ *
+ * @param all     source entity list containing the full discovered dataset
+ * @param store   TripletStore populated from @p all and with inverses inferred
+ * @param doc_id  document entity identifier to collect
+ * @param out     destination list initialised by the caller
+ * @return        0 on success
+ *               -1 if no entity with @p doc_id exists
+ *               -2 if the matching entity is not a document
+ *               -3 on allocation failure while building @p out
+ */
+int collect_document_entities(const EntityList *all, const TripletStore *store,
+                              const char *doc_id, EntityList *out);
+
 #ifdef __cplusplus
 }
 #endif

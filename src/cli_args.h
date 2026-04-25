@@ -28,7 +28,8 @@ extern "C" {
  *   1. Check parse_error — if non-zero, print error_msg and exit(1).
  *   2. Check show_help  — if set, call cli_print_help() and return 0.
  *   3. Check is_new_cmd — if set, handle the 'new' subcommand.
- *   4. Otherwise dispatch the appropriate command using the flag fields.
+ *   4. Check is_doc_cmd — if set, handle the 'doc' subcommand.
+ *   5. Otherwise dispatch the appropriate command using the flag fields.
  */
 typedef struct {
     /* ------------------------------------------------------------------ */
@@ -54,6 +55,16 @@ typedef struct {
     int         show_report;
 
     /**
+     * Non-zero when the 'doc' subcommand was detected.
+     * The caller is responsible for resolving the target document and
+     * rendering it with report_write().
+     */
+    int         is_doc_cmd;
+
+    /** Document ID argument for 'doc'; valid when is_doc_cmd is set. */
+    const char *doc_id;
+
+    /**
      * Entity ID argument for the 'trace' subcommand.
      * NULL when the trace subcommand was not requested.
      */
@@ -76,7 +87,7 @@ typedef struct {
     const char *filter_priority;
 
     /* ------------------------------------------------------------------ */
-    /* Report options (for 'report')                                      */
+    /* Report options (for 'report' / 'doc')                              */
     /* ------------------------------------------------------------------ */
 
     /** Output file path from --output <file>; NULL means stdout. */

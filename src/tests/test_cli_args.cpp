@@ -6,7 +6,7 @@
  *   - Default values when no arguments are given
  *   - Help flag detection (-h and --help)
  *   - Each subcommand (links, list, entities, trace, coverage, orphan,
- *     report, new)
+ *     report, doc, new)
  *   - All filter flags (--kind, --component, --status, --priority)
  *   - Report flags (--output, --format md, --format html)
  *   - --strict-links flag
@@ -68,7 +68,9 @@ TEST(CliParseArgsTest, NoArgumentsGivesDefaults)
     EXPECT_EQ(opts.show_coverage, 0);
     EXPECT_EQ(opts.show_orphan,   0);
     EXPECT_EQ(opts.show_report,   0);
+    EXPECT_EQ(opts.is_doc_cmd,    0);
     EXPECT_EQ(opts.is_new_cmd,    0);
+    EXPECT_EQ(opts.doc_id,        nullptr);
     EXPECT_EQ(opts.trace_id,      nullptr);
     EXPECT_STREQ(opts.root,       ".");
     EXPECT_EQ(opts.filter_kind,     nullptr);
@@ -175,6 +177,25 @@ TEST(CliParseArgsTest, ReportSubcommand)
     cli_parse_args(a.argc(), a.argv(), &opts);
     EXPECT_EQ(opts.show_report, 1);
     EXPECT_EQ(opts.parse_error, 0);
+}
+
+TEST(CliParseArgsTest, DocSubcommandSetsDocumentId)
+{
+    Argv a{"vibe-req", "doc", "SRS-001"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.is_doc_cmd, 1);
+    EXPECT_STREQ(opts.doc_id, "SRS-001");
+}
+
+TEST(CliParseArgsTest, DocMissingIdGivesParseError)
+{
+    Argv a{"vibe-req", "doc"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_NE(opts.parse_error, 0);
+    EXPECT_NE(opts.error_msg, nullptr);
 }
 
 /* =========================================================================
@@ -432,6 +453,20 @@ TEST(CliParseArgsTest, ReportWithFiltersAndDirectory)
     EXPECT_STREQ(opts.root, "requirements/");
 }
 
+TEST(CliParseArgsTest, DocWithFormatOutputAndDirectory)
+{
+    Argv a{"vibe-req", "doc", "SRS-001", "--format", "html",
+           "--output", "srs.html", "requirements/"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.is_doc_cmd, 1);
+    EXPECT_STREQ(opts.doc_id, "SRS-001");
+    EXPECT_EQ(opts.report_format, REPORT_FORMAT_HTML);
+    EXPECT_STREQ(opts.report_output, "srs.html");
+    EXPECT_STREQ(opts.root, "requirements/");
+}
+
 /* =========================================================================
  * Tests — --strict-links and directory argument
  * ======================================================================= */
@@ -508,6 +543,7 @@ TEST(CliPrintHelpTest, PrintsUsageLine)
     EXPECT_THAT(out, HasSubstr("Usage:"));
     EXPECT_THAT(out, HasSubstr("vibe-req"));
     EXPECT_THAT(out, HasSubstr("list"));
+    EXPECT_THAT(out, HasSubstr("doc <id>"));
     EXPECT_THAT(out, HasSubstr("coverage"));
     EXPECT_THAT(out, HasSubstr("orphan"));
     EXPECT_THAT(out, HasSubstr("--kind"));

@@ -287,6 +287,71 @@ TripletStore *build_entity_relation_store(const EntityList *list)
     return store;
 }
 
+static const Entity *find_entity_by_id(const EntityList *list, const char *id)
+{
+    for (int i = 0; i < list->count; i++) {
+        if (strcmp(list->items[i].identity.id, id) == 0)
+            return &list->items[i];
+    }
+    return NULL;
+}
+
+static int list_contains_entity_id(const EntityList *list, const char *id)
+{
+    return find_entity_by_id(list, id) != NULL;
+}
+
+static int entity_is_member_of_document(const TripletStore *store,
+                                        const char *entity_id,
+                                        const char *doc_id)
+{
+    CTripleList by_subject = triplet_store_find_by_subject(store, entity_id);
+    int is_member = 0;
+
+    for (size_t i = 0; i < by_subject.count; i++) {
+        const CTriple *triple = &by_subject.triples[i];
+        if (strcmp(triple->predicate, "part-of") == 0 &&
+            strcmp(triple->object, doc_id) == 0) {
+            is_member = 1;
+            break;
+        }
+    }
+
+    triplet_store_list_free(by_subject);
+    return is_member;
+}
+
+int collect_document_entities(const EntityList *all, const TripletStore *store,
+                              const char *doc_id, EntityList *out)
+{
+    const Entity *doc = find_entity_by_id(all, doc_id);
+    if (!doc)
+        return -1;
+    if (doc->identity.kind != ENTITY_KIND_DOCUMENT)
+        return -2;
+
+    if (entity_list_add(out, doc) != 0)
+        return -3;
+
+    for (int i = 0; i < all->count; i++) {
+        const Entity *entity = &all->items[i];
+
+        if (strcmp(entity->identity.id, doc_id) == 0)
+            continue;
+
+        if (!entity_is_member_of_document(store, entity->identity.id, doc_id))
+            continue;
+
+        if (list_contains_entity_id(out, entity->identity.id))
+            continue;
+
+        if (entity_list_add(out, entity) != 0)
+            return -3;
+    }
+
+    return 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* Table rendering — entities (ECS)                                   */
 /* ------------------------------------------------------------------ */

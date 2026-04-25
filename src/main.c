@@ -33,6 +33,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "%s\n", opts.error_msg);
         if (opts.is_new_cmd)
             fprintf(stderr, "usage: %s new <type> <id> [directory]\n", argv[0]);
+        if (opts.is_doc_cmd)
+            fprintf(stderr,
+                    "usage: %s doc <doc-id> [--format md|html] "
+                    "[--output <file>] [directory]\n",
+                    argv[0]);
         return 1;
     }
 
@@ -149,6 +154,71 @@ int main(int argc, char *argv[])
 
         entity_list_free(&filtered);
         triplet_store_destroy(store);
+        entity_list_free(&elist);
+        return 0;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* 'doc' subcommand                                                    */
+    /* ------------------------------------------------------------------ */
+    if (opts.is_doc_cmd) {
+        TripletStore *store = build_entity_relation_store(&elist);
+        if (!store) {
+            fprintf(stderr, "error: failed to create relation store\n");
+            entity_list_free(&elist);
+            return 1;
+        }
+
+        EntityList doc_entities;
+        entity_list_init(&doc_entities);
+
+        int rc = collect_document_entities(&elist, store, opts.doc_id,
+                                           &doc_entities);
+        if (rc == -1) {
+            fprintf(stderr, "error: document '%s' not found\n", opts.doc_id);
+            triplet_store_destroy(store);
+            entity_list_free(&doc_entities);
+            entity_list_free(&elist);
+            return 1;
+        }
+        if (rc == -2) {
+            fprintf(stderr, "error: entity '%s' is not a document\n",
+                    opts.doc_id);
+            triplet_store_destroy(store);
+            entity_list_free(&doc_entities);
+            entity_list_free(&elist);
+            return 1;
+        }
+        if (rc != 0) {
+            fprintf(stderr,
+                    "error: failed to collect document members for '%s'\n",
+                    opts.doc_id);
+            triplet_store_destroy(store);
+            entity_list_free(&doc_entities);
+            entity_list_free(&elist);
+            return 1;
+        }
+
+        FILE *out = stdout;
+        if (opts.report_output) {
+            out = fopen(opts.report_output, "w");
+            if (!out) {
+                fprintf(stderr, "error: cannot open output file '%s'\n",
+                        opts.report_output);
+                triplet_store_destroy(store);
+                entity_list_free(&doc_entities);
+                entity_list_free(&elist);
+                return 1;
+            }
+        }
+
+        report_write(out, &doc_entities, store, opts.report_format);
+
+        if (opts.report_output)
+            fclose(out);
+
+        triplet_store_destroy(store);
+        entity_list_free(&doc_entities);
         entity_list_free(&elist);
         return 0;
     }
