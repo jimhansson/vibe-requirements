@@ -94,7 +94,4 @@ fi
 
 git -C "$WIKI_DIR" commit -m "docs: publish SRS and SDD"
 git -C "$WIKI_DIR" push origin HEAD
-<<<<<<< HEAD
 
-=======
->>>>>>> a4ccbd9 (added main documents and links)
