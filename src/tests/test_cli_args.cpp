@@ -352,6 +352,87 @@ TEST(CliParseArgsTest, FormatFlagMissingValueGivesParseError)
 }
 
 /* =========================================================================
+ * Tests — report command with filter flags
+ * ======================================================================= */
+
+TEST(CliParseArgsTest, ReportWithStatusFilter)
+{
+    Argv a{"vibe-req", "report", "--status", "approved"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.show_report, 1);
+    EXPECT_STREQ(opts.filter_status, "approved");
+}
+
+TEST(CliParseArgsTest, ReportWithKindFilter)
+{
+    Argv a{"vibe-req", "report", "--kind", "requirement"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.show_report, 1);
+    EXPECT_STREQ(opts.filter_kind, "requirement");
+}
+
+TEST(CliParseArgsTest, ReportWithPriorityFilter)
+{
+    Argv a{"vibe-req", "report", "--priority", "must"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.show_report, 1);
+    EXPECT_STREQ(opts.filter_priority, "must");
+}
+
+TEST(CliParseArgsTest, ReportWithComponentFilter)
+{
+    Argv a{"vibe-req", "report", "--component", "traceability"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.show_report, 1);
+    EXPECT_STREQ(opts.filter_comp, "traceability");
+}
+
+TEST(CliParseArgsTest, ReportWithMultipleFilters)
+{
+    Argv a{"vibe-req", "report", "--kind", "requirement",
+           "--status", "approved", "--priority", "must"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.show_report, 1);
+    EXPECT_STREQ(opts.filter_kind,     "requirement");
+    EXPECT_STREQ(opts.filter_status,   "approved");
+    EXPECT_STREQ(opts.filter_priority, "must");
+}
+
+TEST(CliParseArgsTest, ReportWithFiltersAndFormat)
+{
+    Argv a{"vibe-req", "report", "--status", "approved",
+           "--format", "html", "--output", "approved.html"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.show_report, 1);
+    EXPECT_STREQ(opts.filter_status, "approved");
+    EXPECT_EQ(opts.report_format, REPORT_FORMAT_HTML);
+    EXPECT_STREQ(opts.report_output, "approved.html");
+}
+
+TEST(CliParseArgsTest, ReportWithFiltersAndDirectory)
+{
+    Argv a{"vibe-req", "report", "--status", "draft", "requirements/"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.show_report, 1);
+    EXPECT_STREQ(opts.filter_status, "draft");
+    EXPECT_STREQ(opts.root, "requirements/");
+}
+
+/* =========================================================================
  * Tests — --strict-links and directory argument
  * ======================================================================= */
 
