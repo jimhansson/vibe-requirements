@@ -426,6 +426,42 @@ warning: strict-links: 'STORY-SW-001 -[implements]-> REQ-AUTH-001' — \
 This is useful in CI pipelines that require fully bidirectional link
 declarations.
 
+#### Built-in relation-pair table
+
+The following relation pairs are registered in the built-in inverse-inference
+table.  When a user declares a triple with a forward relation the tool
+automatically creates the inferred inverse triple.
+
+| Forward relation | Inferred inverse |
+|---|---|
+| `derives-from` | `derived-to` |
+| `derived-to` | `derives-from` |
+| `parent` | `child` |
+| `child` | `parent` |
+| `verifies` | `verified-by` |
+| `verified-by` | `verifies` |
+| `implements` | `implemented-by` |
+| `implemented-by` | `implements` |
+| `implemented-in` | `implemented-by-artefact` |
+| `implemented-by-artefact` | `implemented-in` |
+| `conflicts-with` | `conflicts-with` (symmetric) |
+| `refines` | `refined-by` |
+| `refined-by` | `refines` |
+| `traces-to` | `traced-from` |
+| `traced-from` | `traces-to` |
+| `part-of` | `contains` |
+| `contains` | `part-of` |
+| `satisfies` | `satisfied-by` |
+| `satisfied-by` | `satisfies` |
+| `tests` | `tested-by` |
+| `tested-by` | `tests` |
+
+> **Document membership:** the `documents:` YAML key is automatically projected
+> as `part-of` triples into the TripletStore by `build_entity_relation_store()`,
+> so document membership can be queried through the same graph API as all other
+> relations (see the [README](../README.md#document-membership-via-part-of) for
+> full details).
+
 ---
 
 ## Global options

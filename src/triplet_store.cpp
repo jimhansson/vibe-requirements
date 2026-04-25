@@ -37,6 +37,12 @@ k_relation_pairs[] = {
     { "refined-by",            "refines"                },
     { "traces-to",             "traced-from"            },
     { "traced-from",           "traces-to"              },
+    { "part-of",               "contains"               },
+    { "contains",              "part-of"                },
+    { "satisfies",             "satisfied-by"           },
+    { "satisfied-by",          "satisfies"              },
+    { "tests",                 "tested-by"              },
+    { "tested-by",             "tests"                  },
 };
 
 static constexpr std::size_t k_num_relation_pairs =

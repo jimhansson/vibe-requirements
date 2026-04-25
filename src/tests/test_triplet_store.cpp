@@ -512,6 +512,12 @@ TEST(TripletStoreTest, AllBuiltInPairsHaveInverse)
         { "refined-by",            "refines"                },
         { "traces-to",             "traced-from"            },
         { "traced-from",           "traces-to"              },
+        { "part-of",               "contains"               },
+        { "contains",              "part-of"                },
+        { "satisfies",             "satisfied-by"           },
+        { "satisfied-by",          "satisfies"              },
+        { "tests",                 "tested-by"              },
+        { "tested-by",             "tests"                  },
     };
 
     const size_t n = sizeof(pairs) / sizeof(pairs[0]);

@@ -486,6 +486,43 @@ int yaml_parse_entities(const char *path, EntityList *list)
     return added;
 }
 
+int entity_doc_membership_to_triplets(const Entity *entity, TripletStore *store)
+{
+    if (!entity || !store)
+        return -1;
+
+    const char *subject = entity->identity.id;
+    if (subject[0] == '\0')
+        return 0;
+
+    const char *buf = entity->doc_membership.doc_ids;
+    if (buf[0] == '\0')
+        return 0;
+
+    int added = 0;
+    const char *p = buf;
+
+    while (*p) {
+        const char *nl  = strchr(p, '\n');
+        const char *end = nl ? nl : p + strlen(p);
+
+        size_t len = (size_t)(end - p);
+        if (len > 0 && len < 256) {
+            char doc_id[256] = {0};
+            memcpy(doc_id, p, len);
+
+            size_t id = triplet_store_add(store, subject, "part-of", doc_id);
+            if (id != TRIPLE_ID_INVALID)
+                added++;
+        }
+
+        p = nl ? nl + 1 : end;
+        if (!nl) break;
+    }
+
+    return added;
+}
+
 int entity_traceability_to_triplets(const Entity *entity, TripletStore *store)
 {
     if (!entity || !store)
