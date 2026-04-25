@@ -49,3 +49,28 @@ jobs:
           cppcheck --error-exitcode=1 \
             --suppress=missingIncludeSystem \
             src/*.c src/*.cpp
+
+  publish-docs:
+    name: Publish SRS and SDD to Wiki
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ make libyaml-dev
+
+      - name: Build
+        run: make
+
+      - name: Publish docs to wiki
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/publish-docs.sh
