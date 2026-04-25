@@ -83,8 +83,33 @@
   | `conflicts-with` | `conflicts-with` (symmetric) |
   | `refines` | `refined-by` |
   | `traces-to` | `traced-from` |
+  | `part-of` | `contains` |
+  | `satisfies` | `satisfied-by` |
+  | `tests` | `tested-by` |
 
   The table should be extensible via `.vibe-req.yaml` so projects can add domain-specific pairs.
+
+- **Document membership as a graph edge** — Should `documents:` membership be modelled exclusively as an ECS component, or also projected into the TripletStore as `part-of` relations?
+
+  **Background**
+
+  Entities can declare their parent documents via the `documents:` YAML key, which populates `DocumentMembershipComponent`.  This component enables the `--component doc-membership` filter and the `entity_has_component()` API.  However, it is *not* visible to the TripletStore, so membership-based queries (e.g. "which entities are in SRS-CLIENT-001?") cannot be expressed through the unified graph API.
+
+  **Decision (implemented)**
+
+  Keep `DocumentMembershipComponent` for backward compatibility and CLI filter support.  Additionally, call `entity_doc_membership_to_triplets()` inside `build_entity_relation_store()` to project every `documents:` entry as a `(entity_id, "part-of", doc_id)` triple.  `infer_inverses()` then generates the matching `(doc_id, "contains", entity_id)` triple automatically.
+
+  This approach unifies document membership with the general traceability graph without requiring any YAML migration.
+
+  **Tradeoffs**
+
+  | Concern | Notes |
+  |---|---|
+  | Duplication | Each membership appears in both `DocumentMembershipComponent` and the TripletStore. Harmless — the two representations serve different callers. |
+  | `--component doc-membership` filter | Continues to work via the ECS component (unchanged). |
+  | TripletStore queries | Now work for document membership via `part-of`/`contains` predicates. |
+  | `--strict-links` validation | Users who write explicit `traceability: [{relation: part-of}]` entries will be checked for the missing inverse `contains` declaration, just like any other known relation pair. |
+  | Migration | Not required. Both authoring styles (`documents:` key and `traceability: [{relation: part-of}]`) are fully supported and produce TripletStore entries. |
 
 - **Hardware CAD integration** — Which CAD/EDA file formats should be targeted for hardware artefact links (e.g., KiCad, Altium, FreeCAD)?
 

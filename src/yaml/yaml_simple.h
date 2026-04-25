@@ -144,4 +144,24 @@ int yaml_parse_entities(const char *path, EntityList *list);
  */
 int entity_traceability_to_triplets(const Entity *entity, TripletStore *store);
 
+/*
+ * Load the DocumentMembershipComponent of *entity into store as
+ * (entity_id, "part-of", doc_id) triples — one triple per document the
+ * entity belongs to.
+ *
+ * This bridges the explicit DocumentMembershipComponent (populated from
+ * the YAML "documents:" key) into the TripletStore graph so that document
+ * membership can be queried through the same indexed relation API used for
+ * all other traceability links.  The inverse relation ("contains") is
+ * automatically inferred by triplet_store_infer_inverses().
+ *
+ * Uses entity->identity.id as the triple subject and each newline-separated
+ * entry in entity->doc_membership.doc_ids as the triple object.
+ * Duplicate triples are silently skipped.
+ *
+ * Returns the number of new triples successfully added (>= 0).
+ * Returns -1 if entity or store is NULL.
+ */
+int entity_doc_membership_to_triplets(const Entity *entity, TripletStore *store);
+
 #endif /* VIBE_YAML_SIMPLE_H */

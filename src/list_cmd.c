@@ -280,6 +280,7 @@ TripletStore *build_entity_relation_store(const EntityList *list)
 
     for (int i = 0; i < list->count; i++) {
         entity_traceability_to_triplets(&list->items[i], store);
+        entity_doc_membership_to_triplets(&list->items[i], store);
     }
 
     triplet_store_infer_inverses(store);

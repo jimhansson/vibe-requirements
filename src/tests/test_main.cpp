@@ -230,6 +230,50 @@ TEST(BuildEntityRelationStoreTest, MultipleEntitiesAllLinksPresent)
     entity_list_free(&list);
 }
 
+TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
+{
+    EntityList list;
+    entity_list_init(&list);
+
+    /* Entity that belongs to a document. */
+    Entity req = make_entity("REQ-DOC-001", "Member requirement",
+                             ENTITY_KIND_REQUIREMENT);
+    strncpy(req.doc_membership.doc_ids, "SRS-MAIN-001",
+            sizeof(req.doc_membership.doc_ids) - 1);
+    req.doc_membership.count = 1;
+    entity_list_add(&list, &req);
+
+    TripletStore *store = build_entity_relation_store(&list);
+    ASSERT_NE(store, nullptr);
+
+    /* A declared (REQ-DOC-001, part-of, SRS-MAIN-001) triple must exist. */
+    CTripleList by_subj = triplet_store_find_by_subject(store, "REQ-DOC-001");
+    int part_of_declared = 0;
+    for (size_t i = 0; i < by_subj.count; i++) {
+        if (!by_subj.triples[i].inferred &&
+            strcmp(by_subj.triples[i].predicate, "part-of") == 0 &&
+            strcmp(by_subj.triples[i].object, "SRS-MAIN-001") == 0)
+            part_of_declared++;
+    }
+    EXPECT_EQ(part_of_declared, 1);
+    triplet_store_list_free(by_subj);
+
+    /* The inferred inverse (SRS-MAIN-001, contains, REQ-DOC-001) must exist. */
+    CTripleList by_doc = triplet_store_find_by_subject(store, "SRS-MAIN-001");
+    int contains_inferred = 0;
+    for (size_t i = 0; i < by_doc.count; i++) {
+        if (by_doc.triples[i].inferred &&
+            strcmp(by_doc.triples[i].predicate, "contains") == 0 &&
+            strcmp(by_doc.triples[i].object, "REQ-DOC-001") == 0)
+            contains_inferred++;
+    }
+    EXPECT_EQ(contains_inferred, 1);
+    triplet_store_list_free(by_doc);
+
+    triplet_store_destroy(store);
+    entity_list_free(&list);
+}
+
 /* =========================================================================
  * Tests — list_entities
  * ======================================================================= */

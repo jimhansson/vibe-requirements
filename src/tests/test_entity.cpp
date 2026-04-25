@@ -752,6 +752,142 @@ TEST(TraceabilityToTripletsTest, DuplicatesNotAdded)
 }
 
 /* =========================================================================
+ * Tests — entity_doc_membership_to_triplets
+ * ======================================================================= */
+
+TEST(DocMembershipToTripletsTest, LoadsMembershipsAsPartOfTriples)
+{
+    const char *path = write_yaml("ent_doc_member_triplets.yaml",
+        "id: REQ-SW-100\n"
+        "title: Requirement in two documents\n"
+        "type: functional\n"
+        "documents:\n"
+        "  - SRS-CLIENT-001\n"
+        "  - SDD-SYS-001\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    ASSERT_EQ(rc, 0);
+    ASSERT_EQ(e.doc_membership.count, 2);
+
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    int added = entity_doc_membership_to_triplets(&e, store);
+    EXPECT_EQ(added, 2);
+    EXPECT_EQ(triplet_store_count(store), 2u);
+
+    /* Both triples must use "part-of" as the predicate. */
+    CTripleList list = triplet_store_find_by_subject(store, "REQ-SW-100");
+    ASSERT_EQ(list.count, 2u);
+    int part_of_count = 0;
+    for (size_t i = 0; i < list.count; i++) {
+        if (strcmp(list.triples[i].predicate, "part-of") == 0)
+            part_of_count++;
+    }
+    EXPECT_EQ(part_of_count, 2);
+    triplet_store_list_free(list);
+
+    /* The objects must be the two document IDs. */
+    CTripleList by_obj1 = triplet_store_find_by_object(store, "SRS-CLIENT-001");
+    EXPECT_GE(by_obj1.count, 1u);
+    triplet_store_list_free(by_obj1);
+
+    CTripleList by_obj2 = triplet_store_find_by_object(store, "SDD-SYS-001");
+    EXPECT_GE(by_obj2.count, 1u);
+    triplet_store_list_free(by_obj2);
+
+    triplet_store_destroy(store);
+}
+
+TEST(DocMembershipToTripletsTest, NullInputsReturnMinusOne)
+{
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_doc_membership_to_triplets(nullptr, store), -1);
+    EXPECT_EQ(entity_doc_membership_to_triplets(&e, nullptr),    -1);
+
+    triplet_store_destroy(store);
+}
+
+TEST(DocMembershipToTripletsTest, EmptyMembershipReturnsZero)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    strncpy(e.identity.id, "REQ-SW-200", sizeof(e.identity.id) - 1);
+
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    EXPECT_EQ(entity_doc_membership_to_triplets(&e, store), 0);
+    EXPECT_EQ(triplet_store_count(store), 0u);
+
+    triplet_store_destroy(store);
+}
+
+TEST(DocMembershipToTripletsTest, DuplicatesNotAdded)
+{
+    const char *path = write_yaml("ent_doc_member_dedup.yaml",
+        "id: REQ-SW-300\n"
+        "title: Dedup doc membership test\n"
+        "type: functional\n"
+        "documents:\n"
+        "  - SRS-DEDUP-001\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    ASSERT_EQ(yaml_parse_entity(path, &e), 0);
+
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    EXPECT_EQ(entity_doc_membership_to_triplets(&e, store), 1);
+    /* Loading again must add 0 new triples (TripletStore deduplicates). */
+    EXPECT_EQ(entity_doc_membership_to_triplets(&e, store), 0);
+    EXPECT_EQ(triplet_store_count(store), 1u);
+
+    triplet_store_destroy(store);
+}
+
+TEST(DocMembershipToTripletsTest, InverseContainsIsInferred)
+{
+    const char *path = write_yaml("ent_doc_member_inverse.yaml",
+        "id: REQ-SW-400\n"
+        "title: Requirement for inverse test\n"
+        "type: functional\n"
+        "documents:\n"
+        "  - SRS-INV-001\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    ASSERT_EQ(yaml_parse_entity(path, &e), 0);
+
+    TripletStore *store = triplet_store_create();
+    ASSERT_NE(store, nullptr);
+
+    ASSERT_EQ(entity_doc_membership_to_triplets(&e, store), 1);
+    triplet_store_infer_inverses(store);
+
+    /* The inverse (SRS-INV-001, contains, REQ-SW-400) must be inferred. */
+    CTripleList by_doc = triplet_store_find_by_subject(store, "SRS-INV-001");
+    int contains_count = 0;
+    for (size_t i = 0; i < by_doc.count; i++) {
+        if (by_doc.triples[i].inferred &&
+            strcmp(by_doc.triples[i].predicate, "contains") == 0 &&
+            strcmp(by_doc.triples[i].object, "REQ-SW-400") == 0)
+            contains_count++;
+    }
+    EXPECT_EQ(contains_count, 1);
+    triplet_store_list_free(by_doc);
+
+    triplet_store_destroy(store);
+}
+
+/* =========================================================================
  * Tests — ENTITY_KIND_DOCUMENT / entity_kind_from_string
  * ======================================================================= */
 

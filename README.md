@@ -409,6 +409,16 @@ Relation types are free-form strings.  Common conventions:
 | `member-of` | This entity belongs to a group or epic |
 | `implemented-in` | This entity is implemented in the artefact |
 | `constrained-by` | This entity is constrained by the target |
+| `part-of` | This entity belongs to a document (inverse: `contains`) |
+| `satisfies` / `satisfied-by` | Coverage-indicating relation |
+| `tests` / `tested-by` | Coverage-indicating relation |
+
+> **Document membership via `part-of`:** The `documents:` YAML key is the
+> primary way to declare document membership, but the same information is
+> also projected into the TripletStore as `(entity_id, "part-of", doc_id)`
+> triples by `build_entity_relation_store()`.  This means document membership
+> is queryable through the same graph API as all other links.  See the
+> [document membership design note](#document-membership-via-part-of) below.
 
 ---
 
@@ -440,6 +450,9 @@ Entity (stable ID: e.g. "REQ-SW-001")
 Traceability links stored in `TraceabilityComponent` are also loaded into a
 global **TripletStore** (a subject-predicate-object graph) to support
 efficient reverse lookup (e.g. "which entities link *to* this one?").
+`DocumentMembershipComponent` entries (`documents:` key) are also projected
+into the TripletStore as `part-of` triples so that document membership is
+queryable through the same indexed graph API as all other relations.
 
 ### Entity kinds
 
@@ -478,6 +491,65 @@ efficient reverse lookup (e.g. "which entities link *to* this one?").
 Any component can be attached to any entity kind — for example, a
 `requirement` entity can carry a `UserStoryComponent` if it also has `role:`,
 `goal:`, and `reason:` fields.
+
+### Document membership via `part-of`
+
+Entities can declare document membership in two ways:
+
+**1. Explicit `documents:` key (primary authoring mechanism)**
+
+```yaml
+id: REQ-SW-001
+documents:
+  - SRS-CLIENT-001
+  - SDD-SYS-001
+```
+
+This populates `DocumentMembershipComponent` at parse time.  The `--component
+doc-membership` filter and the `entity_has_component()` API both rely on this
+component.
+
+**2. TripletStore projection (query mechanism)**
+
+`build_entity_relation_store()` automatically calls
+`entity_doc_membership_to_triplets()` for every entity, which adds
+`(entity_id, "part-of", doc_id)` triples to the global TripletStore.
+`triplet_store_infer_inverses()` then adds the matching `(doc_id, "contains",
+entity_id)` triple.
+
+This means all standard TripletStore queries work for document membership:
+
+```c
+/* Which documents does REQ-SW-001 belong to? */
+CTripleList docs = triplet_store_find_by_subject(store, "REQ-SW-001");
+/* filter for predicate == "part-of" */
+
+/* Which entities does SRS-CLIENT-001 contain? */
+CTripleList members = triplet_store_find_by_subject(store, "SRS-CLIENT-001");
+/* filter for predicate == "contains" (inferred) */
+```
+
+**Relation pair: `part-of` ↔ `contains`**
+
+The `part-of` / `contains` pair is registered in the built-in relation-pair
+table so `infer_inverses()` always creates the reverse direction automatically.
+
+**Migration note for teams using `part-of` in `traceability:` blocks**
+
+Teams that have already written explicit `traceability: [{id: SRS-X, relation: part-of}]`
+entries do not need to migrate.  Those entries continue to work and are loaded
+into the TripletStore via the regular `entity_traceability_to_triplets()` path.
+The `documents:` key is preferred for new content because it also populates the
+`DocumentMembershipComponent` (enabling the `--component doc-membership` filter
+and `entity_has_component()` predicate).
+
+**Tradeoffs**
+
+| Approach | Pros | Cons |
+|---|---|---|
+| `documents:` key (ECS component) | Self-contained per entity; fast `entity_has_component()` check; filter CLI support | Not visible in the TripletStore without the projection step |
+| `traceability: [{relation: part-of}]` | Unified with all other links; TripletStore-queryable natively | Does not populate `DocumentMembershipComponent`; `--component doc-membership` filter won't match |
+| TripletStore projection (current approach) | Both APIs work; no migration needed; covers both authoring styles | Membership appears twice (component + store); duplication is harmless but may be surprising |
 
 ---
 
