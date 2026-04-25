@@ -16,6 +16,7 @@ orphan-detection commands.
 - [CLI Reference](#cli-reference)
   - [Default: list requirements (legacy)](#default-list-requirements-legacy)
   - [list / entities](#list--entities)
+  - [doc \<doc-id\>](#doc-doc-id)
   - [trace \<id\>](#trace-id)
   - [coverage](#coverage)
   - [orphan](#orphan)
@@ -53,6 +54,9 @@ cd src && make
 
 # Find requirements and test cases with no links at all
 ./vibe-req orphan
+
+# Render one SRS/SDD document together with its member entities
+./vibe-req doc SRS-CLIENT-001 --output srs.md
 
 # Get help
 ./vibe-req --help
@@ -144,6 +148,30 @@ vibe-req list requirements/
 +---------------+------------------------------------+-------------+----------+----------+
 
 Total: 4 entities
+```
+
+### doc \<doc-id\>
+
+`doc` renders a single document entity together with every entity that is
+part of it. Membership is resolved through the same relation graph used for
+traceability, so both `documents:` YAML membership and explicit `part-of` /
+`contains` links are included.
+
+```bash
+vibe-req doc <doc-id> [--format md|html] [--output <file>] [directory]
+```
+
+**Examples:**
+
+```bash
+# Print a document to stdout as Markdown
+vibe-req doc SRS-CLIENT-001
+
+# Write an HTML version of the SDD to a file
+vibe-req doc SDD-SYSTEM-001 --format html --output sdd.html
+
+# Scan a specific directory
+vibe-req doc SRS-CLIENT-001 requirements/
 ```
 
 ### trace \<id\>

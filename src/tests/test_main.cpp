@@ -275,6 +275,94 @@ TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
 }
 
 /* =========================================================================
+ * Tests — collect_document_entities
+ * ======================================================================= */
+
+TEST(CollectDocumentEntitiesTest, MissingDocumentReturnsMinusOne)
+{
+    EntityList list;
+    entity_list_init(&list);
+
+    Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
+    entity_list_add(&list, &req);
+
+    TripletStore *store = build_entity_relation_store(&list);
+    ASSERT_NE(store, nullptr);
+
+    EntityList collected;
+    entity_list_init(&collected);
+
+    EXPECT_EQ(collect_document_entities(&list, store, "SRS-001", &collected), -1);
+    EXPECT_EQ(collected.count, 0);
+
+    entity_list_free(&collected);
+    triplet_store_destroy(store);
+    entity_list_free(&list);
+}
+
+TEST(CollectDocumentEntitiesTest, NonDocumentEntityReturnsMinusTwo)
+{
+    EntityList list;
+    entity_list_init(&list);
+
+    Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
+    entity_list_add(&list, &req);
+
+    TripletStore *store = build_entity_relation_store(&list);
+    ASSERT_NE(store, nullptr);
+
+    EntityList collected;
+    entity_list_init(&collected);
+
+    EXPECT_EQ(collect_document_entities(&list, store, "REQ-001", &collected), -2);
+    EXPECT_EQ(collected.count, 0);
+
+    entity_list_free(&collected);
+    triplet_store_destroy(store);
+    entity_list_free(&list);
+}
+
+TEST(CollectDocumentEntitiesTest, CollectsDocumentAndMembers)
+{
+    EntityList list;
+    entity_list_init(&list);
+
+    Entity doc = make_entity("SRS-001", "System Requirements", ENTITY_KIND_DOCUMENT);
+    Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
+    Entity tc  = make_entity("TC-001", "Verify login", ENTITY_KIND_TEST_CASE);
+    Entity ext = make_entity("EXT-001", "IEC 61508", ENTITY_KIND_EXTERNAL);
+
+    strncpy(req.doc_membership.doc_ids, "SRS-001",
+            sizeof(req.doc_membership.doc_ids) - 1);
+    req.doc_membership.count = 1;
+
+    strncpy(tc.traceability.entries, "SRS-001\tpart-of\n",
+            sizeof(tc.traceability.entries) - 1);
+    tc.traceability.count = 1;
+
+    entity_list_add(&list, &doc);
+    entity_list_add(&list, &req);
+    entity_list_add(&list, &tc);
+    entity_list_add(&list, &ext);
+
+    TripletStore *store = build_entity_relation_store(&list);
+    ASSERT_NE(store, nullptr);
+
+    EntityList collected;
+    entity_list_init(&collected);
+
+    ASSERT_EQ(collect_document_entities(&list, store, "SRS-001", &collected), 0);
+    ASSERT_EQ(collected.count, 3);
+    EXPECT_STREQ(collected.items[0].identity.id, "SRS-001");
+    EXPECT_STREQ(collected.items[1].identity.id, "REQ-001");
+    EXPECT_STREQ(collected.items[2].identity.id, "TC-001");
+
+    entity_list_free(&collected);
+    triplet_store_destroy(store);
+    entity_list_free(&list);
+}
+
+/* =========================================================================
  * Tests — list_entities
  * ======================================================================= */
 

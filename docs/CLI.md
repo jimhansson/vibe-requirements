@@ -328,6 +328,46 @@ The system shall support email and password authentication for all users.
 
 ---
 
+### doc
+
+Render a single document entity together with the entities that are part of
+it. The command reuses the same Markdown / HTML report rendering as `report`,
+but narrows the input to one SRS/SDD document plus its members.
+
+```bash
+vibe-req doc <doc-id> [--format md|html] [--output <file>] [directory]
+```
+
+#### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<doc-id>` | The document entity ID to render (required) |
+| `directory` | Root directory to scan (default: `.`) |
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `--format md` | Output Markdown (default) |
+| `--format html` | Output a self-contained HTML document with inline CSS |
+| `--output <file>` | Write the rendered document to `<file>` instead of stdout |
+
+#### Examples
+
+```bash
+# Markdown document to stdout
+vibe-req doc SRS-CLIENT-001
+
+# HTML document to a file
+vibe-req doc SDD-SYSTEM-001 --format html --output sdd.html
+
+# Render a document from a specific directory
+vibe-req doc SRS-CLIENT-001 requirements/
+```
+
+---
+
 ### new
 
 Scaffold a new entity YAML file.  Creates `<id>.yaml` in the given
