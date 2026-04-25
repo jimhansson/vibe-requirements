@@ -371,3 +371,184 @@ TEST(ReportHtmlTest, EntityKindSectionHeading)
 
     entity_list_free(&list);
 }
+
+/* =========================================================================
+ * Tests — filtered report output (status / kind / priority filtering)
+ * ======================================================================= */
+
+TEST(ReportFilterTest, StatusFilterExcludesDraftEntities)
+{
+    EntityList all;
+    entity_list_init(&all);
+
+    Entity approved = make_entity("REQ-A01", "Approved req",
+                                   ENTITY_KIND_REQUIREMENT, "approved", "must");
+    Entity draft    = make_entity("REQ-D01", "Draft req",
+                                   ENTITY_KIND_REQUIREMENT, "draft",    "must");
+    entity_list_add(&all, &approved);
+    entity_list_add(&all, &draft);
+
+    EntityList filtered;
+    entity_list_init(&filtered);
+    entity_apply_filter(&all, &filtered, nullptr, nullptr, "approved", nullptr);
+
+    std::string out = capture_report(&filtered, nullptr);
+
+    EXPECT_THAT(out, HasSubstr("REQ-A01"));
+    EXPECT_THAT(out, Not(HasSubstr("REQ-D01")));
+
+    entity_list_free(&filtered);
+    entity_list_free(&all);
+}
+
+TEST(ReportFilterTest, StatusFilterExcludesApprovedEntities)
+{
+    EntityList all;
+    entity_list_init(&all);
+
+    Entity approved = make_entity("REQ-A02", "Approved req",
+                                   ENTITY_KIND_REQUIREMENT, "approved", "must");
+    Entity draft    = make_entity("REQ-D02", "Draft req",
+                                   ENTITY_KIND_REQUIREMENT, "draft",    "must");
+    entity_list_add(&all, &approved);
+    entity_list_add(&all, &draft);
+
+    EntityList filtered;
+    entity_list_init(&filtered);
+    entity_apply_filter(&all, &filtered, nullptr, nullptr, "draft", nullptr);
+
+    std::string out = capture_report(&filtered, nullptr);
+
+    EXPECT_THAT(out, HasSubstr("REQ-D02"));
+    EXPECT_THAT(out, Not(HasSubstr("REQ-A02")));
+
+    entity_list_free(&filtered);
+    entity_list_free(&all);
+}
+
+TEST(ReportFilterTest, KindFilterOnlyIncludesMatchingKind)
+{
+    EntityList all;
+    entity_list_init(&all);
+
+    Entity req = make_entity("REQ-K01", "A requirement",
+                              ENTITY_KIND_REQUIREMENT, "approved", "must");
+    Entity tc  = make_entity("TC-K01",  "A test case",
+                              ENTITY_KIND_TEST_CASE,   "approved", "must");
+    entity_list_add(&all, &req);
+    entity_list_add(&all, &tc);
+
+    EntityList filtered;
+    entity_list_init(&filtered);
+    entity_apply_filter(&all, &filtered, "requirement", nullptr, nullptr, nullptr);
+
+    std::string out = capture_report(&filtered, nullptr);
+
+    EXPECT_THAT(out, HasSubstr("REQ-K01"));
+    EXPECT_THAT(out, Not(HasSubstr("TC-K01")));
+
+    entity_list_free(&filtered);
+    entity_list_free(&all);
+}
+
+TEST(ReportFilterTest, KindAndStatusFiltersAppliedTogether)
+{
+    EntityList all;
+    entity_list_init(&all);
+
+    Entity req_approved = make_entity("REQ-C01", "Approved req",
+                                       ENTITY_KIND_REQUIREMENT, "approved", "must");
+    Entity req_draft    = make_entity("REQ-C02", "Draft req",
+                                       ENTITY_KIND_REQUIREMENT, "draft",    "must");
+    Entity tc_approved  = make_entity("TC-C01",  "Approved TC",
+                                       ENTITY_KIND_TEST_CASE,   "approved", "must");
+    entity_list_add(&all, &req_approved);
+    entity_list_add(&all, &req_draft);
+    entity_list_add(&all, &tc_approved);
+
+    EntityList filtered;
+    entity_list_init(&filtered);
+    entity_apply_filter(&all, &filtered, "requirement", nullptr, "approved", nullptr);
+
+    std::string out = capture_report(&filtered, nullptr);
+
+    EXPECT_THAT(out, HasSubstr("REQ-C01"));
+    EXPECT_THAT(out, Not(HasSubstr("REQ-C02")));
+    EXPECT_THAT(out, Not(HasSubstr("TC-C01")));
+
+    entity_list_free(&filtered);
+    entity_list_free(&all);
+}
+
+TEST(ReportFilterTest, PriorityFilterOnlyIncludesMatchingPriority)
+{
+    EntityList all;
+    entity_list_init(&all);
+
+    Entity must_req   = make_entity("REQ-P01", "Must req",
+                                     ENTITY_KIND_REQUIREMENT, "approved", "must");
+    Entity should_req = make_entity("REQ-P02", "Should req",
+                                     ENTITY_KIND_REQUIREMENT, "approved", "should");
+    entity_list_add(&all, &must_req);
+    entity_list_add(&all, &should_req);
+
+    EntityList filtered;
+    entity_list_init(&filtered);
+    entity_apply_filter(&all, &filtered, nullptr, nullptr, nullptr, "must");
+
+    std::string out = capture_report(&filtered, nullptr);
+
+    EXPECT_THAT(out, HasSubstr("REQ-P01"));
+    EXPECT_THAT(out, Not(HasSubstr("REQ-P02")));
+
+    entity_list_free(&filtered);
+    entity_list_free(&all);
+}
+
+TEST(ReportFilterTest, NoMatchingStatusProducesEmptyEntitySection)
+{
+    EntityList all;
+    entity_list_init(&all);
+
+    Entity draft = make_entity("REQ-E01", "Draft req",
+                                ENTITY_KIND_REQUIREMENT, "draft", "must");
+    entity_list_add(&all, &draft);
+
+    EntityList filtered;
+    entity_list_init(&filtered);
+    entity_apply_filter(&all, &filtered, nullptr, nullptr, "approved", nullptr);
+
+    std::string out = capture_report(&filtered, nullptr);
+
+    /* No entity headings when none match the filter. */
+    EXPECT_THAT(out, Not(HasSubstr("REQ-E01")));
+    EXPECT_THAT(out, Not(HasSubstr("###")));
+
+    entity_list_free(&filtered);
+    entity_list_free(&all);
+}
+
+TEST(ReportFilterTest, HtmlOutputAlsoRespectsStatusFilter)
+{
+    EntityList all;
+    entity_list_init(&all);
+
+    Entity approved = make_entity("REQ-H01", "Approved req",
+                                   ENTITY_KIND_REQUIREMENT, "approved", "must");
+    Entity draft    = make_entity("REQ-H02", "Draft req",
+                                   ENTITY_KIND_REQUIREMENT, "draft",    "must");
+    entity_list_add(&all, &approved);
+    entity_list_add(&all, &draft);
+
+    EntityList filtered;
+    entity_list_init(&filtered);
+    entity_apply_filter(&all, &filtered, nullptr, nullptr, "approved", nullptr);
+
+    std::string out = capture_report(&filtered, nullptr, REPORT_FORMAT_HTML);
+
+    EXPECT_THAT(out, HasSubstr("REQ-H01"));
+    EXPECT_THAT(out, Not(HasSubstr("REQ-H02")));
+
+    entity_list_free(&filtered);
+    entity_list_free(&all);
+}
