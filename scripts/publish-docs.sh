@@ -12,78 +12,17 @@ warning() {
 
 find_doc_id() {
   local wanted_doc_type="$1"
+  local id_prefix
 
-  python3 - "$REPO_ROOT" "$wanted_doc_type" <<'PY'
-from pathlib import Path
-import sys
+  case "${wanted_doc_type^^}" in
+    SRS) id_prefix='SRS-' ;;
+    SDD) id_prefix='SDD-' ;;
+    *) return 1 ;;
+  esac
 
-repo_root = Path(sys.argv[1])
-wanted = sys.argv[2].upper()
-
-IGNORED_PARTS = {".git", "bin", ".published-docs", ".wiki-publish", "build"}
-VALID_SUFFIXES = {".yaml", ".yml"}
-
-def extract_scalar(line):
-    _, value = line.split(":", 1)
-    value = value.split("#", 1)[0].strip()
-    if not value:
-        return ""
-    if value[0] in "\"'" and value[-1] == value[0]:
-        return value[1:-1]
-    return value
-
-def maybe_emit(entity_id, entity_type, doc_type):
-    if not entity_id:
-        return False
-    if doc_type and doc_type.upper() == wanted:
-        print(entity_id)
-        return True
-    if entity_type and entity_type.lower() == wanted.lower():
-        print(entity_id)
-        return True
-    return False
-
-for path in sorted(repo_root.rglob("*")):
-    if not path.is_file() or path.suffix not in VALID_SUFFIXES:
-        continue
-    if any(part in IGNORED_PARTS for part in path.parts):
-        continue
-
-    current_id = None
-    current_type = None
-    current_doc_type = None
-
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.rstrip()
-        stripped = line.strip()
-
-        if stripped == "---":
-            if maybe_emit(current_id, current_type, current_doc_type):
-                sys.exit(0)
-            current_id = None
-            current_type = None
-            current_doc_type = None
-            continue
-
-        if not stripped or stripped.startswith("#"):
-            continue
-
-        if line.startswith("id:"):
-            current_id = extract_scalar(line)
-            continue
-
-        if line.startswith("type:"):
-            current_type = extract_scalar(line)
-            continue
-
-        if stripped.startswith("doc_type:"):
-            current_doc_type = extract_scalar(stripped)
-
-    if maybe_emit(current_id, current_type, current_doc_type):
-        sys.exit(0)
-
-sys.exit(1)
-PY
+  "$BIN_PATH" list --kind document "$SCAN_ROOT" 2>/dev/null \
+    | grep -oE "${id_prefix}[A-Za-z0-9-]*" \
+    | head -n 1
 }
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -155,4 +94,7 @@ fi
 
 git -C "$WIKI_DIR" commit -m "docs: publish SRS and SDD"
 git -C "$WIKI_DIR" push origin HEAD
+<<<<<<< HEAD
 
+=======
+>>>>>>> a4ccbd9 (added main documents and links)

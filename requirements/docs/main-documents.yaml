@@ -1,0 +1,151 @@
+id: SRS-MAIN-001
+title: "Software Requirements Specification"
+type: srs
+status: draft
+owner: ""
+doc_meta:
+  title: "vibe-requirements Software Requirements Specification"
+  doc_type: SRS
+  version: "1.0"
+  client: "Open Source"
+  status: draft
+---
+id: SDD-MAIN-001
+title: "Software Design Description"
+type: sdd
+status: draft
+owner: ""
+doc_meta:
+  title: "vibe-requirements Software Design Description"
+  doc_type: SDD
+  version: "1.0"
+  client: "Open Source"
+  status: draft
+---
+id: DESIGN-CH-1
+title: "Configuration module design"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  The configuration module is responsible for loading repository-local
+  settings from `.vibe-req.yaml` and exposing focused helpers such as
+  `config_is_ignored_dir()`.
+
+  The design keeps the implementation small and dependency-light so config
+  lookup remains predictable in local development and in CI environments.
+---
+id: DESIGN-CH-2
+title: "YAML parsing architecture"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  YAML parsing is split into focused helpers for entity parsing, link parsing,
+  and shared scalar extraction. This keeps the parser maintainable while still
+  supporting multi-document streams and traceability aliases.
+---
+id: DESIGN-CH-5
+title: "TripletStore relation model"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  Traceability is represented as subject-predicate-object triples so the same
+  graph can answer requirement, document, artefact, and test relationships.
+
+  A central relation model makes it possible to reuse traversal and reporting
+  logic across commands such as `trace`, `report`, `coverage`, and `doc`.
+---
+id: DESIGN-CH-5-1
+title: "TripletStore inverse inference"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  Known relation pairs such as `implements` and `implemented-by` are inferred
+  so users can author a single direction while the tool still answers queries
+  in both directions.
+
+  Inferred triples are marked as derived so reporting can suppress them when
+  only declared links should be shown.
+---
+id: DESIGN-CH-6
+title: "Entity component model"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  The Entity structure uses a component-oriented layout so optional metadata
+  such as document membership, user story fields, and traceability can evolve
+  without forcing every entity kind into a rigid schema.
+---
+id: DESIGN-CH-6-2
+title: "Document metadata component"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  Document entities carry `doc_meta` so SRS and SDD records can expose stable
+  metadata like document type, version, client, and document status without
+  special casing those fields elsewhere in the model.
+---
+id: DESIGN-CH-6-3
+title: "Document membership component"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  The `documents:` field records which higher-level document an entity belongs
+  to. Membership is projected into the relation graph as `part-of` so the same
+  graph powers both document rendering and traceability inspection.
+---
+id: DESIGN-CH-6-4
+title: "Document body component"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  Free-form authored content, such as design notes and sections, is stored in
+  a document body component. That keeps longer prose available to reports and
+  rendered documents without overloading the short description field.
+---
+id: DESIGN-CH-7-1
+title: "Scaffold generation design"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  The `new` command emits minimal but type-aware YAML scaffolds so users can
+  quickly create valid entities while preserving the plain-text, versioned
+  workflow the project is built around.
+---
+id: DESIGN-CH-7-2
+title: "Report rendering design"
+type: design-note
+status: draft
+owner: ""
+documents:
+  - SDD-MAIN-001
+body: |
+  Report generation renders both Markdown and HTML from the same entity and
+  relation data model, with escaping and inferred-link suppression handled at
+  the formatter layer rather than duplicated in command logic.

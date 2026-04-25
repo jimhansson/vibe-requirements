@@ -3,6 +3,8 @@ title: "Requirement-to-requirement links"
 type: functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall allow a requirement to be linked to one or more other
   requirements (parent, child, derives-from, conflicts-with, implements).
@@ -15,6 +17,8 @@ title: "Requirement-to-test-case links"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall allow a requirement to be linked to test cases or
   verification records.
@@ -28,6 +32,8 @@ title: "Requirement-to-source-code links"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall allow a requirement to be linked to source code files or
   specific Git commits.
@@ -41,6 +47,8 @@ title: "Requirement-to-hardware-artefact links"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall allow a requirement to be linked to hardware design
   artefacts (schematics, drawings, BOM rows).
@@ -54,6 +62,8 @@ title: "Requirement-to-external-normative-source links"
 type: functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall allow a requirement to be linked to external normative
   sources (standard, directive, clause).
@@ -67,6 +77,8 @@ title: "Traceability report"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall produce a traceability report showing the full link graph
   for a given requirement or for all requirements.

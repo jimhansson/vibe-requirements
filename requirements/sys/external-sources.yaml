@@ -3,6 +3,8 @@ title: "External normative source as first-class document"
 type: functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall support defining an external normative source (e.g.,
   EN ISO 13849, EU Machinery Directive 2006/42/EC) as a first-class document
@@ -16,6 +18,8 @@ title: "Referenceable clauses in normative sources"
 type: functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   Specific clauses or articles of a normative source shall be referenceable
   so that derived requirements can declare their origin precisely (e.g.,
@@ -30,6 +34,8 @@ title: "Report requirements derived from a standard or directive"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall be able to report which requirements are derived from a given
   standard or directive and flag any that are not yet implemented or verified.

@@ -3,6 +3,8 @@ title: "Subsystem categorization including hardware subsystems"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall allow requirements to be categorized by subsystem, including
   hardware subsystems (e.g., `subsystem: power-supply`).
@@ -16,6 +18,8 @@ title: "Hardware-specific link types"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall support link types specific to hardware artefacts:
   `allocates-to-hardware`, `verified-by-hw-test`, `implemented-in-schematic`.
@@ -29,6 +33,8 @@ title: "Subsystem-filtered report generation"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The report generator shall be able to produce a requirements subset filtered
   by subsystem (hardware or software).

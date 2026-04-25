@@ -3,6 +3,8 @@ title: "Cross-platform CLI"
 type: functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall provide a CLI that runs on Linux, macOS, and Windows.
 tags:
@@ -14,6 +16,8 @@ title: "CRUD commands for requirements and documents"
 type: functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall provide commands to create, read, update, and delete
   requirements and related documents.
@@ -26,6 +30,8 @@ title: "validate command"
 type: functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall provide a `validate` command that runs the entity validation
   function (REQ-029) and reports all broken links, duplicate identifiers, and
@@ -41,6 +47,8 @@ title: "report command"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall provide a `report` command that generates a human-readable
   summary (e.g., Markdown or HTML) of the requirement set.
@@ -53,6 +61,8 @@ title: "trace command"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall provide a `trace` command that outputs the traceability graph
   for one or all requirements.
@@ -65,6 +75,8 @@ title: "status command"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall provide a `status` command showing counts of requirements per
   status and priority.
@@ -77,6 +89,8 @@ title: "Non-zero exit code on validation failure"
 type: functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall exit with a non-zero code when validation fails, making it
   suitable for use in CI pipelines.
@@ -90,6 +104,8 @@ title: "Single self-contained executable"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall ideally be distributed as a single self-contained executable
   with no runtime dependencies.
@@ -103,6 +119,8 @@ title: "Graceful handling of malformed input files"
 type: functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall gracefully handle malformed or invalid input files: when a
   file cannot be parsed or fails schema validation, the tool shall report the
@@ -118,6 +136,8 @@ title: "--fail-fast flag"
 type: functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall provide a `--fail-fast` flag that causes processing to stop
   immediately on the first encountered parse or validation error; this flag is

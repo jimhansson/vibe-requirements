@@ -3,6 +3,8 @@ title: "CLI startup time"
 type: non-functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The CLI shall start up and respond to commands in under 500 ms on typical
   hardware.
@@ -15,6 +17,8 @@ title: "Scalability to 10 000 requirement files"
 type: non-functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall handle repositories with at least 10 000 requirement files
   without significant performance degradation.
@@ -27,6 +31,8 @@ title: "No network access for core operations"
 type: non-functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall not require network access for core operations (create,
   validate, report).
@@ -39,6 +45,8 @@ title: "Documented and stable file format schema"
 type: non-functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The file format schema shall be documented and stable; breaking changes
   shall require a major version increment.
@@ -52,6 +60,8 @@ title: "Buildable from source on Linux"
 type: non-functional
 status: draft
 priority: must
+documents:
+  - SRS-MAIN-001
 description: |
   The tool shall be buildable from source on Linux with a documented build
   procedure.
@@ -65,6 +75,8 @@ title: "Optional delayed/batched write mode"
 type: non-functional
 status: draft
 priority: should
+documents:
+  - SRS-MAIN-001
 description: |
   The architecture should support an optional delayed/batched write mode with
   explicit flush semantics as an alternative to default write-through
