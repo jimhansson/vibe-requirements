@@ -185,17 +185,15 @@ int entity_has_component(const Entity *entity, const char *comp)
     if (!comp || comp[0] == '\0')
         return 1; /* no filter — always matches */
 
-    if (strcmp(comp, "user-story") == 0 || strcmp(comp, "user_story") == 0)
+    if (strcmp(comp, "user-story") == 0)
         return entity->user_story.role[0] != '\0' ||
                entity->user_story.goal[0] != '\0';
 
-    if (strcmp(comp, "acceptance-criteria") == 0 ||
-        strcmp(comp, "acceptance_criteria") == 0)
+    if (strcmp(comp, "acceptance-criteria") == 0)
         return entity->acceptance_criteria.count > 0;
 
     if (strcmp(comp, "epic") == 0 ||
-        strcmp(comp, "epic-membership") == 0 ||
-        strcmp(comp, "epic_membership") == 0)
+        strcmp(comp, "epic-membership") == 0)
         return entity->epic_membership.epic_id[0] != '\0';
 
     if (strcmp(comp, "assumption") == 0)
@@ -204,7 +202,7 @@ int entity_has_component(const Entity *entity, const char *comp)
     if (strcmp(comp, "constraint") == 0)
         return entity->constraint.text[0] != '\0';
 
-    if (strcmp(comp, "doc-meta") == 0 || strcmp(comp, "doc_meta") == 0)
+    if (strcmp(comp, "doc-meta") == 0)
         return entity->doc_meta.doc_type[0] != '\0' ||
                entity->doc_meta.title[0] != '\0';
 
@@ -223,15 +221,13 @@ int entity_has_component(const Entity *entity, const char *comp)
     if (strcmp(comp, "tags") == 0)
         return entity->tags.count > 0;
 
-    if (strcmp(comp, "test-procedure") == 0 ||
-        strcmp(comp, "test_procedure") == 0)
+    if (strcmp(comp, "test-procedure") == 0)
         return entity->test_procedure.precondition_count > 0 ||
                entity->test_procedure.step_count > 0 ||
                (entity->test_procedure.expected_result != NULL &&
                 entity->test_procedure.expected_result[0] != '\0');
 
     if (strcmp(comp, "clause-collection") == 0 ||
-        strcmp(comp, "clause_collection") == 0 ||
         strcmp(comp, "clauses") == 0)
         return entity->clause_collection.count > 0;
 
@@ -239,21 +235,17 @@ int entity_has_component(const Entity *entity, const char *comp)
         strcmp(comp, "attachments") == 0)
         return entity->attachment.count > 0;
 
-    if (strcmp(comp, "applies-to") == 0 ||
-        strcmp(comp, "applies_to") == 0)
+    if (strcmp(comp, "applies-to") == 0)
         return entity->applies_to.count > 0;
 
-    if (strcmp(comp, "variant-profile") == 0 ||
-        strcmp(comp, "variant_profile") == 0)
+    if (strcmp(comp, "variant-profile") == 0)
         return entity->variant_profile.customer[0] != '\0' ||
                entity->variant_profile.product[0]  != '\0';
 
-    if (strcmp(comp, "composition-profile") == 0 ||
-        strcmp(comp, "composition_profile") == 0)
+    if (strcmp(comp, "composition-profile") == 0)
         return entity->composition_profile.order_count > 0;
 
-    if (strcmp(comp, "render-profile") == 0 ||
-        strcmp(comp, "render_profile") == 0)
+    if (strcmp(comp, "render-profile") == 0)
         return entity->render_profile.format[0] != '\0';
 
     return 0; /* unrecognised component name */

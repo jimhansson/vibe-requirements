@@ -62,7 +62,7 @@ static void write_story(FILE *out, const char *id)
             "reason: \"\"\n"
             "description: |\n"
             "  TODO: Add description.\n"
-            "acceptance_criteria:\n"
+            "acceptance-criteria:\n"
             "  - TODO: Add acceptance criterion.\n",
             id);
 }
@@ -140,8 +140,8 @@ static void write_test_case(FILE *out, const char *id)
             "steps:\n"
             "  - step: 1\n"
             "    action: \"TODO: Add action.\"\n"
-            "    expected_output: \"TODO: Add expected output.\"\n"
-            "expected_result: \"TODO: Add expected result.\"\n",
+            "    expected-output: \"TODO: Add expected output.\"\n"
+            "expected-result: \"TODO: Add expected result.\"\n",
             id);
 }
 
@@ -169,8 +169,8 @@ static void write_document(FILE *out, const char *id, const char *type_str)
             "type: %s\n"
             "status: draft\n"
             "owner: \"\"\n"
-            "doc_meta:\n"
-            "  doc_type: \"\"\n"
+            "doc-meta:\n"
+            "  doc-type: \"\"\n"
             "  version: \"1.0\"\n"
             "  client: \"\"\n"
             "  status: draft\n",
@@ -187,13 +187,13 @@ static void write_document_schema(FILE *out, const char *id)
             "owner: \"\"\n"
             "description: |\n"
             "  TODO: Add description.\n"
-            "variant_profile:\n"
+            "variant-profile:\n"
             "  customer: \"\"\n"
             "  product: \"\"\n"
-            "composition_profile:\n"
+            "composition-profile:\n"
             "  order:\n"
             "    - SEC-INTRO\n"
-            "render_profile:\n"
+            "render-profile:\n"
             "  format: markdown\n",
             id);
 }

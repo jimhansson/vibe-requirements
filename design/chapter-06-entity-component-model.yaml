@@ -57,11 +57,11 @@ body: |
   - `AssumptionComponent` (`text`, `status`, `source`) — any entity may carry this
   - `ConstraintComponent` (`text`, `kind`, `source`) — any entity may carry this;
     `kind` is e.g. `legal`, `technical`, `environmental`
-  - `DocumentMetaComponent` (`title`, `doc_type`, `version`, `client`, `status`) —
+  - `DocumentMetaComponent` (`title`, `doc-type`, `version`, `client`, `status`) —
     any entity representing a document (SRS, SDD, …) may carry this
   - `DocumentMembershipComponent` (`doc_ids`, `count`) — attaches any entity to one
     or more document entities
-  - `TestProcedureComponent` (`preconditions`, `steps`, `expected_result`)
+  - `TestProcedureComponent` (`preconditions`, `steps`, `expected-result`)
   - `ClauseCollectionComponent` (external standard clauses/annexes/articles)
   - `DocumentBodyComponent` (long free-form markdown/text blocks)
   - `AttachmentComponent` (references to binary or generated artifacts)
@@ -86,8 +86,8 @@ body: |
   id: SRS-CLIENT-001
   title: SRS for Client Project
   type: document          # also: srs, sdd
-  doc_meta:
-    doc_type: SRS
+  doc-meta:
+    doc-type: SRS
     version: 1.0
     client: ClientCorp
     status: approved

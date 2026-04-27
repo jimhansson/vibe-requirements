@@ -45,6 +45,8 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
         if (!key_node || key_node->type != YAML_SCALAR_NODE)
             continue;
 
+        /* Canonical separator is '-'.  YAML files must use '-' in multi-word
+         * key names; '_' forms are no longer accepted. */
         const char *key = (const char *)key_node->data.scalar.value;
 
         /* --- Scalar fields ------------------------------------------- */
@@ -70,16 +72,16 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
             COPY_IF("role",   out->user_story.role,   sizeof(out->user_story.role))
             COPY_IF("goal",   out->user_story.goal,   sizeof(out->user_story.goal))
             COPY_IF("reason", out->user_story.reason, sizeof(out->user_story.reason))
-            /* user-story component — legacy aliases */
-            COPY_IF("as_a",    out->user_story.role,   sizeof(out->user_story.role))
-            COPY_IF("i_want",  out->user_story.goal,   sizeof(out->user_story.goal))
-            COPY_IF("so_that", out->user_story.reason, sizeof(out->user_story.reason))
+            /* user-story component — alternative hyphenated keys */
+            COPY_IF("as-a",    out->user_story.role,   sizeof(out->user_story.role))
+            COPY_IF("i-want",  out->user_story.goal,   sizeof(out->user_story.goal))
+            COPY_IF("so-that", out->user_story.reason, sizeof(out->user_story.reason))
             /* epic-membership component */
             COPY_IF("epic", out->epic_membership.epic_id, sizeof(out->epic_membership.epic_id))
 
 #undef COPY_IF
 
-            /* doc_body — heap-allocated, use strdup */
+            /* doc-body — heap-allocated, use strdup */
             if (strcmp(key, "body") == 0) {
                 free(out->doc_body.body);
                 out->doc_body.body = strdup(val);
@@ -88,8 +90,8 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 continue;
             }
 
-            /* test_procedure expected_result — heap-allocated */
-            if (strcmp(key, "expected_result") == 0) {
+            /* test-procedure expected-result — heap-allocated */
+            if (strcmp(key, "expected-result") == 0) {
                 free(out->test_procedure.expected_result);
                 out->test_procedure.expected_result = strdup(val);
                 if (!out->test_procedure.expected_result && val[0] != '\0')
@@ -97,8 +99,8 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 continue;
             }
 
-            /* applies_to — scalar form: a single applicability tag */
-            if (strcmp(key, "applies_to") == 0) {
+            /* applies-to — scalar form: a single applicability tag */
+            if (strcmp(key, "applies-to") == 0) {
                 if (val[0] != '\0')
                     yaml_append_to_flat(out->applies_to.applies_to,
                                         sizeof(out->applies_to.applies_to),
@@ -115,7 +117,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                                       &out->tags.count);
                 continue;
             }
-            if (strcmp(key, "acceptance_criteria") == 0) {
+            if (strcmp(key, "acceptance-criteria") == 0) {
                 yaml_collect_sequence(doc, val_node,
                                       out->acceptance_criteria.criteria,
                                       sizeof(out->acceptance_criteria.criteria),
@@ -237,7 +239,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                         const char *sval = (const char *)sv->data.scalar.value;
                         if (strcmp(skey, "action") == 0)
                             strncpy(action, sval, sizeof(action) - 1);
-                        else if (strcmp(skey, "expected_output") == 0)
+                        else if (strcmp(skey, "expected-output") == 0)
                             strncpy(expected_output, sval, sizeof(expected_output) - 1);
                     }
                     if (action[0] != '\0' && out->test_procedure.steps) {
@@ -325,8 +327,8 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 }
                 continue;
             }
-            if (strcmp(key, "applies_to") == 0) {
-                /* applies_to — sequence form: multiple applicability tags */
+            if (strcmp(key, "applies-to") == 0) {
+                /* applies-to — sequence form: multiple applicability tags */
                 yaml_collect_sequence(doc, val_node,
                                       out->applies_to.applies_to,
                                       sizeof(out->applies_to.applies_to),
@@ -381,7 +383,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 }
                 continue;
             }
-            if (strcmp(key, "doc_meta") == 0) {
+            if (strcmp(key, "doc-meta") == 0) {
                 yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
                 yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
                 for (; sp < se; sp++) {
@@ -394,7 +396,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     if (strcmp(skey, "title") == 0)
                         yaml_copy_field(out->doc_meta.title,
                                         sizeof(out->doc_meta.title), sval);
-                    else if (strcmp(skey, "doc_type") == 0)
+                    else if (strcmp(skey, "doc-type") == 0)
                         yaml_copy_field(out->doc_meta.doc_type,
                                         sizeof(out->doc_meta.doc_type), sval);
                     else if (strcmp(skey, "version") == 0)
@@ -409,7 +411,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 }
                 continue;
             }
-            if (strcmp(key, "variant_profile") == 0) {
+            if (strcmp(key, "variant-profile") == 0) {
                 yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
                 yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
                 for (; sp < se; sp++) {
@@ -431,7 +433,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 }
                 continue;
             }
-            if (strcmp(key, "composition_profile") == 0) {
+            if (strcmp(key, "composition-profile") == 0) {
                 /* Walk the mapping looking for the "order" sequence. */
                 yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
                 yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
@@ -452,7 +454,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 }
                 continue;
             }
-            if (strcmp(key, "render_profile") == 0) {
+            if (strcmp(key, "render-profile") == 0) {
                 yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
                 yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
                 for (; sp < se; sp++) {
