@@ -13,6 +13,7 @@
 /* Ordered list of entity kinds used to group the report sections. */
 static const EntityKind KIND_ORDER[] = {
     ENTITY_KIND_DOCUMENT,
+    ENTITY_KIND_DOCUMENT_SCHEMA,
     ENTITY_KIND_REQUIREMENT,
     ENTITY_KIND_GROUP,
     ENTITY_KIND_STORY,

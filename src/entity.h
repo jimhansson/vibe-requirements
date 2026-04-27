@@ -95,6 +95,7 @@ typedef enum {
     ENTITY_KIND_TEST_CASE,       /**< explicit test case                       */
     ENTITY_KIND_EXTERNAL,        /**< external normative source                */
     ENTITY_KIND_DOCUMENT,        /**< a document entity (SRS, SDD, …)          */
+    ENTITY_KIND_DOCUMENT_SCHEMA, /**< schema-driven document composition plan  */
     ENTITY_KIND_UNKNOWN          /**< fallback for unrecognised 'type' values  */
 } EntityKind;
 
@@ -376,6 +377,95 @@ typedef struct {
     int   count;       /**< number of attachments stored                                               */
 } AttachmentComponent;
 
+/** Maximum byte size of the applies_to store. */
+#define APPLIES_TO_STORE_LEN 256
+
+/**
+ * Applies-to component — variant / applicability filter on any entity.
+ *
+ * Records one or more applicability tags that indicate which variants,
+ * customers, or products this entity applies to.  Entries are stored as
+ * a newline-separated flat string.
+ *
+ * YAML key: "applies_to" — scalar or sequence:
+ *
+ *   applies_to: acme
+ *
+ *   applies_to:
+ *     - acme
+ *     - bmw
+ *
+ * Any entity can carry this component; it is used by composition profiles
+ * to filter entities when rendering variant-specific documents.
+ */
+typedef struct {
+    char applies_to[APPLIES_TO_STORE_LEN]; /**< newline-separated applicability tags */
+    int  count;                             /**< number of tags stored               */
+} AppliesToComponent;
+
+/**
+ * Variant-profile component — rendering context for document-schema entities.
+ *
+ * Specifies the customer/product context used when rendering a
+ * variant-specific document from a document-schema.
+ *
+ * YAML key: "variant_profile" — a mapping node:
+ *
+ *   variant_profile:
+ *     customer: acme
+ *     product: v1.0
+ *
+ * The "delivery" key is accepted as an alias for "product".
+ */
+typedef struct {
+    char customer[128]; /**< customer / variant target (YAML "variant_profile.customer") */
+    char product[128];  /**< product / delivery target (YAML "variant_profile.product"
+                             or "variant_profile.delivery")                              */
+} VariantProfileComponent;
+
+/** Maximum byte size of the composition-profile order store. */
+#define COMP_ORDER_LEN 2048
+
+/**
+ * Composition-profile component — section ordering and placement rules.
+ *
+ * Records the explicit ordered list of section entity IDs that defines the
+ * chapter structure of a rendered document.  Entries are stored as a
+ * newline-separated flat string.
+ *
+ * YAML key: "composition_profile" — a mapping with an "order" sequence:
+ *
+ *   composition_profile:
+ *     order:
+ *       - SEC-INTRO
+ *       - SEC-FUNC
+ *       - SEC-TRACE
+ *
+ * Typically used on document-schema entities to declare the canonical
+ * section ordering, but may appear on any entity.
+ */
+typedef struct {
+    char order[COMP_ORDER_LEN]; /**< newline-separated ordered section IDs */
+    int  order_count;            /**< number of sections in the order list  */
+} CompositionProfileComponent;
+
+/**
+ * Render-profile component — output and layout options for document generation.
+ *
+ * Specifies the output format and any additional layout directives for
+ * rendering a document-schema into a document artefact.
+ *
+ * YAML key: "render_profile" — a mapping node:
+ *
+ *   render_profile:
+ *     format: markdown
+ *
+ * Recognised format values: "markdown", "html".
+ */
+typedef struct {
+    char format[32]; /**< output format: "markdown", "html", … */
+} RenderProfileComponent;
+
 /** Maximum byte size of the traceability link store. */
 #define TRACE_STORE_LEN 4096
 
@@ -440,6 +530,10 @@ typedef struct {
  *   - test_procedure       — any entity carrying preconditions/steps/expected_result (heap)
  *   - clause_collection    — any entity carrying a "clauses:" sequence (heap)
  *   - attachment           — any entity carrying an "attachments:" sequence (heap)
+ *   - applies_to           — any entity carrying an "applies_to:" variant filter
+ *   - variant_profile      — document-schema: variant rendering context
+ *   - composition_profile  — document-schema: explicit section ordering
+ *   - render_profile       — document-schema: output format options
  */
 typedef struct {
     IdentityComponent          identity;
@@ -461,6 +555,12 @@ typedef struct {
     TestProcedureComponent     test_procedure;
     ClauseCollectionComponent  clause_collection;
     AttachmentComponent        attachment;
+
+    /* Document-composition components */
+    AppliesToComponent         applies_to;
+    VariantProfileComponent    variant_profile;
+    CompositionProfileComponent composition_profile;
+    RenderProfileComponent     render_profile;
 } Entity;
 
 /** Dynamic array of Entity records. */
@@ -543,6 +643,7 @@ void entity_list_free(EntityList *list);
  *   "test-case", "test_case", "test"                     → ENTITY_KIND_TEST_CASE
  *   "external", "directive", "standard", "regulation"    → ENTITY_KIND_EXTERNAL
  *   "document", "srs", "sdd"                             → ENTITY_KIND_DOCUMENT
+ *   "document-schema"                                    → ENTITY_KIND_DOCUMENT_SCHEMA
  *   anything else                                        → ENTITY_KIND_UNKNOWN
  *
  * @param type_str  value of the YAML "type" key (may be NULL or empty)
@@ -577,6 +678,10 @@ const char *entity_kind_label(EntityKind kind);
  *   test-procedure, test_procedure
  *   clause-collection, clause_collection, clauses
  *   attachment, attachments
+ *   applies-to, applies_to
+ *   variant-profile, variant_profile
+ *   composition-profile, composition_profile
+ *   render-profile, render_profile
  *
  * @param entity  pointer to the Entity to inspect (must not be NULL)
  * @param comp    component name string (case-sensitive); NULL or "" → always 1

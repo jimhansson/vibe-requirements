@@ -177,6 +177,27 @@ static void write_document(FILE *out, const char *id, const char *type_str)
             id, type_str);
 }
 
+static void write_document_schema(FILE *out, const char *id)
+{
+    fprintf(out,
+            "id: %s\n"
+            "title: \"\"\n"
+            "type: document-schema\n"
+            "status: draft\n"
+            "owner: \"\"\n"
+            "description: |\n"
+            "  TODO: Add description.\n"
+            "variant_profile:\n"
+            "  customer: \"\"\n"
+            "  product: \"\"\n"
+            "composition_profile:\n"
+            "  order:\n"
+            "    - SEC-INTRO\n"
+            "render_profile:\n"
+            "  format: markdown\n",
+            id);
+}
+
 /* -----------------------------------------------------------------------
  * Public API
  * --------------------------------------------------------------------- */
@@ -240,6 +261,9 @@ int new_cmd_scaffold(const char *type_str, const char *id, const char *dir)
             break;
         case ENTITY_KIND_DOCUMENT:
             write_document(out, id, type_str);
+            break;
+        case ENTITY_KIND_DOCUMENT_SCHEMA:
+            write_document_schema(out, id);
             break;
         default:
             fclose(out);
