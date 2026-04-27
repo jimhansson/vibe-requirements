@@ -1,6 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <algorithm>
 
 #include "entity.h"
 #include "discovery.h"
@@ -18,17 +19,11 @@ int main(int argc, char *argv[])
     CliOptions opts;
     cli_parse_args(argc, argv, &opts);
 
-    /* ------------------------------------------------------------------ */
-    /* Handle -h / --help                                                  */
-    /* ------------------------------------------------------------------ */
     if (opts.show_help) {
         cli_print_help(argv[0]);
         return 0;
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Handle parse errors                                                 */
-    /* ------------------------------------------------------------------ */
     if (opts.parse_error) {
         fprintf(stderr, "%s\n", opts.error_msg);
         if (opts.is_new_cmd)
@@ -41,9 +36,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Handle 'new' subcommand                                             */
-    /* ------------------------------------------------------------------ */
     if (opts.is_new_cmd) {
         int rc = new_cmd_scaffold(opts.new_type, opts.new_id, opts.new_dir);
         if (rc == -3) {
@@ -69,64 +61,47 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    /* ------------------------------------------------------------------ */
-    /* All remaining subcommands require entity discovery.                 */
-    /* ------------------------------------------------------------------ */
     EntityList elist;
-    entity_list_init(&elist);
 
     VibeConfig cfg;
-    /* config_load() returns -1 when .vibe-req.yaml is absent or unparseable,
-     * which is perfectly valid — cfg is zeroed so discovery runs unfiltered. */
     config_load(opts.root, &cfg);
 
     int found = discover_entities(opts.root, &elist, &cfg);
     if (found < 0) {
         fprintf(stderr, "error: cannot open directory '%s'\n", opts.root);
-        entity_list_free(&elist);
         return 1;
     }
 
-    /* Sort entities alphabetically by ID before displaying. */
-    if (elist.count > 1)
-        qsort(elist.items, (size_t)elist.count, sizeof(Entity),
-              entity_cmp_by_id);
+    if (elist.size() > 1) {
+        std::sort(elist.begin(), elist.end(),
+                  [](const Entity &a, const Entity &b) {
+                      return a.identity.id < b.identity.id;
+                  });
+    }
 
-    /* ------------------------------------------------------------------ */
-    /* 'list' / 'entities' subcommand                                      */
-    /* ------------------------------------------------------------------ */
     if (opts.show_entities) {
         if (opts.filter_kind || opts.filter_comp ||
             opts.filter_status || opts.filter_priority) {
             EntityList filtered;
-            entity_list_init(&filtered);
             entity_apply_filter(&elist, &filtered,
                                 opts.filter_kind, opts.filter_comp,
                                 opts.filter_status, opts.filter_priority);
             list_entities(&filtered);
-            entity_list_free(&filtered);
         } else {
             list_entities(&elist);
         }
-        entity_list_free(&elist);
         return 0;
     }
 
-    /* ------------------------------------------------------------------ */
-    /* 'report' subcommand                                                 */
-    /* ------------------------------------------------------------------ */
     if (opts.show_report) {
         TripletStore *store = build_entity_relation_store(&elist);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
-            entity_list_free(&elist);
             return 1;
         }
 
-        /* Apply filters when provided. */
         EntityList *src = &elist;
         EntityList  filtered;
-        entity_list_init(&filtered);
         if (opts.filter_kind || opts.filter_comp ||
             opts.filter_status || opts.filter_priority) {
             entity_apply_filter(&elist, &filtered,
@@ -141,9 +116,7 @@ int main(int argc, char *argv[])
             if (!out) {
                 fprintf(stderr, "error: cannot open output file '%s'\n",
                         opts.report_output);
-                entity_list_free(&filtered);
                 triplet_store_destroy(store);
-                entity_list_free(&elist);
                 return 1;
             }
         }
@@ -153,41 +126,30 @@ int main(int argc, char *argv[])
         if (opts.report_output)
             fclose(out);
 
-        entity_list_free(&filtered);
         triplet_store_destroy(store);
-        entity_list_free(&elist);
         return 0;
     }
 
-    /* ------------------------------------------------------------------ */
-    /* 'doc' subcommand                                                    */
-    /* ------------------------------------------------------------------ */
     if (opts.is_doc_cmd) {
         TripletStore *store = build_entity_relation_store(&elist);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
-            entity_list_free(&elist);
             return 1;
         }
 
         EntityList doc_entities;
-        entity_list_init(&doc_entities);
 
         int rc = collect_document_entities(&elist, store, opts.doc_id,
                                            &doc_entities);
         if (rc == -1) {
             fprintf(stderr, "error: document '%s' not found\n", opts.doc_id);
             triplet_store_destroy(store);
-            entity_list_free(&doc_entities);
-            entity_list_free(&elist);
             return 1;
         }
         if (rc == -2) {
             fprintf(stderr, "error: entity '%s' is not a document\n",
                     opts.doc_id);
             triplet_store_destroy(store);
-            entity_list_free(&doc_entities);
-            entity_list_free(&elist);
             return 1;
         }
         if (rc != 0) {
@@ -195,8 +157,6 @@ int main(int argc, char *argv[])
                     "error: failed to collect document members for '%s'\n",
                     opts.doc_id);
             triplet_store_destroy(store);
-            entity_list_free(&doc_entities);
-            entity_list_free(&elist);
             return 1;
         }
 
@@ -207,8 +167,6 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "error: cannot open output file '%s'\n",
                         opts.report_output);
                 triplet_store_destroy(store);
-                entity_list_free(&doc_entities);
-                entity_list_free(&elist);
                 return 1;
             }
         }
@@ -219,19 +177,13 @@ int main(int argc, char *argv[])
             fclose(out);
 
         triplet_store_destroy(store);
-        entity_list_free(&doc_entities);
-        entity_list_free(&elist);
         return 0;
     }
 
-    /* ------------------------------------------------------------------ */
-    /* 'trace', 'coverage', 'orphan' subcommands                          */
-    /* ------------------------------------------------------------------ */
     if (opts.trace_id || opts.show_coverage || opts.show_orphan) {
         TripletStore *store = build_entity_relation_store(&elist);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
-            entity_list_free(&elist);
             return 1;
         }
 
@@ -243,20 +195,15 @@ int main(int argc, char *argv[])
             cmd_orphan(&elist, store);
 
         triplet_store_destroy(store);
-        entity_list_free(&elist);
         return 0;
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Default / 'links' / --strict-links path                             */
-    /* ------------------------------------------------------------------ */
     int exit_code = 0;
 
     if (opts.show_links || opts.strict_links) {
         TripletStore *store = build_entity_relation_store(&elist);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
-            entity_list_free(&elist);
             return 1;
         }
         if (opts.show_links)
@@ -273,6 +220,5 @@ int main(int argc, char *argv[])
         list_entities(&elist);
     }
 
-    entity_list_free(&elist);
     return exit_code;
 }

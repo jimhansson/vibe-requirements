@@ -3,8 +3,8 @@
 #include "yaml_simple.h"
 #include <dirent.h>
 #include <sys/stat.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 static int is_yaml(const char *name)
 {
@@ -23,15 +23,14 @@ static void walk(const char *dir, EntityList *list, const VibeConfig *cfg)
     struct dirent *entry;
     while ((entry = readdir(d)) != NULL) {
         const char *name = entry->d_name;
-
-        /* Skip hidden entries and the special "." / ".." entries. */
         if (name[0] == '.')
             continue;
 
         char path[512];
         int n = snprintf(path, sizeof(path), "%s/%s", dir, name);
         if (n < 0 || (size_t)n >= sizeof(path)) {
-            fprintf(stderr, "warning: path too long, skipping: %s/%s\n", dir, name);
+            fprintf(stderr, "warning: path too long, skipping: %s/%s\n",
+                    dir, name);
             continue;
         }
 
@@ -40,7 +39,6 @@ static void walk(const char *dir, EntityList *list, const VibeConfig *cfg)
             continue;
 
         if (S_ISDIR(st.st_mode)) {
-            /* Skip directories listed in ignore_dirs. */
             if (config_is_ignored_dir(cfg, name))
                 continue;
             walk(path, list, cfg);
@@ -56,12 +54,11 @@ static void walk(const char *dir, EntityList *list, const VibeConfig *cfg)
 int discover_entities(const char *root_dir, EntityList *list,
                       const VibeConfig *cfg)
 {
-    /* Probe that the directory exists before recursing. */
     DIR *probe = opendir(root_dir);
     if (!probe)
         return -1;
     closedir(probe);
 
     walk(root_dir, list, cfg);
-    return list->count;
+    return (int)list->size();
 }

@@ -1,9 +1,6 @@
 #ifndef VIBE_NEW_CMD_H
 #define VIBE_NEW_CMD_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /**
  * Scaffold a new entity YAML file.
@@ -22,8 +19,5 @@ extern "C" {
  */
 int new_cmd_scaffold(const char *type_str, const char *id, const char *dir);
 
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #endif /* VIBE_NEW_CMD_H */

@@ -10,10 +10,8 @@
 #include <cstdio>
 #include <cstring>
 
-extern "C" {
 #include "yaml_simple.h"
 #include "triplet_store_c.h"
-}
 
 /* -------------------------------------------------------------------------
  * Helpers — write temporary YAML files into /tmp
@@ -46,17 +44,14 @@ TEST(YamlSimpleTest, SingleDocument)
     ASSERT_NE(path, nullptr);
 
     EntityList list;
-    entity_list_init(&list);
 
     int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 1);
-    EXPECT_EQ(list.count, 1);
-    EXPECT_STREQ(list.items[0].identity.id,          "REQ-001");
-    EXPECT_STREQ(list.items[0].identity.title,        "Single document");
-    EXPECT_STREQ(list.items[0].lifecycle.status,      "draft");
-    EXPECT_STREQ(list.items[0].lifecycle.priority,    "must");
-
-    entity_list_free(&list);
+    EXPECT_EQ((int)list.size(), 1);
+    EXPECT_EQ(list[0].identity.id, std::string("REQ-001"));
+    EXPECT_EQ(list[0].identity.title, std::string("Single document"));
+    EXPECT_EQ(list[0].lifecycle.status, std::string("draft"));
+    EXPECT_EQ(list[0].lifecycle.priority, std::string("must"));
 }
 
 TEST(YamlSimpleTest, MultiDocument)
@@ -82,22 +77,19 @@ TEST(YamlSimpleTest, MultiDocument)
     ASSERT_NE(path, nullptr);
 
     EntityList list;
-    entity_list_init(&list);
 
     int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 3);
-    EXPECT_EQ(list.count, 3);
+    EXPECT_EQ((int)list.size(), 3);
 
-    EXPECT_STREQ(list.items[0].identity.id,    "REQ-001");
-    EXPECT_STREQ(list.items[0].identity.title, "First requirement");
+    EXPECT_EQ(list[0].identity.id, std::string("REQ-001"));
+    EXPECT_EQ(list[0].identity.title, std::string("First requirement"));
 
-    EXPECT_STREQ(list.items[1].identity.id,    "REQ-002");
-    EXPECT_STREQ(list.items[1].identity.title, "Second requirement");
+    EXPECT_EQ(list[1].identity.id, std::string("REQ-002"));
+    EXPECT_EQ(list[1].identity.title, std::string("Second requirement"));
 
-    EXPECT_STREQ(list.items[2].identity.id,    "REQ-003");
-    EXPECT_STREQ(list.items[2].identity.title, "Third requirement");
-
-    entity_list_free(&list);
+    EXPECT_EQ(list[2].identity.id, std::string("REQ-003"));
+    EXPECT_EQ(list[2].identity.title, std::string("Third requirement"));
 }
 
 TEST(YamlSimpleTest, MultiDocumentSkipsNoId)
@@ -114,27 +106,21 @@ TEST(YamlSimpleTest, MultiDocumentSkipsNoId)
     ASSERT_NE(path, nullptr);
 
     EntityList list;
-    entity_list_init(&list);
 
     int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 2);
-    EXPECT_EQ(list.count, 2);
-    EXPECT_STREQ(list.items[0].identity.id, "REQ-001");
-    EXPECT_STREQ(list.items[1].identity.id, "REQ-003");
-
-    entity_list_free(&list);
+    EXPECT_EQ((int)list.size(), 2);
+    EXPECT_EQ(list[0].identity.id, std::string("REQ-001"));
+    EXPECT_EQ(list[1].identity.id, std::string("REQ-003"));
 }
 
 TEST(YamlSimpleTest, NonexistentFile)
 {
     EntityList list;
-    entity_list_init(&list);
 
     int rc = yaml_parse_entities("/tmp/no_such_file_xyz.yaml", &list);
     EXPECT_EQ(rc, -1);
-    EXPECT_EQ(list.count, 0);
-
-    entity_list_free(&list);
+    EXPECT_EQ((int)list.size(), 0);
 }
 
 TEST(YamlSimpleTest, FilePathStoredPerDocument)
@@ -148,15 +134,12 @@ TEST(YamlSimpleTest, FilePathStoredPerDocument)
     ASSERT_NE(path, nullptr);
 
     EntityList list;
-    entity_list_init(&list);
 
     yaml_parse_entities(path, &list);
-    EXPECT_EQ(list.count, 2);
+    EXPECT_EQ((int)list.size(), 2);
     /* Both entities should record the same file path. */
-    EXPECT_STREQ(list.items[0].identity.file_path, path);
-    EXPECT_STREQ(list.items[1].identity.file_path, path);
-
-    entity_list_free(&list);
+    EXPECT_STREQ(list[0].identity.file_path, path);
+    EXPECT_STREQ(list[1].identity.file_path, path);
 }
 
 /* -------------------------------------------------------------------------
@@ -246,12 +229,12 @@ TEST(YamlSimpleTest, LinksArtefactKey)
 
     /* Verify that each triple was stored with the correct object. */
     CTripleList list = triplet_store_find_by_subject(store, "TC-001");
-    EXPECT_EQ(list.count, 3u);
+    EXPECT_EQ((int)list.size(), 3u);
 
     int found_verifies          = 0;
     int found_implemented_by    = 0;
     int found_implemented_by_test = 0;
-    for (size_t i = 0; i < list.count; i++) {
+    for (size_t i = 0; i < (int)list.size(); i++) {
         const CTriple *t = &list.triples[i];
         if (strcmp(t->predicate, "verifies") == 0 &&
             strcmp(t->object, "REQ-005") == 0)
@@ -295,8 +278,8 @@ TEST(YamlSimpleTest, EntityLinksKeyAliasForTraceability)
     int rc = yaml_parse_entity(path, &e);
     ASSERT_EQ(rc, 0);
 
-    EXPECT_STREQ(e.identity.id, "TC-ALIAS-001");
-    EXPECT_EQ(e.traceability.count, 2);
+    EXPECT_EQ(e.identity.id, std::string("TC-ALIAS-001"));
+    EXPECT_EQ(e.(int)traceability.size(), 2);
     EXPECT_NE(strstr(e.traceability.entries, "REQ-005"),           nullptr);
     EXPECT_NE(strstr(e.traceability.entries, "verifies"),          nullptr);
     EXPECT_NE(strstr(e.traceability.entries, "src/tests/test_foo.cpp"), nullptr);
@@ -319,7 +302,7 @@ TEST(YamlSimpleTest, EntityLinksKeyLoadedIntoTripletStore)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     ASSERT_EQ(rc, 0);
-    ASSERT_EQ(e.traceability.count, 1);
+    ASSERT_EQ(e.(int)traceability.size(), 1);
 
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
@@ -328,7 +311,7 @@ TEST(YamlSimpleTest, EntityLinksKeyLoadedIntoTripletStore)
     EXPECT_EQ(added, 1);
 
     CTripleList list = triplet_store_find_by_subject(store, "TC-ALIAS-002");
-    ASSERT_EQ(list.count, 1u);
+    ASSERT_EQ((int)list.size(), 1u);
     EXPECT_STREQ(list.triples[0].subject,   "TC-ALIAS-002");
     EXPECT_STREQ(list.triples[0].predicate, "verifies");
     EXPECT_STREQ(list.triples[0].object,    "REQ-010");

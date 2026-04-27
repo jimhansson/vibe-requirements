@@ -13,10 +13,6 @@
 #include "entity.h"
 #include "triplet_store_c.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * Build a TripletStore from all traceability links declared in @p list.
  *
@@ -99,8 +95,5 @@ int check_strict_links(const TripletStore *store);
 int collect_document_entities(const EntityList *all, const TripletStore *store,
                               const char *doc_id, EntityList *out);
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* VIBE_LIST_CMD_H */

@@ -1,26 +1,18 @@
 /**
- * @file list_cmd.c
- * @brief Entity/relation table rendering and trace helpers for the vibe-req CLI.
- *
- * Implements the functions declared in list_cmd.h.  These were extracted from
- * main.c so that they can be unit-tested independently of the main() function.
+ * @file list_cmd.cpp
+ * @brief Entity/relation table rendering and trace helpers (C++ edition).
  */
 
 #include "list_cmd.h"
-
-#include <stdio.h>
-#include <string.h>
-
+#include <cstdio>
+#include <cstring>
 #include "entity.h"
 #include "triplet_store_c.h"
 #include "yaml_simple.h"
 
-/* ------------------------------------------------------------------ */
-/* Table rendering — relations                                         */
-/* ------------------------------------------------------------------ */
-
 #define SUBJ_MAX_DISPLAY 32
 #define OBJ_MAX_DISPLAY  48
+#define ENTITY_TITLE_MAX  48
 
 static void print_rel_rule(int subj_w, int pred_w, int obj_w, int src_w)
 {
@@ -44,7 +36,6 @@ void list_relations(const TripletStore *store)
         return;
     }
 
-    /* Determine column widths from data. */
     int subj_w = (int)strlen("Subject");
     int pred_w = (int)strlen("Relation");
     int obj_w  = (int)strlen("Object");
@@ -60,7 +51,6 @@ void list_relations(const TripletStore *store)
         if (len > obj_w)  obj_w  = len;
     }
 
-    /* Cap column widths. */
     if (subj_w > SUBJ_MAX_DISPLAY) subj_w = SUBJ_MAX_DISPLAY;
     if (obj_w  > OBJ_MAX_DISPLAY)  obj_w  = OBJ_MAX_DISPLAY;
 
@@ -73,7 +63,6 @@ void list_relations(const TripletStore *store)
     for (size_t i = 0; i < all.count; i++) {
         const CTriple *t = &all.triples[i];
 
-        /* Truncate subject if needed. */
         char sbuf[SUBJ_MAX_DISPLAY + 1];
         strncpy(sbuf, t->subject, sizeof(sbuf) - 1);
         sbuf[sizeof(sbuf) - 1] = '\0';
@@ -82,7 +71,6 @@ void list_relations(const TripletStore *store)
             sbuf[subj_w] = '\0';
         }
 
-        /* Truncate object if needed. */
         char obuf[OBJ_MAX_DISPLAY + 1];
         strncpy(obuf, t->object, sizeof(obuf) - 1);
         obuf[sizeof(obuf) - 1] = '\0';
@@ -99,13 +87,8 @@ void list_relations(const TripletStore *store)
 
     print_rel_rule(subj_w, pred_w, obj_w, src_w);
     printf("\nTotal: %zu relation(s)\n", all.count);
-
     triplet_store_list_free(all);
 }
-
-/* ------------------------------------------------------------------ */
-/* --strict-links validation                                          */
-/* ------------------------------------------------------------------ */
 
 int check_strict_links(const TripletStore *store)
 {
@@ -114,17 +97,10 @@ int check_strict_links(const TripletStore *store)
 
     for (size_t i = 0; i < all.count; i++) {
         const CTriple *t = &all.triples[i];
-        if (t->inferred) continue; /* only inspect user-declared triples */
+        if (t->inferred) continue;
 
-        /*
-         * Look for the inferred inverse (t->object, inv_pred, t->subject).
-         * Its existence confirms that t->predicate is in the known-pair
-         * table and tells us the expected inverse predicate name.
-         */
         CTripleList by_subj = triplet_store_find_by_subject(store, t->object);
 
-        /* Copy the inverse predicate into a local buffer before freeing
-         * by_subj, to avoid a use-after-free when writing the warning. */
         char inv_pred_buf[256] = {0};
         int  found_declared    = 0;
 
@@ -138,13 +114,10 @@ int check_strict_links(const TripletStore *store)
         }
 
         if (inv_pred_buf[0] == '\0') {
-            /* No inferred inverse — relation is unknown; skip. */
             triplet_store_list_free(by_subj);
             continue;
         }
 
-        /* Check whether a user-declared (t->object, inv_pred, t->subject)
-         * triple already exists. */
         for (size_t j = 0; j < by_subj.count; j++) {
             const CTriple *cand = &by_subj.triples[j];
             if (!cand->inferred &&
@@ -170,15 +143,6 @@ int check_strict_links(const TripletStore *store)
     return warnings;
 }
 
-/* ------------------------------------------------------------------ */
-/* Trace — subject-focused traceability chain traversal               */
-/* ------------------------------------------------------------------ */
-
-/*
- * Print all triples with the given subject at the specified indent level.
- * Recurse one level deeper for each object that has outgoing triples of
- * its own, up to max_depth hops.
- */
 static void trace_subject(const TripletStore *store, const char *subject,
                            int depth, int max_depth)
 {
@@ -187,41 +151,26 @@ static void trace_subject(const TripletStore *store, const char *subject,
     for (size_t i = 0; i < list.count; i++) {
         const CTriple *t = &list.triples[i];
         if (t->inferred)
-            continue; /* show only user-declared triples */
+            continue;
 
         for (int d = 0; d < depth; d++)
             printf("  ");
         printf("-[%s]-> %s\n", t->predicate, t->object);
 
-        if (depth < max_depth) {
+        if (depth < max_depth)
             trace_subject(store, t->object, depth + 1, max_depth);
-        }
     }
 
     triplet_store_list_free(list);
 }
 
-/* ------------------------------------------------------------------ */
-/* Entity table constants (used across multiple functions below)      */
-/* ------------------------------------------------------------------ */
-
-#define ENTITY_TITLE_MAX  48
-#define ENTITY_KIND_MAX   12
-#define ENTITY_STATUS_MAX 16
-#define ENTITY_PRIO_MAX   12
-
-/* ------------------------------------------------------------------ */
-/* Entity-aware trace — shows entity info + outgoing + incoming links */
-/* ------------------------------------------------------------------ */
-
 void cmd_trace_entity(const EntityList *elist,
                       const TripletStore *store, const char *id)
 {
-    /* Locate the entity record if available. */
     const Entity *found = NULL;
-    for (int i = 0; i < elist->count; i++) {
-        if (strcmp(elist->items[i].identity.id, id) == 0) {
-            found = &elist->items[i];
+    for (const auto &e : *elist) {
+        if (e.identity.id == id) {
+            found = &e;
             break;
         }
     }
@@ -230,10 +179,10 @@ void cmd_trace_entity(const EntityList *elist,
 
     if (found) {
         printf("  Kind:   %s\n", entity_kind_label(found->identity.kind));
-        if (found->identity.title[0] != '\0')
-            printf("  Title:  %s\n", found->identity.title);
-        if (found->lifecycle.status[0] != '\0')
-            printf("  Status: %s\n", found->lifecycle.status);
+        if (!found->identity.title.empty())
+            printf("  Title:  %s\n", found->identity.title.c_str());
+        if (!found->lifecycle.status.empty())
+            printf("  Status: %s\n", found->lifecycle.status.c_str());
     } else {
         printf("  (entity not found in scanned files)\n");
     }
@@ -249,7 +198,6 @@ void cmd_trace_entity(const EntityList *elist,
     if (out_count == 0) {
         printf("  (none)\n");
     } else {
-        /* Use trace_subject for consistent indented recursive output. */
         trace_subject(store, id, 1, 2);
     }
 
@@ -268,19 +216,15 @@ void cmd_trace_entity(const EntityList *elist,
     triplet_store_list_free(in_links);
 }
 
-/* ------------------------------------------------------------------ */
-/* Build entity triplet store from ECS EntityList                     */
-/* ------------------------------------------------------------------ */
-
 TripletStore *build_entity_relation_store(const EntityList *list)
 {
     TripletStore *store = triplet_store_create();
     if (!store)
         return NULL;
 
-    for (int i = 0; i < list->count; i++) {
-        entity_traceability_to_triplets(&list->items[i], store);
-        entity_doc_membership_to_triplets(&list->items[i], store);
+    for (const auto &e : *list) {
+        entity_traceability_to_triplets(&e, store);
+        entity_doc_membership_to_triplets(&e, store);
     }
 
     triplet_store_infer_inverses(store);
@@ -289,9 +233,9 @@ TripletStore *build_entity_relation_store(const EntityList *list)
 
 static const Entity *find_entity_by_id(const EntityList *list, const char *id)
 {
-    for (int i = 0; i < list->count; i++) {
-        if (strcmp(list->items[i].identity.id, id) == 0)
-            return &list->items[i];
+    for (const auto &e : *list) {
+        if (e.identity.id == id)
+            return &e;
     }
     return NULL;
 }
@@ -322,7 +266,7 @@ static int entity_is_member_of_document(const TripletStore *store,
 }
 
 int collect_document_entities(const EntityList *all, const TripletStore *store,
-                              const char *doc_id, EntityList *out)
+                               const char *doc_id, EntityList *out)
 {
     const Entity *doc = find_entity_by_id(all, doc_id);
     if (!doc)
@@ -330,31 +274,24 @@ int collect_document_entities(const EntityList *all, const TripletStore *store,
     if (doc->identity.kind != ENTITY_KIND_DOCUMENT)
         return -2;
 
-    if (entity_list_add(out, doc) != 0)
-        return -3;
+    out->push_back(*doc);
 
-    for (int i = 0; i < all->count; i++) {
-        const Entity *entity = &all->items[i];
-
-        if (strcmp(entity->identity.id, doc_id) == 0)
+    for (const auto &entity : *all) {
+        if (entity.identity.id == doc_id)
             continue;
 
-        if (!entity_is_member_of_document(store, entity->identity.id, doc_id))
+        if (!entity_is_member_of_document(store, entity.identity.id.c_str(),
+                                           doc_id))
             continue;
 
-        if (list_contains_entity_id(out, entity->identity.id))
+        if (list_contains_entity_id(out, entity.identity.id.c_str()))
             continue;
 
-        if (entity_list_add(out, entity) != 0)
-            return -3;
+        out->push_back(entity);
     }
 
     return 0;
 }
-
-/* ------------------------------------------------------------------ */
-/* Table rendering — entities (ECS)                                   */
-/* ------------------------------------------------------------------ */
 
 static void print_entity_rule(int id_w, int title_w, int kind_w,
                                int status_w, int prio_w)
@@ -395,7 +332,7 @@ static void print_entity_row(int id_w, int title_w, int kind_w,
 
 void list_entities(const EntityList *list)
 {
-    if (list->count == 0) {
+    if (list->empty()) {
         puts("No entities found.");
         return;
     }
@@ -406,15 +343,13 @@ void list_entities(const EntityList *list)
     int status_w = (int)strlen("Status");
     int prio_w   = (int)strlen("Priority");
 
-    for (int i = 0; i < list->count; i++) {
-        const Entity *e = &list->items[i];
+    for (const auto &e : *list) {
         int len;
-        len = (int)strlen(e->identity.id);         if (len > id_w)     id_w     = len;
-        len = (int)strlen(e->identity.title);       if (len > title_w)  title_w  = len;
-        len = (int)strlen(entity_kind_label(e->identity.kind));
-                                                    if (len > kind_w)   kind_w   = len;
-        len = (int)strlen(e->lifecycle.status);     if (len > status_w) status_w = len;
-        len = (int)strlen(e->lifecycle.priority);   if (len > prio_w)   prio_w   = len;
+        len = (int)e.identity.id.size();                         if (len > id_w)     id_w     = len;
+        len = (int)e.identity.title.size();                      if (len > title_w)  title_w  = len;
+        len = (int)strlen(entity_kind_label(e.identity.kind));   if (len > kind_w)   kind_w   = len;
+        len = (int)e.lifecycle.status.size();                    if (len > status_w) status_w = len;
+        len = (int)e.lifecycle.priority.size();                  if (len > prio_w)   prio_w   = len;
     }
 
     if (title_w > ENTITY_TITLE_MAX) title_w = ENTITY_TITLE_MAX;
@@ -424,17 +359,16 @@ void list_entities(const EntityList *list)
                      "ID", "Title", "Kind", "Status", "Priority");
     print_entity_rule(id_w, title_w, kind_w, status_w, prio_w);
 
-    for (int i = 0; i < list->count; i++) {
-        const Entity *e = &list->items[i];
+    for (const auto &e : *list) {
         print_entity_row(id_w, title_w, kind_w, status_w, prio_w,
-                         e->identity.id,
-                         e->identity.title,
-                         entity_kind_label(e->identity.kind),
-                         e->lifecycle.status,
-                         e->lifecycle.priority);
+                         e.identity.id.c_str(),
+                         e.identity.title.c_str(),
+                         entity_kind_label(e.identity.kind),
+                         e.lifecycle.status.c_str(),
+                         e.lifecycle.priority.c_str());
     }
 
     print_entity_rule(id_w, title_w, kind_w, status_w, prio_w);
-    printf("\nTotal: %d %s\n", list->count,
-           list->count == 1 ? "entity" : "entities");
+    int count = (int)list->size();
+    printf("\nTotal: %d %s\n", count, count == 1 ? "entity" : "entities");
 }
