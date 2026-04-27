@@ -17,6 +17,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Verify C++23-capable compiler
+        run: |
+          g++ --version
+          g++ -std=c++23 -x c++ - <<'EOF'
+          #if __cplusplus <= 202002L
+          #error "C++23 required"
+          #endif
+          int main(){}
+          EOF
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -24,6 +34,9 @@ jobs:
           cmake -S /usr/src/googletest -B /tmp/googletest-build
           cmake --build /tmp/googletest-build
           sudo cmake --install /tmp/googletest-build
+
+      - name: Check C++23 compiler features
+        run: make check-compiler
 
       - name: Build
         run: make

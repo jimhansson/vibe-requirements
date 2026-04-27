@@ -1,7 +1,7 @@
 CC       = gcc
 CXX      = g++
 CFLAGS   = -std=c11 -Wall -Wextra -Wpedantic -O2 -I.
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2
+CXXFLAGS = -std=c++23 -Wall -Wextra -O2
 LDLIBS   = -lyaml
 
 BIN_DIR   = ../bin
@@ -82,13 +82,19 @@ TEST_MAIN_OBJS   = $(BUILD_DIR)/tests/test_main.o \
                    $(BUILD_DIR)/entity.o $(YAML_OBJS) \
                    $(BUILD_DIR)/triplet_store.o $(BUILD_DIR)/triplet_store_c.o
 
-.PHONY: all clean test
+.PHONY: all clean test check-compiler
 
 all: $(TARGET)
 
 # Link with g++ when C++ objects are present (required for the C++ runtime).
 $(TARGET): $(OBJS) | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
+
+# check-compiler: compile-time probe that the toolchain supports C++23.
+# Run this target to verify the toolchain before building the main project.
+check-compiler:
+	$(CXX) $(CXXFLAGS) -o /dev/null compat/cxx23_check.cpp
+	@echo "Compiler check passed: $(CXX) supports C++23."
 
 $(TEST_TRIPLET_TARGET): $(TEST_TRIPLET_OBJS) | $(BIN_DIR)/tests
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(GTEST_LDFLAGS)
