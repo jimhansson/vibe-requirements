@@ -3,9 +3,9 @@ title: "Software Requirements Specification"
 type: srs
 status: draft
 owner: ""
-doc_meta:
+doc-meta:
   title: "vibe-requirements Software Requirements Specification"
-  doc_type: SRS
+  doc-type: SRS
   version: "1.0"
   client: "Open Source"
   status: draft
@@ -15,9 +15,9 @@ title: "Software Design Description"
 type: sdd
 status: draft
 owner: ""
-doc_meta:
+doc-meta:
   title: "vibe-requirements Software Design Description"
-  doc_type: SDD
+  doc-type: SDD
   version: "1.0"
   client: "Open Source"
   status: draft

@@ -45,14 +45,9 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
         if (!key_node || key_node->type != YAML_SCALAR_NODE)
             continue;
 
-        /* Normalise the key: replace '_' with '-' so that both forms are
-         * accepted transparently and comparisons only need the '-' form. */
-        char key_buf[64];
-        strncpy(key_buf, (const char *)key_node->data.scalar.value,
-                sizeof(key_buf) - 1);
-        key_buf[sizeof(key_buf) - 1] = '\0';
-        yaml_normalize_key(key_buf);
-        const char *key = key_buf;
+        /* Canonical separator is '-'.  YAML files must use '-' in multi-word
+         * key names; '_' forms are no longer accepted. */
+        const char *key = (const char *)key_node->data.scalar.value;
 
         /* --- Scalar fields ------------------------------------------- */
         if (val_node && val_node->type == YAML_SCALAR_NODE) {
@@ -77,7 +72,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
             COPY_IF("role",   out->user_story.role,   sizeof(out->user_story.role))
             COPY_IF("goal",   out->user_story.goal,   sizeof(out->user_story.goal))
             COPY_IF("reason", out->user_story.reason, sizeof(out->user_story.reason))
-            /* user-story component — legacy aliases (normalised from as_a / i_want / so_that) */
+            /* user-story component — alternative hyphenated keys */
             COPY_IF("as-a",    out->user_story.role,   sizeof(out->user_story.role))
             COPY_IF("i-want",  out->user_story.goal,   sizeof(out->user_story.goal))
             COPY_IF("so-that", out->user_story.reason, sizeof(out->user_story.reason))
@@ -240,12 +235,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                         yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
                         if (!sk || sk->type != YAML_SCALAR_NODE) continue;
                         if (!sv || sv->type != YAML_SCALAR_NODE) continue;
-                        const char *skey_raw = (const char *)sk->data.scalar.value;
-                        char skey_buf[64];
-                        strncpy(skey_buf, skey_raw, sizeof(skey_buf) - 1);
-                        skey_buf[sizeof(skey_buf) - 1] = '\0';
-                        yaml_normalize_key(skey_buf);
-                        const char *skey = skey_buf;
+                        const char *skey = (const char *)sk->data.scalar.value;
                         const char *sval = (const char *)sv->data.scalar.value;
                         if (strcmp(skey, "action") == 0)
                             strncpy(action, sval, sizeof(action) - 1);
@@ -401,12 +391,7 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
                     if (!sk || sk->type != YAML_SCALAR_NODE) continue;
                     if (!sv || sv->type != YAML_SCALAR_NODE) continue;
-                    const char *skey_raw = (const char *)sk->data.scalar.value;
-                    char skey_buf[64];
-                    strncpy(skey_buf, skey_raw, sizeof(skey_buf) - 1);
-                    skey_buf[sizeof(skey_buf) - 1] = '\0';
-                    yaml_normalize_key(skey_buf);
-                    const char *skey = skey_buf;
+                    const char *skey = (const char *)sk->data.scalar.value;
                     const char *sval = (const char *)sv->data.scalar.value;
                     if (strcmp(skey, "title") == 0)
                         yaml_copy_field(out->doc_meta.title,

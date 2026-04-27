@@ -39,13 +39,6 @@
  * ---------------------------------------------------------------------- */
 
 /*
- * Normalize a YAML key by replacing every '_' character with '-'.
- * Modifies the string in-place.  Allows parsers to accept both styles
- * while only comparing against the canonical hyphen-separated form.
- */
-void yaml_normalize_key(char *key);
-
-/*
  * Copy at most (dst_size - 1) bytes from src into dst and NUL-terminate.
  * Truncates silently when src is longer than the buffer.
  */

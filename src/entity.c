@@ -185,15 +185,6 @@ int entity_has_component(const Entity *entity, const char *comp)
     if (!comp || comp[0] == '\0')
         return 1; /* no filter — always matches */
 
-    /* Normalise the component name: replace '_' with '-' so callers can use
-     * either form and comparisons only need the canonical hyphen form. */
-    char norm[64];
-    strncpy(norm, comp, sizeof(norm) - 1);
-    norm[sizeof(norm) - 1] = '\0';
-    for (char *p = norm; *p; p++)
-        if (*p == '_') *p = '-';
-    comp = norm;
-
     if (strcmp(comp, "user-story") == 0)
         return entity->user_story.role[0] != '\0' ||
                entity->user_story.goal[0] != '\0';

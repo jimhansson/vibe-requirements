@@ -20,7 +20,7 @@ tags:
   - authentication
   - login
   - ux
-acceptance_criteria:
+acceptance-criteria:
   - A login form with email and password fields is displayed.
   - Submitting valid credentials redirects the user to the dashboard.
   - Submitting invalid credentials displays a clear error message.

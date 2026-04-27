@@ -210,7 +210,7 @@ TEST(YamlParseEntityTest, StoryFile)
         "role: registered user\n"
         "goal: to log in with my email\n"
         "reason: I can access my account\n"
-        "acceptance_criteria:\n"
+        "acceptance-criteria:\n"
         "  - Login form is shown\n"
         "  - Error displayed on wrong password\n");
     ASSERT_NE(path, nullptr);
@@ -229,16 +229,16 @@ TEST(YamlParseEntityTest, StoryFile)
     EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Error displayed on wrong password"), nullptr);
 }
 
-TEST(YamlParseEntityTest, StoryFileLegacyAliases)
+TEST(YamlParseEntityTest, StoryFileAlternativeKeys)
 {
-    /* Verify that the old as_a / i_want / so_that keys still work. */
+    /* Verify that as-a / i-want / so-that hyphenated keys work. */
     const char *path = write_yaml("ent_story_legacy.yaml",
         "id: STORY-002\n"
         "title: Legacy story\n"
         "type: story\n"
-        "as_a: developer\n"
-        "i_want: faster builds\n"
-        "so_that: I save time\n");
+        "as-a: developer\n"
+        "i-want: faster builds\n"
+        "so-that: I save time\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
@@ -279,7 +279,7 @@ TEST(YamlParseEntityTest, UserStoryComponentOnNonStoryEntity)
         "goal: manage users\n"
         "reason: the system stays secure\n"
         "epic: EPIC-ADMIN-001\n"
-        "acceptance_criteria:\n"
+        "acceptance-criteria:\n"
         "  - Admin can create users\n"
         "  - Admin can delete users\n");
     ASSERT_NE(path, nullptr);
@@ -909,13 +909,13 @@ TEST(EntityKindTest, DocumentLabel)
 
 TEST(YamlParseEntityTest, DocumentMetaFile)
 {
-    /* A document entity carries the doc_meta component. */
+    /* A document entity carries the doc-meta component. */
     const char *path = write_yaml("ent_doc_meta.yaml",
         "id: SRS-CLIENT-001\n"
         "title: SRS for Client Project\n"
         "type: document\n"
-        "doc_meta:\n"
-        "  doc_type: SRS\n"
+        "doc-meta:\n"
+        "  doc-type: SRS\n"
         "  version: 1.2\n"
         "  client: ClientCorp\n"
         "  status: approved\n");
@@ -937,14 +937,14 @@ TEST(YamlParseEntityTest, DocumentMetaFile)
 
 TEST(YamlParseEntityTest, DocumentMetaWithOptionalTitle)
 {
-    /* doc_meta may carry its own title field. */
+    /* doc-meta may carry its own title field. */
     const char *path = write_yaml("ent_doc_meta_title.yaml",
         "id: SDD-SYS-001\n"
         "title: SDD for System\n"
         "type: sdd\n"
-        "doc_meta:\n"
+        "doc-meta:\n"
         "  title: Software Design Description v2\n"
-        "  doc_type: SDD\n"
+        "  doc-type: SDD\n"
         "  version: 2.0\n"
         "  client: AcmeCorp\n"
         "  status: draft\n");
@@ -963,7 +963,7 @@ TEST(YamlParseEntityTest, DocumentMetaWithOptionalTitle)
 
 TEST(YamlParseEntityTest, DocumentMetaEmptyWhenAbsent)
 {
-    /* Entities without a doc_meta key have a zero-initialised component. */
+    /* Entities without a doc-meta key have a zero-initialised component. */
     const char *path = write_yaml("ent_no_doc_meta.yaml",
         "id: REQ-010\n"
         "title: Plain requirement\n"
@@ -1038,13 +1038,13 @@ TEST(YamlParseEntityTest, DocumentMembershipEmptyWhenAbsent)
 
 TEST(YamlParseEntityTest, AnyEntityCanCarryDocumentComponents)
 {
-    /* A requirement entity carrying both doc_meta and doc_membership. */
+    /* A requirement entity carrying both doc-meta and doc-membership. */
     const char *path = write_yaml("ent_req_doc_components.yaml",
         "id: REQ-012\n"
         "title: Requirement with document components\n"
         "type: functional\n"
-        "doc_meta:\n"
-        "  doc_type: SRS\n"
+        "doc-meta:\n"
+        "  doc-type: SRS\n"
         "  version: 3.0\n"
         "  client: MegaCorp\n"
         "  status: draft\n"
@@ -1175,11 +1175,9 @@ TEST(EntityHasComponentTest, UserStoryAbsentAndPresent)
     Entity e;
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "user-story"),  0);
-    EXPECT_EQ(entity_has_component(&e, "user_story"),  0);
 
     strncpy(e.user_story.role, "developer", sizeof(e.user_story.role) - 1);
     EXPECT_EQ(entity_has_component(&e, "user-story"),  1);
-    EXPECT_EQ(entity_has_component(&e, "user_story"),  1);
 }
 
 TEST(EntityHasComponentTest, AcceptanceCriteriaAbsentAndPresent)
@@ -1187,11 +1185,9 @@ TEST(EntityHasComponentTest, AcceptanceCriteriaAbsentAndPresent)
     Entity e;
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "acceptance-criteria"), 0);
-    EXPECT_EQ(entity_has_component(&e, "acceptance_criteria"), 0);
 
     e.acceptance_criteria.count = 1;
     EXPECT_EQ(entity_has_component(&e, "acceptance-criteria"), 1);
-    EXPECT_EQ(entity_has_component(&e, "acceptance_criteria"), 1);
 }
 
 TEST(EntityHasComponentTest, EpicMembershipAbsentAndPresent)
@@ -1200,13 +1196,11 @@ TEST(EntityHasComponentTest, EpicMembershipAbsentAndPresent)
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "epic"),            0);
     EXPECT_EQ(entity_has_component(&e, "epic-membership"), 0);
-    EXPECT_EQ(entity_has_component(&e, "epic_membership"), 0);
 
     strncpy(e.epic_membership.epic_id, "EPIC-001",
             sizeof(e.epic_membership.epic_id) - 1);
     EXPECT_EQ(entity_has_component(&e, "epic"),            1);
     EXPECT_EQ(entity_has_component(&e, "epic-membership"), 1);
-    EXPECT_EQ(entity_has_component(&e, "epic_membership"), 1);
 }
 
 TEST(EntityHasComponentTest, AssumptionAbsentAndPresent)
@@ -1236,11 +1230,9 @@ TEST(EntityHasComponentTest, DocMetaAbsentAndPresent)
     Entity e;
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "doc-meta"), 0);
-    EXPECT_EQ(entity_has_component(&e, "doc_meta"), 0);
 
     strncpy(e.doc_meta.doc_type, "SRS", sizeof(e.doc_meta.doc_type) - 1);
     EXPECT_EQ(entity_has_component(&e, "doc-meta"), 1);
-    EXPECT_EQ(entity_has_component(&e, "doc_meta"), 1);
 }
 
 TEST(EntityHasComponentTest, DocMembershipAbsentAndPresent)
@@ -1313,11 +1305,9 @@ TEST(EntityHasComponentTest, TestProcedureAbsentAndPresent)
     Entity e;
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "test-procedure"), 0);
-    EXPECT_EQ(entity_has_component(&e, "test_procedure"), 0);
 
     e.test_procedure.step_count = 1;
     EXPECT_EQ(entity_has_component(&e, "test-procedure"), 1);
-    EXPECT_EQ(entity_has_component(&e, "test_procedure"), 1);
 }
 
 TEST(EntityHasComponentTest, ClauseCollectionAbsentAndPresent)
@@ -1325,12 +1315,10 @@ TEST(EntityHasComponentTest, ClauseCollectionAbsentAndPresent)
     Entity e;
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 0);
-    EXPECT_EQ(entity_has_component(&e, "clause_collection"), 0);
     EXPECT_EQ(entity_has_component(&e, "clauses"),           0);
 
     e.clause_collection.count = 2;
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 1);
-    EXPECT_EQ(entity_has_component(&e, "clause_collection"), 1);
     EXPECT_EQ(entity_has_component(&e, "clauses"),           1);
 }
 
@@ -1364,11 +1352,11 @@ TEST(YamlParseEntityTest, TestProcedureFullParse)
         "steps:\n"
         "  - step: 1\n"
         "    action: Submit login request.\n"
-        "    expected_output: System returns HTTP 200.\n"
+        "    expected-output: System returns HTTP 200.\n"
         "  - step: 2\n"
         "    action: Access protected resource.\n"
-        "    expected_output: Resource content is returned.\n"
-        "expected_result: User gains access to the protected resource.\n");
+        "    expected-output: Resource content is returned.\n"
+        "expected-result: User gains access to the protected resource.\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
@@ -1390,7 +1378,6 @@ TEST(YamlParseEntityTest, TestProcedureFullParse)
     EXPECT_STREQ(e.test_procedure.expected_result,
                  "User gains access to the protected resource.");
     EXPECT_EQ(entity_has_component(&e, "test-procedure"), 1);
-    EXPECT_EQ(entity_has_component(&e, "test_procedure"), 1);
     entity_free(&e);
 }
 
@@ -1445,7 +1432,7 @@ TEST(YamlParseEntityTest, TestProcedureOnNonTestCaseEntity)
         "id: REQ-015\n"
         "title: Requirement with embedded test procedure\n"
         "type: functional\n"
-        "expected_result: System behaves correctly.\n");
+        "expected-result: System behaves correctly.\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
@@ -1487,7 +1474,6 @@ TEST(YamlParseEntityTest, ClauseCollectionFullParse)
     EXPECT_NE(strstr(e.clause_collection.clauses, "Principles of safety integration"), nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "annex-I-1.2.1"),                  nullptr);
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 1);
-    EXPECT_EQ(entity_has_component(&e, "clause_collection"), 1);
     EXPECT_EQ(entity_has_component(&e, "clauses"),           1);
     entity_free(&e);
 }
@@ -1617,8 +1603,8 @@ TEST(YamlParseEntityTest, AllThreeNewComponentsOnOneEntity)
         "steps:\n"
         "  - step: 1\n"
         "    action: Run the test.\n"
-        "    expected_output: Test passes.\n"
-        "expected_result: All assertions pass.\n"
+        "    expected-output: Test passes.\n"
+        "expected-result: All assertions pass.\n"
         "clauses:\n"
         "  - id: sec-4.1\n"
         "    title: Scope of test\n"
@@ -2045,7 +2031,7 @@ TEST(EntityListFreeTest, FreeReleasesAllEntityHeapFields)
         "type: test-case\n"
         "preconditions:\n"
         "  - System is ready.\n"
-        "expected_result: Test passes.\n";
+        "expected-result: Test passes.\n";
 
     /* Write to tmp */
     FILE *f = fopen("/tmp/mem_test.yaml", "w");
@@ -2148,12 +2134,12 @@ TEST(EntityKindTest, DocumentSchemaLabel)
 
 TEST(YamlParseEntityTest, AppliesToScalar)
 {
-    /* applies_to given as a scalar string. */
+    /* applies-to given as a scalar string. */
     const char *path = write_yaml("ent_applies_scalar.yaml",
         "id: REQ-ACME-001\n"
         "title: Acme-specific requirement\n"
         "type: functional\n"
-        "applies_to: acme\n");
+        "applies-to: acme\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
@@ -2162,17 +2148,16 @@ TEST(YamlParseEntityTest, AppliesToScalar)
     EXPECT_EQ(e.applies_to.count, 1);
     EXPECT_NE(strstr(e.applies_to.applies_to, "acme"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "applies-to"), 1);
-    EXPECT_EQ(entity_has_component(&e, "applies_to"), 1);
 }
 
 TEST(YamlParseEntityTest, AppliesToSequence)
 {
-    /* applies_to given as a sequence of applicability tags. */
+    /* applies-to given as a sequence of applicability tags. */
     const char *path = write_yaml("ent_applies_seq.yaml",
         "id: REQ-SHARED-001\n"
         "title: Shared requirement\n"
         "type: functional\n"
-        "applies_to:\n"
+        "applies-to:\n"
         "  - acme\n"
         "  - bmw\n");
     ASSERT_NE(path, nullptr);
@@ -2184,12 +2169,11 @@ TEST(YamlParseEntityTest, AppliesToSequence)
     EXPECT_NE(strstr(e.applies_to.applies_to, "acme"), nullptr);
     EXPECT_NE(strstr(e.applies_to.applies_to, "bmw"),  nullptr);
     EXPECT_EQ(entity_has_component(&e, "applies-to"), 1);
-    EXPECT_EQ(entity_has_component(&e, "applies_to"), 1);
 }
 
 TEST(YamlParseEntityTest, AppliesToAbsentWhenMissing)
 {
-    /* Entities without applies_to have a zero-initialised component. */
+    /* Entities without applies-to have a zero-initialised component. */
     const char *path = write_yaml("ent_no_applies.yaml",
         "id: REQ-GEN-001\n"
         "title: Generic requirement\n"
@@ -2210,13 +2194,13 @@ TEST(YamlParseEntityTest, AppliesToAbsentWhenMissing)
 
 TEST(YamlParseEntityTest, VariantProfileCustomerAndDelivery)
 {
-    /* A document-schema entity with variant_profile using "delivery" alias. */
+    /* A document-schema entity with variant-profile using "delivery" alias. */
     const char *path = write_yaml("ent_variant_profile.yaml",
         "id: SCHEMA-ACME-001\n"
         "title: Acme Document Schema\n"
         "type: document-schema\n"
         "status: draft\n"
-        "variant_profile:\n"
+        "variant-profile:\n"
         "  customer: acme\n"
         "  delivery: v1.0\n");
     ASSERT_NE(path, nullptr);
@@ -2228,17 +2212,16 @@ TEST(YamlParseEntityTest, VariantProfileCustomerAndDelivery)
     EXPECT_STREQ(e.variant_profile.customer, "acme");
     EXPECT_STREQ(e.variant_profile.product,  "v1.0");
     EXPECT_EQ(entity_has_component(&e, "variant-profile"), 1);
-    EXPECT_EQ(entity_has_component(&e, "variant_profile"), 1);
 }
 
 TEST(YamlParseEntityTest, VariantProfileCustomerAndProduct)
 {
-    /* variant_profile using the canonical "product" key. */
+    /* variant-profile using the canonical "product" key. */
     const char *path = write_yaml("ent_variant_product.yaml",
         "id: SCHEMA-BMW-001\n"
         "title: BMW Document Schema\n"
         "type: document-schema\n"
-        "variant_profile:\n"
+        "variant-profile:\n"
         "  customer: bmw\n"
         "  product: platform-x\n");
     ASSERT_NE(path, nullptr);
@@ -2253,7 +2236,7 @@ TEST(YamlParseEntityTest, VariantProfileCustomerAndProduct)
 
 TEST(YamlParseEntityTest, VariantProfileAbsentWhenMissing)
 {
-    /* Entities without variant_profile have a zero-initialised component. */
+    /* Entities without variant-profile have a zero-initialised component. */
     const char *path = write_yaml("ent_no_variant.yaml",
         "id: REQ-017\n"
         "title: Requirement without variant profile\n"
@@ -2274,12 +2257,12 @@ TEST(YamlParseEntityTest, VariantProfileAbsentWhenMissing)
 
 TEST(YamlParseEntityTest, CompositionProfileOrderSequence)
 {
-    /* A document-schema entity with a composition_profile.order sequence. */
+    /* A document-schema entity with a composition-profile.order sequence. */
     const char *path = write_yaml("ent_comp_profile.yaml",
         "id: SCHEMA-SRS-001\n"
         "title: SRS Composition Schema\n"
         "type: document-schema\n"
-        "composition_profile:\n"
+        "composition-profile:\n"
         "  order:\n"
         "    - SEC-INTRO\n"
         "    - SEC-FUNC\n"
@@ -2295,12 +2278,11 @@ TEST(YamlParseEntityTest, CompositionProfileOrderSequence)
     EXPECT_NE(strstr(e.composition_profile.order, "SEC-FUNC"),  nullptr);
     EXPECT_NE(strstr(e.composition_profile.order, "SEC-TRACE"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "composition-profile"), 1);
-    EXPECT_EQ(entity_has_component(&e, "composition_profile"), 1);
 }
 
 TEST(YamlParseEntityTest, CompositionProfileAbsentWhenMissing)
 {
-    /* Entities without composition_profile have a zero-initialised component. */
+    /* Entities without composition-profile have a zero-initialised component. */
     const char *path = write_yaml("ent_no_comp_profile.yaml",
         "id: REQ-018\n"
         "title: Requirement without composition profile\n"
@@ -2321,12 +2303,12 @@ TEST(YamlParseEntityTest, CompositionProfileAbsentWhenMissing)
 
 TEST(YamlParseEntityTest, RenderProfileMarkdown)
 {
-    /* A document-schema entity with render_profile.format = markdown. */
+    /* A document-schema entity with render-profile.format = markdown. */
     const char *path = write_yaml("ent_render_profile.yaml",
         "id: SCHEMA-MD-001\n"
         "title: Markdown Schema\n"
         "type: document-schema\n"
-        "render_profile:\n"
+        "render-profile:\n"
         "  format: markdown\n");
     ASSERT_NE(path, nullptr);
 
@@ -2335,17 +2317,16 @@ TEST(YamlParseEntityTest, RenderProfileMarkdown)
     EXPECT_EQ(rc, 0);
     EXPECT_STREQ(e.render_profile.format, "markdown");
     EXPECT_EQ(entity_has_component(&e, "render-profile"), 1);
-    EXPECT_EQ(entity_has_component(&e, "render_profile"), 1);
 }
 
 TEST(YamlParseEntityTest, RenderProfileHtml)
 {
-    /* render_profile with html format. */
+    /* render-profile with html format. */
     const char *path = write_yaml("ent_render_html.yaml",
         "id: SCHEMA-HTML-001\n"
         "title: HTML Schema\n"
         "type: document-schema\n"
-        "render_profile:\n"
+        "render-profile:\n"
         "  format: html\n");
     ASSERT_NE(path, nullptr);
 
@@ -2358,7 +2339,7 @@ TEST(YamlParseEntityTest, RenderProfileHtml)
 
 TEST(YamlParseEntityTest, RenderProfileAbsentWhenMissing)
 {
-    /* Entities without render_profile have a zero-initialised component. */
+    /* Entities without render-profile have a zero-initialised component. */
     const char *path = write_yaml("ent_no_render.yaml",
         "id: REQ-019\n"
         "title: Requirement without render profile\n"
@@ -2384,17 +2365,17 @@ TEST(YamlParseEntityTest, DocumentSchemaFullParse)
         "title: Acme SRS Document Structure\n"
         "type: document-schema\n"
         "status: draft\n"
-        "applies_to:\n"
+        "applies-to:\n"
         "  - acme\n"
-        "variant_profile:\n"
+        "variant-profile:\n"
         "  customer: acme\n"
         "  delivery: v1.0\n"
-        "composition_profile:\n"
+        "composition-profile:\n"
         "  order:\n"
         "    - SEC-INTRO\n"
         "    - SEC-FUNC\n"
         "    - SEC-TRACE\n"
-        "render_profile:\n"
+        "render-profile:\n"
         "  format: markdown\n");
     ASSERT_NE(path, nullptr);
 
@@ -2436,11 +2417,9 @@ TEST(EntityHasComponentTest, AppliesToAbsentAndPresent)
     Entity e;
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "applies-to"), 0);
-    EXPECT_EQ(entity_has_component(&e, "applies_to"), 0);
 
     e.applies_to.count = 1;
     EXPECT_EQ(entity_has_component(&e, "applies-to"), 1);
-    EXPECT_EQ(entity_has_component(&e, "applies_to"), 1);
 }
 
 TEST(EntityHasComponentTest, VariantProfileAbsentAndPresent)
@@ -2448,12 +2427,10 @@ TEST(EntityHasComponentTest, VariantProfileAbsentAndPresent)
     Entity e;
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "variant-profile"), 0);
-    EXPECT_EQ(entity_has_component(&e, "variant_profile"), 0);
 
     strncpy(e.variant_profile.customer, "acme",
             sizeof(e.variant_profile.customer) - 1);
     EXPECT_EQ(entity_has_component(&e, "variant-profile"), 1);
-    EXPECT_EQ(entity_has_component(&e, "variant_profile"), 1);
 }
 
 TEST(EntityHasComponentTest, CompositionProfileAbsentAndPresent)
@@ -2461,11 +2438,9 @@ TEST(EntityHasComponentTest, CompositionProfileAbsentAndPresent)
     Entity e;
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "composition-profile"), 0);
-    EXPECT_EQ(entity_has_component(&e, "composition_profile"), 0);
 
     e.composition_profile.order_count = 2;
     EXPECT_EQ(entity_has_component(&e, "composition-profile"), 1);
-    EXPECT_EQ(entity_has_component(&e, "composition_profile"), 1);
 }
 
 TEST(EntityHasComponentTest, RenderProfileAbsentAndPresent)
@@ -2473,12 +2448,10 @@ TEST(EntityHasComponentTest, RenderProfileAbsentAndPresent)
     Entity e;
     memset(&e, 0, sizeof(e));
     EXPECT_EQ(entity_has_component(&e, "render-profile"), 0);
-    EXPECT_EQ(entity_has_component(&e, "render_profile"), 0);
 
     strncpy(e.render_profile.format, "html",
             sizeof(e.render_profile.format) - 1);
     EXPECT_EQ(entity_has_component(&e, "render-profile"), 1);
-    EXPECT_EQ(entity_has_component(&e, "render_profile"), 1);
 }
 
 TEST(EntityApplyFilterTest, KindFilterSelectsDocumentSchema)

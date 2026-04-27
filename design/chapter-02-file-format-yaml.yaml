@@ -81,11 +81,11 @@ body: |
   steps:
     - step: 1
       action: "Submit a login request with username 'testuser' and the correct password."
-      expected_output: "The system returns an authentication token and HTTP 200."
+      expected-output: "The system returns an authentication token and HTTP 200."
     - step: 2
       action: "Use the authentication token to request the protected resource."
-      expected_output: "The system returns the resource content and HTTP 200."
-  expected_result: "The user gains access to the protected resource."
+      expected-output: "The system returns the resource content and HTTP 200."
+  expected-result: "The user gains access to the protected resource."
   verification: test
   status: approved
   links:
