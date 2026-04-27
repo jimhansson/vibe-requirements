@@ -1,16 +1,18 @@
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>
+/**
+ * @file report.cpp
+ * @brief Report generation (C++ edition).
+ */
+
+#include <cstdio>
+#include <cstring>
+#include <cctype>
+#include <vector>
+#include <string>
 
 #include "report.h"
 #include "entity.h"
 #include "triplet_store_c.h"
 
-/* -----------------------------------------------------------------------
- * Internal helpers
- * --------------------------------------------------------------------- */
-
-/* Ordered list of entity kinds used to group the report sections. */
 static const EntityKind KIND_ORDER[] = {
     ENTITY_KIND_DOCUMENT,
     ENTITY_KIND_DOCUMENT_SCHEMA,
@@ -27,103 +29,76 @@ static const EntityKind KIND_ORDER[] = {
 };
 #define KIND_ORDER_LEN ((int)(sizeof(KIND_ORDER) / sizeof(KIND_ORDER[0])))
 
-/* Return 1 if any entity in *list has the given kind. */
 static int list_has_kind(const EntityList *list, EntityKind kind)
 {
-    for (int i = 0; i < list->count; i++) {
-        if (list->items[i].identity.kind == kind)
+    for (const auto &e : *list) {
+        if (e.identity.kind == kind)
             return 1;
     }
     return 0;
 }
 
-/* -----------------------------------------------------------------------
- * Markdown helpers
- * --------------------------------------------------------------------- */
-
-/* Emit a newline-separated multi-value field (tags, sources, …) as a
- * Markdown bullet list.  `label` is the bold heading text.             */
-static void md_bullet_list(FILE *out, const char *label, const char *flat,
-                            int count)
+static void md_bullet_list(FILE *out, const char *label,
+                            const std::vector<std::string> &items)
 {
-    if (count == 0 || flat[0] == '\0')
+    if (items.empty())
         return;
 
     fprintf(out, "**%s:**\n\n", label);
-
-    /* Iterate over newline-separated entries. */
-    const char *p = flat;
-    while (*p) {
-        const char *nl = strchr(p, '\n');
-        size_t len = nl ? (size_t)(nl - p) : strlen(p);
-        if (len > 0)
-            fprintf(out, "- %.*s\n", (int)len, p);
-        if (!nl)
-            break;
-        p = nl + 1;
+    for (const auto &item : items) {
+        if (!item.empty())
+            fprintf(out, "- %s\n", item.c_str());
     }
     fprintf(out, "\n");
 }
 
-/* Emit a single Markdown entity section (### heading + body). */
 static void md_write_entity(FILE *out, const Entity *e,
                              const TripletStore *store)
 {
-    /* ---- Heading ---- */
-    if (e->identity.title[0] != '\0')
-        fprintf(out, "### %s — %s\n\n", e->identity.id, e->identity.title);
+    if (!e->identity.title.empty())
+        fprintf(out, "### %s — %s\n\n", e->identity.id.c_str(),
+                e->identity.title.c_str());
     else
-        fprintf(out, "### %s\n\n", e->identity.id);
+        fprintf(out, "### %s\n\n", e->identity.id.c_str());
 
-    /* ---- Meta line ---- */
     fprintf(out, "**Kind:** %s", entity_kind_label(e->identity.kind));
-    if (e->lifecycle.status[0] != '\0')
-        fprintf(out, " | **Status:** %s", e->lifecycle.status);
-    if (e->lifecycle.priority[0] != '\0')
-        fprintf(out, " | **Priority:** %s", e->lifecycle.priority);
-    if (e->lifecycle.owner[0] != '\0')
-        fprintf(out, " | **Owner:** %s", e->lifecycle.owner);
+    if (!e->lifecycle.status.empty())
+        fprintf(out, " | **Status:** %s", e->lifecycle.status.c_str());
+    if (!e->lifecycle.priority.empty())
+        fprintf(out, " | **Priority:** %s", e->lifecycle.priority.c_str());
+    if (!e->lifecycle.owner.empty())
+        fprintf(out, " | **Owner:** %s", e->lifecycle.owner.c_str());
     fprintf(out, "\n\n");
 
-    /* ---- Description / rationale ---- */
-    if (e->text.description[0] != '\0')
-        fprintf(out, "%s\n\n", e->text.description);
-    if (e->text.rationale[0] != '\0')
-        fprintf(out, "**Rationale:** %s\n\n", e->text.rationale);
+    if (!e->text.description.empty())
+        fprintf(out, "%s\n\n", e->text.description.c_str());
+    if (!e->text.rationale.empty())
+        fprintf(out, "**Rationale:** %s\n\n", e->text.rationale.c_str());
 
-    /* ---- Document body (design notes / sections) ---- */
-    if (e->doc_body.body != NULL && e->doc_body.body[0] != '\0')
-        fprintf(out, "%s\n\n", e->doc_body.body);
+    if (!e->doc_body.body.empty())
+        fprintf(out, "%s\n\n", e->doc_body.body.c_str());
 
-    /* ---- Tags ---- */
-    md_bullet_list(out, "Tags", e->tags.tags, e->tags.count);
-
-    /* ---- Sources ---- */
-    md_bullet_list(out, "Sources", e->sources.sources, e->sources.count);
-
-    /* ---- Acceptance criteria ---- */
+    md_bullet_list(out, "Tags",    e->tags.tags);
+    md_bullet_list(out, "Sources", e->sources.sources);
     md_bullet_list(out, "Acceptance Criteria",
-                   e->acceptance_criteria.criteria,
-                   e->acceptance_criteria.count);
+                   e->acceptance_criteria.criteria);
 
-    /* ---- User story ---- */
-    if (e->user_story.role[0] != '\0' || e->user_story.goal[0] != '\0') {
+    if (!e->user_story.role.empty() || !e->user_story.goal.empty()) {
         fprintf(out, "**User Story:**\n\n");
-        if (e->user_story.role[0] != '\0')
-            fprintf(out, "- As a: %s\n", e->user_story.role);
-        if (e->user_story.goal[0] != '\0')
-            fprintf(out, "- I want: %s\n", e->user_story.goal);
-        if (e->user_story.reason[0] != '\0')
-            fprintf(out, "- So that: %s\n", e->user_story.reason);
+        if (!e->user_story.role.empty())
+            fprintf(out, "- As a: %s\n", e->user_story.role.c_str());
+        if (!e->user_story.goal.empty())
+            fprintf(out, "- I want: %s\n", e->user_story.goal.c_str());
+        if (!e->user_story.reason.empty())
+            fprintf(out, "- So that: %s\n", e->user_story.reason.c_str());
         fprintf(out, "\n");
     }
 
-    /* ---- Traceability links ---- */
     if (store) {
         CTripleList out_links = triplet_store_find_by_subject(store,
-                                                              e->identity.id);
+                                                              e->identity.id.c_str());
         CTripleList in_links  = triplet_store_find_by_object(store,
-                                                             e->identity.id);
+                                                             e->identity.id.c_str());
         int has_out = 0, has_in = 0;
         for (size_t i = 0; i < out_links.count; i++)
             if (!out_links.triples[i].inferred) { has_out = 1; break; }
@@ -154,11 +129,6 @@ static void md_write_entity(FILE *out, const Entity *e,
     fprintf(out, "---\n\n");
 }
 
-/* -----------------------------------------------------------------------
- * HTML helpers
- * --------------------------------------------------------------------- */
-
-/* Write `text` to `out` with HTML special characters escaped. */
 static void html_escape(FILE *out, const char *text)
 {
     for (const char *p = text; *p; p++) {
@@ -173,122 +143,101 @@ static void html_escape(FILE *out, const char *text)
     }
 }
 
-/* Emit a newline-separated multi-value field as an HTML unordered list. */
-static void html_bullet_list(FILE *out, const char *label, const char *flat,
-                              int count)
+static void html_bullet_list(FILE *out, const char *label,
+                              const std::vector<std::string> &items)
 {
-    if (count == 0 || flat[0] == '\0')
+    if (items.empty())
         return;
 
     fprintf(out, "<p><strong>%s:</strong></p>\n<ul>\n", label);
-
-    const char *p = flat;
-    while (*p) {
-        const char *nl = strchr(p, '\n');
-        size_t len = nl ? (size_t)(nl - p) : strlen(p);
-        if (len > 0) {
-            char entry[512];
-            size_t copy_len = len < sizeof(entry) - 1 ? len : sizeof(entry) - 1;
-            memcpy(entry, p, copy_len);
-            entry[copy_len] = '\0';
+    for (const auto &item : items) {
+        if (!item.empty()) {
             fprintf(out, "<li>");
-            html_escape(out, entry);
+            html_escape(out, item.c_str());
             fputs("</li>\n", out);
         }
-        if (!nl)
-            break;
-        p = nl + 1;
     }
     fputs("</ul>\n", out);
 }
 
-/* Emit a single HTML entity section. */
 static void html_write_entity(FILE *out, const Entity *e,
                                const TripletStore *store)
 {
     fprintf(out, "<section class=\"entity\" id=\"");
-    html_escape(out, e->identity.id);
+    html_escape(out, e->identity.id.c_str());
     fprintf(out, "\">\n");
 
-    /* ---- Heading ---- */
     fprintf(out, "<h3>");
-    html_escape(out, e->identity.id);
-    if (e->identity.title[0] != '\0') {
+    html_escape(out, e->identity.id.c_str());
+    if (!e->identity.title.empty()) {
         fprintf(out, " — ");
-        html_escape(out, e->identity.title);
+        html_escape(out, e->identity.title.c_str());
     }
     fprintf(out, "</h3>\n");
 
-    /* ---- Meta ---- */
     fprintf(out, "<p><strong>Kind:</strong> %s",
             entity_kind_label(e->identity.kind));
-    if (e->lifecycle.status[0] != '\0') {
+    if (!e->lifecycle.status.empty()) {
         fprintf(out, " | <strong>Status:</strong> ");
-        html_escape(out, e->lifecycle.status);
+        html_escape(out, e->lifecycle.status.c_str());
     }
-    if (e->lifecycle.priority[0] != '\0') {
+    if (!e->lifecycle.priority.empty()) {
         fprintf(out, " | <strong>Priority:</strong> ");
-        html_escape(out, e->lifecycle.priority);
+        html_escape(out, e->lifecycle.priority.c_str());
     }
-    if (e->lifecycle.owner[0] != '\0') {
+    if (!e->lifecycle.owner.empty()) {
         fprintf(out, " | <strong>Owner:</strong> ");
-        html_escape(out, e->lifecycle.owner);
+        html_escape(out, e->lifecycle.owner.c_str());
     }
     fprintf(out, "</p>\n");
 
-    /* ---- Description / rationale ---- */
-    if (e->text.description[0] != '\0') {
+    if (!e->text.description.empty()) {
         fprintf(out, "<p>");
-        html_escape(out, e->text.description);
+        html_escape(out, e->text.description.c_str());
         fprintf(out, "</p>\n");
     }
-    if (e->text.rationale[0] != '\0') {
+    if (!e->text.rationale.empty()) {
         fprintf(out, "<p><strong>Rationale:</strong> ");
-        html_escape(out, e->text.rationale);
+        html_escape(out, e->text.rationale.c_str());
         fprintf(out, "</p>\n");
     }
 
-    /* ---- Document body ---- */
-    if (e->doc_body.body != NULL && e->doc_body.body[0] != '\0') {
+    if (!e->doc_body.body.empty()) {
         fprintf(out, "<pre>");
-        html_escape(out, e->doc_body.body);
+        html_escape(out, e->doc_body.body.c_str());
         fprintf(out, "</pre>\n");
     }
 
-    /* ---- Tags / Sources / Acceptance criteria ---- */
-    html_bullet_list(out, "Tags",   e->tags.tags,   e->tags.count);
-    html_bullet_list(out, "Sources", e->sources.sources, e->sources.count);
+    html_bullet_list(out, "Tags",    e->tags.tags);
+    html_bullet_list(out, "Sources", e->sources.sources);
     html_bullet_list(out, "Acceptance Criteria",
-                     e->acceptance_criteria.criteria,
-                     e->acceptance_criteria.count);
+                     e->acceptance_criteria.criteria);
 
-    /* ---- User story ---- */
-    if (e->user_story.role[0] != '\0' || e->user_story.goal[0] != '\0') {
+    if (!e->user_story.role.empty() || !e->user_story.goal.empty()) {
         fprintf(out, "<p><strong>User Story:</strong></p>\n<ul>\n");
-        if (e->user_story.role[0] != '\0') {
+        if (!e->user_story.role.empty()) {
             fprintf(out, "<li>As a: ");
-            html_escape(out, e->user_story.role);
+            html_escape(out, e->user_story.role.c_str());
             fprintf(out, "</li>\n");
         }
-        if (e->user_story.goal[0] != '\0') {
+        if (!e->user_story.goal.empty()) {
             fprintf(out, "<li>I want: ");
-            html_escape(out, e->user_story.goal);
+            html_escape(out, e->user_story.goal.c_str());
             fprintf(out, "</li>\n");
         }
-        if (e->user_story.reason[0] != '\0') {
+        if (!e->user_story.reason.empty()) {
             fprintf(out, "<li>So that: ");
-            html_escape(out, e->user_story.reason);
+            html_escape(out, e->user_story.reason.c_str());
             fprintf(out, "</li>\n");
         }
         fprintf(out, "</ul>\n");
     }
 
-    /* ---- Traceability ---- */
     if (store) {
         CTripleList out_links = triplet_store_find_by_subject(store,
-                                                              e->identity.id);
+                                                              e->identity.id.c_str());
         CTripleList in_links  = triplet_store_find_by_object(store,
-                                                             e->identity.id);
+                                                             e->identity.id.c_str());
         int has_out = 0, has_in = 0;
         for (size_t i = 0; i < out_links.count; i++)
             if (!out_links.triples[i].inferred) { has_out = 1; break; }
@@ -323,7 +272,6 @@ static void html_write_entity(FILE *out, const Entity *e,
     fprintf(out, "</section>\n\n");
 }
 
-/* Inline CSS for the HTML report. */
 static const char HTML_CSS[] =
     "body{font-family:sans-serif;max-width:960px;margin:0 auto;padding:1rem}"
     "section.entity{border:1px solid #ddd;border-radius:4px;"
@@ -331,10 +279,6 @@ static const char HTML_CSS[] =
     "h1,h2,h3{color:#333}"
     "h2{border-bottom:2px solid #ddd;padding-bottom:.25rem}"
     "a{color:#0366d6}";
-
-/* -----------------------------------------------------------------------
- * Markdown report
- * --------------------------------------------------------------------- */
 
 static void report_write_md(FILE *out, const EntityList *list,
                              const TripletStore *store)
@@ -348,8 +292,8 @@ static void report_write_md(FILE *out, const EntityList *list,
             continue;
 
         int section_count = 0;
-        for (int i = 0; i < list->count; i++) {
-            if (list->items[i].identity.kind == kind)
+        for (const auto &e : *list) {
+            if (e.identity.kind == kind)
                 section_count++;
         }
 
@@ -360,18 +304,13 @@ static void report_write_md(FILE *out, const EntityList *list,
         heading[0] = (char)toupper((unsigned char)heading[0]);
         fprintf(out, "## %ss (%d)\n\n", heading, section_count);
 
-        for (int i = 0; i < list->count; i++) {
-            const Entity *e = &list->items[i];
-            if (e->identity.kind != kind)
+        for (const auto &e : *list) {
+            if (e.identity.kind != kind)
                 continue;
-            md_write_entity(out, e, store);
+            md_write_entity(out, &e, store);
         }
     }
 }
-
-/* -----------------------------------------------------------------------
- * HTML report
- * --------------------------------------------------------------------- */
 
 static void report_write_html(FILE *out, const EntityList *list,
                                const TripletStore *store)
@@ -396,8 +335,8 @@ static void report_write_html(FILE *out, const EntityList *list,
             continue;
 
         int section_count = 0;
-        for (int i = 0; i < list->count; i++) {
-            if (list->items[i].identity.kind == kind)
+        for (const auto &e : *list) {
+            if (e.identity.kind == kind)
                 section_count++;
         }
 
@@ -409,20 +348,15 @@ static void report_write_html(FILE *out, const EntityList *list,
 
         fprintf(out, "<h2>%ss (%d)</h2>\n\n", heading, section_count);
 
-        for (int i = 0; i < list->count; i++) {
-            const Entity *e = &list->items[i];
-            if (e->identity.kind != kind)
+        for (const auto &e : *list) {
+            if (e.identity.kind != kind)
                 continue;
-            html_write_entity(out, e, store);
+            html_write_entity(out, &e, store);
         }
     }
 
     fprintf(out, "</body>\n</html>\n");
 }
-
-/* -----------------------------------------------------------------------
- * Public API
- * --------------------------------------------------------------------- */
 
 void report_write(FILE *out, const EntityList *list,
                   const TripletStore *store, ReportFormat fmt)

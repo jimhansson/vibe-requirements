@@ -11,10 +11,8 @@
 #include <cstring>
 #include <string>
 
-extern "C" {
 #include "entity.h"
 #include "yaml_simple.h"
-}
 
 /* -------------------------------------------------------------------------
  * Helpers — write temporary YAML files into /tmp
@@ -129,48 +127,38 @@ TEST(EntityKindTest, Labels)
 TEST(EntityListTest, InitAndFree)
 {
     EntityList list;
-    entity_list_init(&list);
-    EXPECT_EQ(list.count,    0);
+    EXPECT_EQ((int)list.size(),    0);
     EXPECT_EQ(list.capacity, 0);
     EXPECT_EQ(list.items,    nullptr);
-    entity_list_free(&list);
-    EXPECT_EQ(list.count,    0);
+    EXPECT_EQ((int)list.size(),    0);
     EXPECT_EQ(list.items,    nullptr);
 }
 
 TEST(EntityListTest, AddSingleEntity)
 {
     EntityList list;
-    entity_list_init(&list);
 
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     strncpy(e.identity.id,    "ENT-001", sizeof(e.identity.id) - 1);
     strncpy(e.identity.title, "My entity", sizeof(e.identity.title) - 1);
     e.identity.kind = ENTITY_KIND_REQUIREMENT;
 
-    EXPECT_EQ(entity_list_add(&list, &e), 0);
-    EXPECT_EQ(list.count, 1);
-    EXPECT_STREQ(list.items[0].identity.id,    "ENT-001");
-    EXPECT_STREQ(list.items[0].identity.title, "My entity");
-
-    entity_list_free(&list);
+    EXPECT_EQ(list.push_back(e), 0);
+    EXPECT_EQ((int)list.size(), 1);
+    EXPECT_EQ(list[0].identity.id, std::string("ENT-001"));
+    EXPECT_EQ(list[0].identity.title, std::string("My entity"));
 }
 
 TEST(EntityListTest, AddMultipleEntitiesGrowsArray)
 {
     EntityList list;
-    entity_list_init(&list);
 
     for (int i = 0; i < 20; i++) {
-        Entity e;
-        memset(&e, 0, sizeof(e));
+        Entity e{};
         snprintf(e.identity.id, sizeof(e.identity.id), "ENT-%03d", i);
-        EXPECT_EQ(entity_list_add(&list, &e), 0);
+        EXPECT_EQ(list.push_back(e), 0);
     }
-    EXPECT_EQ(list.count, 20);
-
-    entity_list_free(&list);
+    EXPECT_EQ((int)list.size(), 20);
 }
 
 /* =========================================================================
@@ -191,13 +179,13 @@ TEST(YamlParseEntityTest, MinimalRequirementFile)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id,       "REQ-001");
-    EXPECT_STREQ(e.identity.title,    "Basic requirement");
-    EXPECT_STREQ(e.identity.type_raw, "functional");
+    EXPECT_EQ(e.identity.id, std::string("REQ-001"));
+    EXPECT_EQ(e.identity.title, std::string("Basic requirement"));
+    EXPECT_EQ(e.identity.type_raw, std::string("functional"));
     EXPECT_EQ(e.identity.kind,        ENTITY_KIND_REQUIREMENT);
-    EXPECT_STREQ(e.lifecycle.status,   "draft");
-    EXPECT_STREQ(e.lifecycle.priority, "must");
-    EXPECT_STREQ(e.text.description,   "A simple description.");
+    EXPECT_EQ(e.lifecycle.status, std::string("draft"));
+    EXPECT_EQ(e.lifecycle.priority, std::string("must"));
+    EXPECT_EQ(e.text.description, std::string("A simple description."));
 }
 
 TEST(YamlParseEntityTest, StoryFile)
@@ -218,12 +206,12 @@ TEST(YamlParseEntityTest, StoryFile)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id,        "STORY-001");
+    EXPECT_EQ(e.identity.id, std::string("STORY-001"));
     EXPECT_EQ(e.identity.kind,         ENTITY_KIND_STORY);
-    EXPECT_STREQ(e.user_story.role,    "registered user");
-    EXPECT_STREQ(e.user_story.goal,    "to log in with my email");
-    EXPECT_STREQ(e.user_story.reason,  "I can access my account");
-    EXPECT_EQ(e.acceptance_criteria.count, 2);
+    EXPECT_EQ(e.user_story.role, std::string("registered user"));
+    EXPECT_EQ(e.user_story.goal, std::string("to log in with my email"));
+    EXPECT_EQ(e.user_story.reason, std::string("I can access my account"));
+    EXPECT_EQ(e.(int)acceptance_criteria.size(), 2);
     /* The two criteria should appear in the flat string. */
     EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Login form is shown"), nullptr);
     EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Error displayed on wrong password"), nullptr);
@@ -244,9 +232,9 @@ TEST(YamlParseEntityTest, StoryFileAlternativeKeys)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.user_story.role,   "developer");
-    EXPECT_STREQ(e.user_story.goal,   "faster builds");
-    EXPECT_STREQ(e.user_story.reason, "I save time");
+    EXPECT_EQ(e.user_story.role, std::string("developer"));
+    EXPECT_EQ(e.user_story.goal, std::string("faster builds"));
+    EXPECT_EQ(e.user_story.reason, std::string("I save time"));
 }
 
 TEST(YamlParseEntityTest, EpicMembership)
@@ -288,11 +276,11 @@ TEST(YamlParseEntityTest, UserStoryComponentOnNonStoryEntity)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.identity.kind,         ENTITY_KIND_REQUIREMENT);
-    EXPECT_STREQ(e.user_story.role,    "admin");
-    EXPECT_STREQ(e.user_story.goal,    "manage users");
-    EXPECT_STREQ(e.user_story.reason,  "the system stays secure");
+    EXPECT_EQ(e.user_story.role, std::string("admin"));
+    EXPECT_EQ(e.user_story.goal, std::string("manage users"));
+    EXPECT_EQ(e.user_story.reason, std::string("the system stays secure"));
     EXPECT_STREQ(e.epic_membership.epic_id, "EPIC-ADMIN-001");
-    EXPECT_EQ(e.acceptance_criteria.count, 2);
+    EXPECT_EQ(e.(int)acceptance_criteria.size(), 2);
     EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Admin can create users"), nullptr);
     EXPECT_NE(strstr(e.acceptance_criteria.criteria, "Admin can delete users"), nullptr);
 }
@@ -312,12 +300,12 @@ TEST(YamlParseEntityTest, AssumptionFile)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id,   "ASSUM-001");
+    EXPECT_EQ(e.identity.id, std::string("ASSUM-001"));
     EXPECT_EQ(e.identity.kind,    ENTITY_KIND_ASSUMPTION);
     EXPECT_NE(e.assumption.text[0], '\0');
     EXPECT_NE(strstr(e.assumption.text, "network connection"), nullptr);
-    EXPECT_STREQ(e.assumption.status, "open");
-    EXPECT_STREQ(e.assumption.source, "NET-SPEC-001");
+    EXPECT_EQ(e.assumption.status, std::string("open"));
+    EXPECT_EQ(e.assumption.source, std::string("NET-SPEC-001"));
     /* Constraint component must be zero (not set). */
     EXPECT_EQ(e.constraint.text[0], '\0');
 }
@@ -337,12 +325,12 @@ TEST(YamlParseEntityTest, ConstraintFile)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id,    "CONSTR-001");
+    EXPECT_EQ(e.identity.id, std::string("CONSTR-001"));
     EXPECT_EQ(e.identity.kind,     ENTITY_KIND_CONSTRAINT);
-    EXPECT_STREQ(e.constraint.kind, "technical");
+    EXPECT_EQ(e.constraint.kind, std::string("technical"));
     EXPECT_NE(e.constraint.text[0], '\0');
     EXPECT_NE(strstr(e.constraint.text, "TLS version 1.3"), nullptr);
-    EXPECT_STREQ(e.constraint.source, "SEC-POLICY-001");
+    EXPECT_EQ(e.constraint.source, std::string("SEC-POLICY-001"));
     /* Assumption component must be zero (not set). */
     EXPECT_EQ(e.assumption.text[0], '\0');
 }
@@ -368,20 +356,20 @@ TEST(YamlParseEntityTest, AnyEntityCanCarryAssumptionAndConstraint)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id,   "REQ-002");
+    EXPECT_EQ(e.identity.id, std::string("REQ-002"));
     EXPECT_EQ(e.identity.kind,    ENTITY_KIND_REQUIREMENT);
 
     /* Assumption component populated despite kind != ENTITY_KIND_ASSUMPTION. */
     EXPECT_NE(e.assumption.text[0], '\0');
     EXPECT_NE(strstr(e.assumption.text, "database server"), nullptr);
-    EXPECT_STREQ(e.assumption.status, "open");
-    EXPECT_STREQ(e.assumption.source, "INFRA-SPEC-001");
+    EXPECT_EQ(e.assumption.status, std::string("open"));
+    EXPECT_EQ(e.assumption.source, std::string("INFRA-SPEC-001"));
 
     /* Constraint component populated despite kind != ENTITY_KIND_CONSTRAINT. */
     EXPECT_NE(e.constraint.text[0], '\0');
     EXPECT_NE(strstr(e.constraint.text, "200 ms"), nullptr);
-    EXPECT_STREQ(e.constraint.kind,   "technical");
-    EXPECT_STREQ(e.constraint.source, "PERF-POLICY-001");
+    EXPECT_EQ(e.constraint.kind, std::string("technical"));
+    EXPECT_EQ(e.constraint.source, std::string("PERF-POLICY-001"));
 }
 
 TEST(YamlParseEntityTest, NoIdReturnsError)
@@ -420,10 +408,10 @@ TEST(YamlParseEntityTest, ExtendedLifecycleFields)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.lifecycle.owner,   "alice");
-    EXPECT_STREQ(e.lifecycle.version, "1.2");
-    EXPECT_STREQ(e.text.rationale,    "Needed for compliance.");
-    EXPECT_EQ(e.tags.count, 2);
+    EXPECT_EQ(e.lifecycle.owner, std::string("alice"));
+    EXPECT_EQ(e.lifecycle.version, std::string("1.2"));
+    EXPECT_EQ(e.text.rationale, std::string("Needed for compliance."));
+    EXPECT_EQ(e.(int)tags.size(), 2);
     EXPECT_NE(strstr(e.tags.tags, "safety"),     nullptr);
     EXPECT_NE(strstr(e.tags.tags, "compliance"), nullptr);
 }
@@ -457,23 +445,20 @@ TEST(YamlParseEntitiesTest, MixedKindsMultiDoc)
     ASSERT_NE(path, nullptr);
 
     EntityList list;
-    entity_list_init(&list);
 
     int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 3);
-    EXPECT_EQ(list.count, 3);
+    EXPECT_EQ((int)list.size(), 3);
 
-    EXPECT_EQ(list.items[0].identity.kind, ENTITY_KIND_REQUIREMENT);
-    EXPECT_STREQ(list.items[0].identity.id, "REQ-001");
+    EXPECT_EQ(list[0].identity.kind, ENTITY_KIND_REQUIREMENT);
+    EXPECT_EQ(list[0].identity.id, std::string("REQ-001"));
 
-    EXPECT_EQ(list.items[1].identity.kind, ENTITY_KIND_STORY);
-    EXPECT_STREQ(list.items[1].identity.id, "STORY-001");
-    EXPECT_STREQ(list.items[1].user_story.role, "developer");
+    EXPECT_EQ(list[1].identity.kind, ENTITY_KIND_STORY);
+    EXPECT_EQ(list[1].identity.id, std::string("STORY-001"));
+    EXPECT_EQ(list[1].user_story.role, std::string("developer"));
 
-    EXPECT_EQ(list.items[2].identity.kind, ENTITY_KIND_ASSUMPTION);
-    EXPECT_STREQ(list.items[2].identity.id, "ASSUM-001");
-
-    entity_list_free(&list);
+    EXPECT_EQ(list[2].identity.kind, ENTITY_KIND_ASSUMPTION);
+    EXPECT_EQ(list[2].identity.id, std::string("ASSUM-001"));
 }
 
 TEST(YamlParseEntitiesTest, SkipsDocumentsWithoutId)
@@ -490,14 +475,11 @@ TEST(YamlParseEntitiesTest, SkipsDocumentsWithoutId)
     ASSERT_NE(path, nullptr);
 
     EntityList list;
-    entity_list_init(&list);
 
     int rc = yaml_parse_entities(path, &list);
     EXPECT_EQ(rc, 2);
-    EXPECT_STREQ(list.items[0].identity.id, "REQ-001");
-    EXPECT_STREQ(list.items[1].identity.id, "CONSTR-001");
-
-    entity_list_free(&list);
+    EXPECT_EQ(list[0].identity.id, std::string("REQ-001"));
+    EXPECT_EQ(list[1].identity.id, std::string("CONSTR-001"));
 }
 
 TEST(YamlParseEntitiesTest, DocIndexIsSet)
@@ -511,26 +493,20 @@ TEST(YamlParseEntitiesTest, DocIndexIsSet)
     ASSERT_NE(path, nullptr);
 
     EntityList list;
-    entity_list_init(&list);
 
     yaml_parse_entities(path, &list);
-    ASSERT_EQ(list.count, 2);
-    EXPECT_EQ(list.items[0].identity.doc_index, 0);
-    EXPECT_EQ(list.items[1].identity.doc_index, 1);
-
-    entity_list_free(&list);
+    ASSERT_EQ((int)list.size(), 2);
+    EXPECT_EQ(list[0].identity.doc_index, 0);
+    EXPECT_EQ(list[1].identity.doc_index, 1);
 }
 
 TEST(YamlParseEntitiesTest, NonexistentFile)
 {
     EntityList list;
-    entity_list_init(&list);
 
     int rc = yaml_parse_entities("/tmp/no_such_file_xyz.yaml", &list);
     EXPECT_EQ(rc, -1);
-    EXPECT_EQ(list.count, 0);
-
-    entity_list_free(&list);
+    EXPECT_EQ((int)list.size(), 0);
 }
 
 /* =========================================================================
@@ -556,7 +532,7 @@ TEST(YamlParseEntityTest, TraceabilityComponent)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.traceability.count, 3);
+    EXPECT_EQ(e.(int)traceability.size(), 3);
     EXPECT_NE(strstr(e.traceability.entries, "REQ-SYS-005"),    nullptr);
     EXPECT_NE(strstr(e.traceability.entries, "derived-from"),   nullptr);
     EXPECT_NE(strstr(e.traceability.entries, "TC-SW-001"),      nullptr);
@@ -584,7 +560,7 @@ TEST(YamlParseEntityTest, TraceabilityOnAnyEntityKind)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.identity.kind, ENTITY_KIND_STORY);
-    EXPECT_EQ(e.traceability.count, 1);
+    EXPECT_EQ(e.(int)traceability.size(), 1);
     EXPECT_NE(strstr(e.traceability.entries, "REQ-SW-010"), nullptr);
     EXPECT_NE(strstr(e.traceability.entries, "implements"), nullptr);
 }
@@ -601,7 +577,7 @@ TEST(YamlParseEntityTest, TraceabilityEmptyWhenAbsent)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.traceability.count, 0);
+    EXPECT_EQ(e.(int)traceability.size(), 0);
     EXPECT_EQ(e.traceability.entries[0], '\0');
 }
 
@@ -620,7 +596,7 @@ TEST(YamlParseEntityTest, SourcesComponentMappingItems)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.sources.count, 2);
+    EXPECT_EQ(e.(int)sources.size(), 2);
     EXPECT_NE(strstr(e.sources.sources, "EU-2016-679:article:32"), nullptr);
     EXPECT_NE(strstr(e.sources.sources, "REQ-SYS-005"),            nullptr);
 }
@@ -640,7 +616,7 @@ TEST(YamlParseEntityTest, SourcesComponentScalarItems)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.sources.count, 2);
+    EXPECT_EQ(e.(int)sources.size(), 2);
     EXPECT_NE(strstr(e.sources.sources, "EN-ISO-13849-2023:clause:4.5.2"), nullptr);
     EXPECT_NE(strstr(e.sources.sources, "REQ-SYS-001"),                    nullptr);
 }
@@ -657,7 +633,7 @@ TEST(YamlParseEntityTest, SourcesEmptyWhenAbsent)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.sources.count, 0);
+    EXPECT_EQ(e.(int)sources.size(), 0);
     EXPECT_EQ(e.sources.sources[0], '\0');
 }
 
@@ -681,7 +657,7 @@ TEST(TraceabilityToTripletsTest, LoadsEntriesIntoStore)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     ASSERT_EQ(rc, 0);
-    ASSERT_EQ(e.traceability.count, 2);
+    ASSERT_EQ(e.(int)traceability.size(), 2);
 
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
@@ -692,7 +668,7 @@ TEST(TraceabilityToTripletsTest, LoadsEntriesIntoStore)
 
     /* Verify the triples are queryable by subject. */
     CTripleList list = triplet_store_find_by_subject(store, "REQ-SW-020");
-    ASSERT_EQ(list.count, 2u);
+    ASSERT_EQ((int)list.size(), 2u);
     triplet_store_list_free(list);
 
     triplet_store_destroy(store);
@@ -703,8 +679,7 @@ TEST(TraceabilityToTripletsTest, NullInputsReturnMinusOne)
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
 
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_traceability_to_triplets(nullptr, store), -1);
     EXPECT_EQ(entity_traceability_to_triplets(&e, nullptr),    -1);
 
@@ -713,8 +688,7 @@ TEST(TraceabilityToTripletsTest, NullInputsReturnMinusOne)
 
 TEST(TraceabilityToTripletsTest, EmptyTraceabilityReturnsZero)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     strncpy(e.identity.id, "ENT-001", sizeof(e.identity.id) - 1);
 
     TripletStore *store = triplet_store_create();
@@ -769,7 +743,7 @@ TEST(DocMembershipToTripletsTest, LoadsMembershipsAsPartOfTriples)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     ASSERT_EQ(rc, 0);
-    ASSERT_EQ(e.doc_membership.count, 2);
+    ASSERT_EQ(e.(int)doc_membership.size(), 2);
 
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
@@ -780,9 +754,9 @@ TEST(DocMembershipToTripletsTest, LoadsMembershipsAsPartOfTriples)
 
     /* Both triples must use "part-of" as the predicate. */
     CTripleList list = triplet_store_find_by_subject(store, "REQ-SW-100");
-    ASSERT_EQ(list.count, 2u);
+    ASSERT_EQ((int)list.size(), 2u);
     int part_of_count = 0;
-    for (size_t i = 0; i < list.count; i++) {
+    for (size_t i = 0; i < (int)list.size(); i++) {
         if (strcmp(list.triples[i].predicate, "part-of") == 0)
             part_of_count++;
     }
@@ -791,11 +765,11 @@ TEST(DocMembershipToTripletsTest, LoadsMembershipsAsPartOfTriples)
 
     /* The objects must be the two document IDs. */
     CTripleList by_obj1 = triplet_store_find_by_object(store, "SRS-CLIENT-001");
-    EXPECT_GE(by_obj1.count, 1u);
+    EXPECT_GE((int)by_obj1.size(), 1u);
     triplet_store_list_free(by_obj1);
 
     CTripleList by_obj2 = triplet_store_find_by_object(store, "SDD-SYS-001");
-    EXPECT_GE(by_obj2.count, 1u);
+    EXPECT_GE((int)by_obj2.size(), 1u);
     triplet_store_list_free(by_obj2);
 
     triplet_store_destroy(store);
@@ -806,8 +780,7 @@ TEST(DocMembershipToTripletsTest, NullInputsReturnMinusOne)
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
 
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_doc_membership_to_triplets(nullptr, store), -1);
     EXPECT_EQ(entity_doc_membership_to_triplets(&e, nullptr),    -1);
 
@@ -816,8 +789,7 @@ TEST(DocMembershipToTripletsTest, NullInputsReturnMinusOne)
 
 TEST(DocMembershipToTripletsTest, EmptyMembershipReturnsZero)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     strncpy(e.identity.id, "REQ-SW-200", sizeof(e.identity.id) - 1);
 
     TripletStore *store = triplet_store_create();
@@ -875,7 +847,7 @@ TEST(DocMembershipToTripletsTest, InverseContainsIsInferred)
     /* The inverse (SRS-INV-001, contains, REQ-SW-400) must be inferred. */
     CTripleList by_doc = triplet_store_find_by_subject(store, "SRS-INV-001");
     int contains_count = 0;
-    for (size_t i = 0; i < by_doc.count; i++) {
+    for (size_t i = 0; i < (int)by_doc.size(); i++) {
         if (by_doc.triples[i].inferred &&
             strcmp(by_doc.triples[i].predicate, "contains") == 0 &&
             strcmp(by_doc.triples[i].object, "REQ-SW-400") == 0)
@@ -924,14 +896,14 @@ TEST(YamlParseEntityTest, DocumentMetaFile)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id,        "SRS-CLIENT-001");
+    EXPECT_EQ(e.identity.id, std::string("SRS-CLIENT-001"));
     EXPECT_EQ(e.identity.kind,         ENTITY_KIND_DOCUMENT);
-    EXPECT_STREQ(e.doc_meta.doc_type,  "SRS");
-    EXPECT_STREQ(e.doc_meta.version,   "1.2");
-    EXPECT_STREQ(e.doc_meta.client,    "ClientCorp");
-    EXPECT_STREQ(e.doc_meta.status,    "approved");
+    EXPECT_EQ(e.doc_meta.doc_type, std::string("SRS"));
+    EXPECT_EQ(e.doc_meta.version, std::string("1.2"));
+    EXPECT_EQ(e.doc_meta.client, std::string("ClientCorp"));
+    EXPECT_EQ(e.doc_meta.status, std::string("approved"));
     /* Membership component must be zero when not set. */
-    EXPECT_EQ(e.doc_membership.count,  0);
+    EXPECT_EQ(e.(int)doc_membership.size(),  0);
     EXPECT_EQ(e.doc_membership.doc_ids[0], '\0');
 }
 
@@ -954,11 +926,11 @@ TEST(YamlParseEntityTest, DocumentMetaWithOptionalTitle)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.identity.kind,         ENTITY_KIND_DOCUMENT);
-    EXPECT_STREQ(e.doc_meta.title,     "Software Design Description v2");
-    EXPECT_STREQ(e.doc_meta.doc_type,  "SDD");
-    EXPECT_STREQ(e.doc_meta.version,   "2.0");
-    EXPECT_STREQ(e.doc_meta.client,    "AcmeCorp");
-    EXPECT_STREQ(e.doc_meta.status,    "draft");
+    EXPECT_EQ(e.doc_meta.title, std::string("Software Design Description v2"));
+    EXPECT_EQ(e.doc_meta.doc_type, std::string("SDD"));
+    EXPECT_EQ(e.doc_meta.version, std::string("2.0"));
+    EXPECT_EQ(e.doc_meta.client, std::string("AcmeCorp"));
+    EXPECT_EQ(e.doc_meta.status, std::string("draft"));
 }
 
 TEST(YamlParseEntityTest, DocumentMetaEmptyWhenAbsent)
@@ -996,7 +968,7 @@ TEST(YamlParseEntityTest, DocumentMembership)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.doc_membership.count, 2);
+    EXPECT_EQ(e.(int)doc_membership.size(), 2);
     EXPECT_NE(strstr(e.doc_membership.doc_ids, "SRS-CLIENT-001"), nullptr);
     EXPECT_NE(strstr(e.doc_membership.doc_ids, "SDD-SYS-001"),    nullptr);
 }
@@ -1017,7 +989,7 @@ TEST(YamlParseEntityTest, DocumentMembershipSingleDoc)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.doc_membership.count, 1);
+    EXPECT_EQ(e.(int)doc_membership.size(), 1);
     EXPECT_NE(strstr(e.doc_membership.doc_ids, "SRS-MAIN-001"), nullptr);
 }
 
@@ -1032,7 +1004,7 @@ TEST(YamlParseEntityTest, DocumentMembershipEmptyWhenAbsent)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.doc_membership.count,      0);
+    EXPECT_EQ(e.(int)doc_membership.size(),      0);
     EXPECT_EQ(e.doc_membership.doc_ids[0], '\0');
 }
 
@@ -1056,10 +1028,10 @@ TEST(YamlParseEntityTest, AnyEntityCanCarryDocumentComponents)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.identity.kind,          ENTITY_KIND_REQUIREMENT);
-    EXPECT_STREQ(e.doc_meta.doc_type,   "SRS");
-    EXPECT_STREQ(e.doc_meta.version,    "3.0");
-    EXPECT_STREQ(e.doc_meta.client,     "MegaCorp");
-    EXPECT_EQ(e.doc_membership.count,   1);
+    EXPECT_EQ(e.doc_meta.doc_type, std::string("SRS"));
+    EXPECT_EQ(e.doc_meta.version, std::string("3.0"));
+    EXPECT_EQ(e.doc_meta.client, std::string("MegaCorp"));
+    EXPECT_EQ(e.(int)doc_membership.size(),   1);
     EXPECT_NE(strstr(e.doc_membership.doc_ids, "SRS-MEGA-001"), nullptr);
 }
 
@@ -1080,7 +1052,7 @@ TEST(YamlParseEntityTest, DocumentBodyShortContent)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id,    "DN-001");
+    EXPECT_EQ(e.identity.id, std::string("DN-001"));
     EXPECT_EQ(e.identity.kind,     ENTITY_KIND_DESIGN_NOTE);
     ASSERT_NE(e.doc_body.body,     nullptr);
     EXPECT_STREQ(e.doc_body.body,  "This is a short body text.");
@@ -1106,7 +1078,7 @@ TEST(YamlParseEntityTest, DocumentBodyLargeContent)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id, "DN-LARGE-001");
+    EXPECT_EQ(e.identity.id, std::string("DN-LARGE-001"));
     EXPECT_EQ(e.identity.kind,  ENTITY_KIND_DESIGN_NOTE);
     /* Body must be stored in full — length matches the generated string. */
     ASSERT_NE(e.doc_body.body, nullptr);
@@ -1132,7 +1104,7 @@ TEST(YamlParseEntityTest, DocumentBodyNearMaxContent)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id, "DN-NEARMAX-001");
+    EXPECT_EQ(e.identity.id, std::string("DN-NEARMAX-001"));
     EXPECT_EQ(e.identity.kind,  ENTITY_KIND_DESIGN_NOTE);
     /* Body must be stored in full — length matches the generated string. */
     ASSERT_NE(e.doc_body.body, nullptr);
@@ -1164,16 +1136,14 @@ TEST(YamlParseEntityTest, DocumentBodyNullWhenAbsent)
 
 TEST(EntityHasComponentTest, NullAndEmptyCompAlwaysMatch)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, nullptr), 1);
     EXPECT_EQ(entity_has_component(&e, ""),      1);
 }
 
 TEST(EntityHasComponentTest, UserStoryAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "user-story"),  0);
 
     strncpy(e.user_story.role, "developer", sizeof(e.user_story.role) - 1);
@@ -1182,18 +1152,16 @@ TEST(EntityHasComponentTest, UserStoryAbsentAndPresent)
 
 TEST(EntityHasComponentTest, AcceptanceCriteriaAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "acceptance-criteria"), 0);
 
-    e.acceptance_criteria.count = 1;
+    e.(int)acceptance_criteria.size() = 1;
     EXPECT_EQ(entity_has_component(&e, "acceptance-criteria"), 1);
 }
 
 TEST(EntityHasComponentTest, EpicMembershipAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "epic"),            0);
     EXPECT_EQ(entity_has_component(&e, "epic-membership"), 0);
 
@@ -1205,8 +1173,7 @@ TEST(EntityHasComponentTest, EpicMembershipAbsentAndPresent)
 
 TEST(EntityHasComponentTest, AssumptionAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "assumption"), 0);
 
     strncpy(e.assumption.text, "Some assumption",
@@ -1216,8 +1183,7 @@ TEST(EntityHasComponentTest, AssumptionAbsentAndPresent)
 
 TEST(EntityHasComponentTest, ConstraintAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "constraint"), 0);
 
     strncpy(e.constraint.text, "Some constraint",
@@ -1227,8 +1193,7 @@ TEST(EntityHasComponentTest, ConstraintAbsentAndPresent)
 
 TEST(EntityHasComponentTest, DocMetaAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "doc-meta"), 0);
 
     strncpy(e.doc_meta.doc_type, "SRS", sizeof(e.doc_meta.doc_type) - 1);
@@ -1237,20 +1202,18 @@ TEST(EntityHasComponentTest, DocMetaAbsentAndPresent)
 
 TEST(EntityHasComponentTest, DocMembershipAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "doc-membership"), 0);
     EXPECT_EQ(entity_has_component(&e, "documents"),      0);
 
-    e.doc_membership.count = 1;
+    e.(int)doc_membership.size() = 1;
     EXPECT_EQ(entity_has_component(&e, "doc-membership"), 1);
     EXPECT_EQ(entity_has_component(&e, "documents"),      1);
 }
 
 TEST(EntityHasComponentTest, DocBodyAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "doc-body"), 0);
     EXPECT_EQ(entity_has_component(&e, "body"),     0);
 
@@ -1263,38 +1226,34 @@ TEST(EntityHasComponentTest, DocBodyAbsentAndPresent)
 
 TEST(EntityHasComponentTest, TraceabilityAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "traceability"), 0);
 
-    e.traceability.count = 1;
+    e.(int)traceability.size() = 1;
     EXPECT_EQ(entity_has_component(&e, "traceability"), 1);
 }
 
 TEST(EntityHasComponentTest, SourcesAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "sources"), 0);
 
-    e.sources.count = 1;
+    e.(int)sources.size() = 1;
     EXPECT_EQ(entity_has_component(&e, "sources"), 1);
 }
 
 TEST(EntityHasComponentTest, TagsAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "tags"), 0);
 
-    e.tags.count = 2;
+    e.(int)tags.size() = 2;
     EXPECT_EQ(entity_has_component(&e, "tags"), 1);
 }
 
 TEST(EntityHasComponentTest, UnknownComponentNameReturnsFalse)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     /* Fill everything so we can confirm unknown names still return 0. */
     strncpy(e.assumption.text, "x", sizeof(e.assumption.text) - 1);
     EXPECT_EQ(entity_has_component(&e, "no-such-component"), 0);
@@ -1302,8 +1261,7 @@ TEST(EntityHasComponentTest, UnknownComponentNameReturnsFalse)
 
 TEST(EntityHasComponentTest, TestProcedureAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "test-procedure"), 0);
 
     e.test_procedure.step_count = 1;
@@ -1312,24 +1270,22 @@ TEST(EntityHasComponentTest, TestProcedureAbsentAndPresent)
 
 TEST(EntityHasComponentTest, ClauseCollectionAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 0);
     EXPECT_EQ(entity_has_component(&e, "clauses"),           0);
 
-    e.clause_collection.count = 2;
+    e.(int)clause_collection.size() = 2;
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 1);
     EXPECT_EQ(entity_has_component(&e, "clauses"),           1);
 }
 
 TEST(EntityHasComponentTest, AttachmentAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "attachment"),  0);
     EXPECT_EQ(entity_has_component(&e, "attachments"), 0);
 
-    e.attachment.count = 1;
+    e.(int)attachment.size() = 1;
     EXPECT_EQ(entity_has_component(&e, "attachment"),  1);
     EXPECT_EQ(entity_has_component(&e, "attachments"), 1);
 }
@@ -1363,7 +1319,7 @@ TEST(YamlParseEntityTest, TestProcedureFullParse)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.identity.kind,                      ENTITY_KIND_TEST_CASE);
-    EXPECT_STREQ(e.identity.id,                     "TC-SW-002");
+    EXPECT_EQ(e.identity.id, std::string("TC-SW-002"));
     EXPECT_EQ(e.test_procedure.precondition_count,  2);
     ASSERT_NE(e.test_procedure.preconditions,       nullptr);
     EXPECT_NE(strstr(e.test_procedure.preconditions, "A registered user account exists."), nullptr);
@@ -1467,8 +1423,8 @@ TEST(YamlParseEntityTest, ClauseCollectionFullParse)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.identity.kind,           ENTITY_KIND_EXTERNAL);
-    EXPECT_STREQ(e.identity.id,          "EXT-MACH-DIR");
-    EXPECT_EQ(e.clause_collection.count, 2);
+    EXPECT_EQ(e.identity.id, std::string("EXT-MACH-DIR"));
+    EXPECT_EQ(e.(int)clause_collection.size(), 2);
     ASSERT_NE(e.clause_collection.clauses, nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "annex-I-1.1.2"),                  nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "Principles of safety integration"), nullptr);
@@ -1492,7 +1448,7 @@ TEST(YamlParseEntityTest, ClauseCollectionIdOnlyClause)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.clause_collection.count, 1);
+    EXPECT_EQ(e.(int)clause_collection.size(), 1);
     ASSERT_NE(e.clause_collection.clauses, nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "section-4.5"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "clauses"), 1);
@@ -1511,7 +1467,7 @@ TEST(YamlParseEntityTest, ClauseCollectionNullWhenMissing)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.clause_collection.count,   0);
+    EXPECT_EQ(e.(int)clause_collection.size(),   0);
     EXPECT_EQ(e.clause_collection.clauses, nullptr);
     EXPECT_EQ(entity_has_component(&e, "clause-collection"), 0);
     entity_free(&e);
@@ -1539,8 +1495,8 @@ TEST(YamlParseEntityTest, AttachmentFullParse)
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(e.identity.kind,     ENTITY_KIND_DOCUMENT);
-    EXPECT_STREQ(e.identity.id,    "SRS-CLIENT-002");
-    EXPECT_EQ(e.attachment.count,  2);
+    EXPECT_EQ(e.identity.id, std::string("SRS-CLIENT-002"));
+    EXPECT_EQ(e.(int)attachment.size(),  2);
     ASSERT_NE(e.attachment.attachments, nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "docs/spec.pdf"),                nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "Original specification document"), nullptr);
@@ -1565,7 +1521,7 @@ TEST(YamlParseEntityTest, AttachmentPathOnly)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.attachment.count, 1);
+    EXPECT_EQ(e.(int)attachment.size(), 1);
     ASSERT_NE(e.attachment.attachments, nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "reports/test_run.xml"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "attachment"), 1);
@@ -1584,7 +1540,7 @@ TEST(YamlParseEntityTest, AttachmentNullWhenMissing)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.attachment.count,       0);
+    EXPECT_EQ(e.(int)attachment.size(),       0);
     EXPECT_EQ(e.attachment.attachments, nullptr);
     EXPECT_EQ(entity_has_component(&e, "attachment"), 0);
     entity_free(&e);
@@ -1621,10 +1577,10 @@ TEST(YamlParseEntityTest, AllThreeNewComponentsOnOneEntity)
     EXPECT_EQ(e.test_procedure.step_count,          1);
     ASSERT_NE(e.test_procedure.expected_result,     nullptr);
     EXPECT_STREQ(e.test_procedure.expected_result,  "All assertions pass.");
-    EXPECT_EQ(e.clause_collection.count,            1);
+    EXPECT_EQ(e.(int)clause_collection.size(),            1);
     ASSERT_NE(e.clause_collection.clauses,          nullptr);
     EXPECT_NE(strstr(e.clause_collection.clauses, "sec-4.1"), nullptr);
-    EXPECT_EQ(e.attachment.count,                   1);
+    EXPECT_EQ(e.(int)attachment.size(),                   1);
     ASSERT_NE(e.attachment.attachments,             nullptr);
     EXPECT_NE(strstr(e.attachment.attachments, "results/report.html"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "test-procedure"),    1);
@@ -1654,25 +1610,21 @@ TEST(EntityCmpByIdTest, SortsTwoEntities)
 TEST(EntityCmpByIdTest, UsableWithQsort)
 {
     EntityList list;
-    entity_list_init(&list);
 
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
 
     strncpy(e.identity.id, "REQ-003", sizeof(e.identity.id) - 1);
-    entity_list_add(&list, &e);
+    list.push_back(e);
     strncpy(e.identity.id, "REQ-001", sizeof(e.identity.id) - 1);
-    entity_list_add(&list, &e);
+    list.push_back(e);
     strncpy(e.identity.id, "REQ-002", sizeof(e.identity.id) - 1);
-    entity_list_add(&list, &e);
+    list.push_back(e);
 
-    qsort(list.items, (size_t)list.count, sizeof(Entity), entity_cmp_by_id);
+    qsort(list.items, (size_t)(int)list.size(), sizeof(Entity), entity_cmp_by_id);
 
-    EXPECT_STREQ(list.items[0].identity.id, "REQ-001");
-    EXPECT_STREQ(list.items[1].identity.id, "REQ-002");
-    EXPECT_STREQ(list.items[2].identity.id, "REQ-003");
-
-    entity_list_free(&list);
+    EXPECT_EQ(list[0].identity.id, std::string("REQ-001"));
+    EXPECT_EQ(list[1].identity.id, std::string("REQ-002"));
+    EXPECT_EQ(list[2].identity.id, std::string("REQ-003"));
 }
 
 /* =========================================================================
@@ -1682,103 +1634,89 @@ TEST(EntityCmpByIdTest, UsableWithQsort)
 static Entity make_test_entity(const char *id, EntityKind kind,
                                 const char *status, const char *priority)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
-    strncpy(e.identity.id, id, sizeof(e.identity.id) - 1);
+    Entity e{};
+    e.identity.id = id;
     e.identity.kind = kind;
-    strncpy(e.lifecycle.status,   status,   sizeof(e.lifecycle.status)   - 1);
-    strncpy(e.lifecycle.priority, priority, sizeof(e.lifecycle.priority) - 1);
+    e.lifecycle.status = status;
+    e.lifecycle.priority = priority;
     return e;
 }
 
 TEST(EntityApplyFilterTest, NullFiltersPassesAll)
 {
     EntityList src, dst;
-    entity_list_init(&src);
-    entity_list_init(&dst);
+
 
     Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
                                   "draft", "must");
     Entity e2 = make_test_entity("TC-001",  ENTITY_KIND_TEST_CASE,
                                   "approved", "should");
-    entity_list_add(&src, &e1);
-    entity_list_add(&src, &e2);
+    src.push_back(e1);
+    src.push_back(e2);
 
     entity_apply_filter(&src, &dst, nullptr, nullptr, nullptr, nullptr);
-    EXPECT_EQ(dst.count, 2);
+    EXPECT_EQ((int)dst.size(), 2);
 
-    entity_list_free(&src);
-    entity_list_free(&dst);
 }
 
 TEST(EntityApplyFilterTest, KindFilterSelectsOnlyRequirements)
 {
     EntityList src, dst;
-    entity_list_init(&src);
-    entity_list_init(&dst);
+
 
     Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
                                   "draft", "must");
     Entity e2 = make_test_entity("TC-001",  ENTITY_KIND_TEST_CASE,
                                   "draft", "must");
-    entity_list_add(&src, &e1);
-    entity_list_add(&src, &e2);
+    src.push_back(e1);
+    src.push_back(e2);
 
     entity_apply_filter(&src, &dst, "requirement", nullptr, nullptr, nullptr);
-    EXPECT_EQ(dst.count, 1);
-    EXPECT_STREQ(dst.items[0].identity.id, "REQ-001");
+    EXPECT_EQ((int)dst.size(), 1);
+    EXPECT_EQ(dst[0].identity.id, std::string("REQ-001"));
 
-    entity_list_free(&src);
-    entity_list_free(&dst);
 }
 
 TEST(EntityApplyFilterTest, StatusFilterSelectsApproved)
 {
     EntityList src, dst;
-    entity_list_init(&src);
-    entity_list_init(&dst);
+
 
     Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
                                   "approved", "must");
     Entity e2 = make_test_entity("REQ-002", ENTITY_KIND_REQUIREMENT,
                                   "draft", "must");
-    entity_list_add(&src, &e1);
-    entity_list_add(&src, &e2);
+    src.push_back(e1);
+    src.push_back(e2);
 
     entity_apply_filter(&src, &dst, nullptr, nullptr, "approved", nullptr);
-    EXPECT_EQ(dst.count, 1);
-    EXPECT_STREQ(dst.items[0].identity.id, "REQ-001");
+    EXPECT_EQ((int)dst.size(), 1);
+    EXPECT_EQ(dst[0].identity.id, std::string("REQ-001"));
 
-    entity_list_free(&src);
-    entity_list_free(&dst);
 }
 
 TEST(EntityApplyFilterTest, PriorityFilterSelectsMust)
 {
     EntityList src, dst;
-    entity_list_init(&src);
-    entity_list_init(&dst);
+
 
     Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
                                   "draft", "must");
     Entity e2 = make_test_entity("REQ-002", ENTITY_KIND_REQUIREMENT,
                                   "draft", "should");
-    entity_list_add(&src, &e1);
-    entity_list_add(&src, &e2);
+    src.push_back(e1);
+    src.push_back(e2);
 
     entity_apply_filter(&src, &dst, nullptr, nullptr, nullptr, "must");
-    EXPECT_EQ(dst.count, 1);
-    EXPECT_STREQ(dst.items[0].identity.id, "REQ-001");
+    EXPECT_EQ((int)dst.size(), 1);
+    EXPECT_EQ(dst[0].identity.id, std::string("REQ-001"));
 
-    entity_list_free(&src);
-    entity_list_free(&dst);
 }
 
 TEST(EntityApplyFilterTest, CombinedKindAndStatusFilters)
 {
     EntityList src, dst;
-    entity_list_init(&src);
-    entity_list_init(&dst);
+
 
     Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
                                   "approved", "must");
@@ -1786,46 +1724,38 @@ TEST(EntityApplyFilterTest, CombinedKindAndStatusFilters)
                                   "draft", "must");
     Entity e3 = make_test_entity("TC-001",  ENTITY_KIND_TEST_CASE,
                                   "approved", "must");
-    entity_list_add(&src, &e1);
-    entity_list_add(&src, &e2);
-    entity_list_add(&src, &e3);
+    src.push_back(e1);
+    src.push_back(e2);
+    src.push_back(e3);
 
     entity_apply_filter(&src, &dst, "requirement", nullptr, "approved", nullptr);
-    EXPECT_EQ(dst.count, 1);
-    EXPECT_STREQ(dst.items[0].identity.id, "REQ-001");
+    EXPECT_EQ((int)dst.size(), 1);
+    EXPECT_EQ(dst[0].identity.id, std::string("REQ-001"));
 
-    entity_list_free(&src);
-    entity_list_free(&dst);
 }
 
 TEST(EntityApplyFilterTest, NoMatchGivesEmptyDst)
 {
     EntityList src, dst;
-    entity_list_init(&src);
-    entity_list_init(&dst);
+
 
     Entity e1 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
                                   "draft", "must");
-    entity_list_add(&src, &e1);
+    src.push_back(e1);
 
     entity_apply_filter(&src, &dst, "test-case", nullptr, nullptr, nullptr);
-    EXPECT_EQ(dst.count, 0);
+    EXPECT_EQ((int)dst.size(), 0);
 
-    entity_list_free(&src);
-    entity_list_free(&dst);
 }
 
 TEST(EntityApplyFilterTest, EmptySourceGivesEmptyDst)
 {
     EntityList src, dst;
-    entity_list_init(&src);
-    entity_list_init(&dst);
+
 
     entity_apply_filter(&src, &dst, "requirement", nullptr, nullptr, nullptr);
-    EXPECT_EQ(dst.count, 0);
+    EXPECT_EQ((int)dst.size(), 0);
 
-    entity_list_free(&src);
-    entity_list_free(&dst);
 }
 
 /* =========================================================================
@@ -1835,8 +1765,7 @@ TEST(EntityApplyFilterTest, EmptySourceGivesEmptyDst)
 TEST(EntityFreeTest, FreeOnZeroInitialisedEntityIsSafe)
 {
     /* entity_free() on a fully-zeroed entity must not crash. */
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     entity_free(&e);
     /* All heap pointers must still be NULL after free. */
     EXPECT_EQ(e.doc_body.body,                 nullptr);
@@ -1856,8 +1785,7 @@ TEST(EntityFreeTest, FreeNullEntityIsSafe)
 TEST(EntityFreeTest, FreeSetsPointersToNull)
 {
     /* After entity_free(), heap pointers are set to NULL. */
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     e.doc_body.body                  = strdup("body content");
     e.test_procedure.expected_result = strdup("expected");
     e.test_procedure.preconditions   = (char *)calloc(1, 64);
@@ -1885,8 +1813,7 @@ TEST(EntityFreeTest, FreeTwiceIsSafe)
 {
     /* Calling entity_free() twice on the same entity must not crash
      * (pointers are NULLed on first free). */
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     e.doc_body.body = strdup("hello");
     ASSERT_NE(e.doc_body.body, nullptr);
     entity_free(&e);
@@ -1903,7 +1830,7 @@ TEST(EntityCopyTest, CopyZeroEntityIsOk)
 
     int rc = entity_copy(&dst, &src);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(dst.identity.id, "REQ-CPY-001");
+    EXPECT_EQ(dst.identity.id, std::string("REQ-CPY-001"));
     /* No heap fields were set — all pointers should still be NULL. */
     EXPECT_EQ(dst.doc_body.body, nullptr);
     EXPECT_EQ(dst.test_procedure.expected_result, nullptr);
@@ -1932,9 +1859,9 @@ TEST(EntityCopyTest, CopyDeepCopiesHeapFields)
     strncpy(src.test_procedure.preconditions, "precond one", 63);
     src.test_procedure.precondition_count = 1;
     strncpy(src.clause_collection.clauses, "cl-1\ttitle one", 63);
-    src.clause_collection.count = 1;
+    src.(int)clause_collection.size() = 1;
     strncpy(src.attachment.attachments, "file.pdf\tdesc", 63);
-    src.attachment.count = 1;
+    src.(int)attachment.size() = 1;
 
     Entity dst;
     memset(&dst, 0, sizeof(dst));
@@ -1956,11 +1883,11 @@ TEST(EntityCopyTest, CopyDeepCopiesHeapFields)
 
     ASSERT_NE(dst.clause_collection.clauses, nullptr);
     EXPECT_NE(dst.clause_collection.clauses, src.clause_collection.clauses);
-    EXPECT_EQ(dst.clause_collection.count, 1);
+    EXPECT_EQ(dst.(int)clause_collection.size(), 1);
 
     ASSERT_NE(dst.attachment.attachments, nullptr);
     EXPECT_NE(dst.attachment.attachments, src.attachment.attachments);
-    EXPECT_EQ(dst.attachment.count, 1);
+    EXPECT_EQ(dst.(int)attachment.size(), 1);
 
     entity_free(&src);
     entity_free(&dst);
@@ -1995,7 +1922,6 @@ TEST(EntityListAddTest, ListAddDeepCopiesHeapFields)
     /* Verify that entity_list_add() performs a deep copy and the source
      * entity can be freed independently after adding. */
     EntityList list;
-    entity_list_init(&list);
 
     Entity src;
     memset(&src, 0, sizeof(src));
@@ -2003,18 +1929,16 @@ TEST(EntityListAddTest, ListAddDeepCopiesHeapFields)
     src.doc_body.body = strdup("list body");
     ASSERT_NE(src.doc_body.body, nullptr);
 
-    EXPECT_EQ(entity_list_add(&list, &src), 0);
-    EXPECT_EQ(list.count, 1);
+    EXPECT_EQ(list.push_back(src), 0);
+    EXPECT_EQ((int)list.size(), 1);
 
     /* Free the source — the list copy must still be valid. */
     entity_free(&src);
     EXPECT_EQ(src.doc_body.body, nullptr);
 
     /* List item must still have its own copy. */
-    ASSERT_NE(list.items[0].doc_body.body, nullptr);
-    EXPECT_STREQ(list.items[0].doc_body.body, "list body");
-
-    entity_list_free(&list);
+    ASSERT_NE(list[0].doc_body.body, nullptr);
+    EXPECT_STREQ(list[0].doc_body.body, "list body");
 }
 
 TEST(EntityListFreeTest, FreeReleasesAllEntityHeapFields)
@@ -2040,20 +1964,18 @@ TEST(EntityListFreeTest, FreeReleasesAllEntityHeapFields)
     fclose(f);
 
     EntityList list;
-    entity_list_init(&list);
     int added = yaml_parse_entities("/tmp/mem_test.yaml", &list);
     EXPECT_EQ(added, 2);
-    EXPECT_EQ(list.count, 2);
+    EXPECT_EQ((int)list.size(), 2);
 
     /* Verify heap fields were set. */
-    EXPECT_NE(list.items[0].doc_body.body, nullptr);
-    EXPECT_NE(list.items[1].test_procedure.preconditions, nullptr);
-    EXPECT_NE(list.items[1].test_procedure.expected_result, nullptr);
+    EXPECT_NE(list[0].doc_body.body, nullptr);
+    EXPECT_NE(list[1].test_procedure.preconditions, nullptr);
+    EXPECT_NE(list[1].test_procedure.expected_result, nullptr);
 
     /* This must free all heap fields without leaking. */
-    entity_list_free(&list);
     EXPECT_EQ(list.items,    nullptr);
-    EXPECT_EQ(list.count,    0);
+    EXPECT_EQ((int)list.size(),    0);
     EXPECT_EQ(list.capacity, 0);
 }
 
@@ -2090,26 +2012,23 @@ TEST(EntityMemoryTest, ParsedEntityHeapFieldsAreIndependentFromList)
     ASSERT_NE(path, nullptr);
 
     EntityList list;
-    entity_list_init(&list);
 
     /* Add the same entity twice via two separate parses. */
     Entity e1, e2;
     ASSERT_EQ(yaml_parse_entity(path, &e1), 0);
     ASSERT_EQ(yaml_parse_entity(path, &e2), 0);
-    EXPECT_EQ(entity_list_add(&list, &e1), 0);
-    EXPECT_EQ(entity_list_add(&list, &e2), 0);
+    EXPECT_EQ(list.push_back(e1), 0);
+    EXPECT_EQ(list.push_back(e2), 0);
     entity_free(&e1);
     entity_free(&e2);
 
-    EXPECT_EQ(list.count, 2);
+    EXPECT_EQ((int)list.size(), 2);
     /* Both items have independent heap pointers. */
-    ASSERT_NE(list.items[0].doc_body.body, nullptr);
-    ASSERT_NE(list.items[1].doc_body.body, nullptr);
-    EXPECT_NE(list.items[0].doc_body.body, list.items[1].doc_body.body);
-    EXPECT_STREQ(list.items[0].doc_body.body, "shared body");
-    EXPECT_STREQ(list.items[1].doc_body.body, "shared body");
-
-    entity_list_free(&list);
+    ASSERT_NE(list[0].doc_body.body, nullptr);
+    ASSERT_NE(list[1].doc_body.body, nullptr);
+    EXPECT_NE(list[0].doc_body.body, list[1].doc_body.body);
+    EXPECT_STREQ(list[0].doc_body.body, "shared body");
+    EXPECT_STREQ(list[1].doc_body.body, "shared body");
 }
 
 /* =========================================================================
@@ -2145,7 +2064,7 @@ TEST(YamlParseEntityTest, AppliesToScalar)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.applies_to.count, 1);
+    EXPECT_EQ(e.(int)applies_to.size(), 1);
     EXPECT_NE(strstr(e.applies_to.applies_to, "acme"), nullptr);
     EXPECT_EQ(entity_has_component(&e, "applies-to"), 1);
 }
@@ -2165,7 +2084,7 @@ TEST(YamlParseEntityTest, AppliesToSequence)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.applies_to.count, 2);
+    EXPECT_EQ(e.(int)applies_to.size(), 2);
     EXPECT_NE(strstr(e.applies_to.applies_to, "acme"), nullptr);
     EXPECT_NE(strstr(e.applies_to.applies_to, "bmw"),  nullptr);
     EXPECT_EQ(entity_has_component(&e, "applies-to"), 1);
@@ -2183,7 +2102,7 @@ TEST(YamlParseEntityTest, AppliesToAbsentWhenMissing)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(e.applies_to.count,          0);
+    EXPECT_EQ(e.(int)applies_to.size(),          0);
     EXPECT_EQ(e.applies_to.applies_to[0],  '\0');
     EXPECT_EQ(entity_has_component(&e, "applies-to"), 0);
 }
@@ -2382,11 +2301,11 @@ TEST(YamlParseEntityTest, DocumentSchemaFullParse)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     EXPECT_EQ(rc, 0);
-    EXPECT_STREQ(e.identity.id, "SRS-ACME-001");
+    EXPECT_EQ(e.identity.id, std::string("SRS-ACME-001"));
     EXPECT_EQ(e.identity.kind,  ENTITY_KIND_DOCUMENT_SCHEMA);
 
     /* applies_to */
-    EXPECT_EQ(e.applies_to.count, 1);
+    EXPECT_EQ(e.(int)applies_to.size(), 1);
     EXPECT_NE(strstr(e.applies_to.applies_to, "acme"), nullptr);
 
     /* variant_profile */
@@ -2414,18 +2333,16 @@ TEST(YamlParseEntityTest, DocumentSchemaFullParse)
 
 TEST(EntityHasComponentTest, AppliesToAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "applies-to"), 0);
 
-    e.applies_to.count = 1;
+    e.(int)applies_to.size() = 1;
     EXPECT_EQ(entity_has_component(&e, "applies-to"), 1);
 }
 
 TEST(EntityHasComponentTest, VariantProfileAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "variant-profile"), 0);
 
     strncpy(e.variant_profile.customer, "acme",
@@ -2435,8 +2352,7 @@ TEST(EntityHasComponentTest, VariantProfileAbsentAndPresent)
 
 TEST(EntityHasComponentTest, CompositionProfileAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "composition-profile"), 0);
 
     e.composition_profile.order_count = 2;
@@ -2445,8 +2361,7 @@ TEST(EntityHasComponentTest, CompositionProfileAbsentAndPresent)
 
 TEST(EntityHasComponentTest, RenderProfileAbsentAndPresent)
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     EXPECT_EQ(entity_has_component(&e, "render-profile"), 0);
 
     strncpy(e.render_profile.format, "html",
@@ -2457,21 +2372,18 @@ TEST(EntityHasComponentTest, RenderProfileAbsentAndPresent)
 TEST(EntityApplyFilterTest, KindFilterSelectsDocumentSchema)
 {
     EntityList src, dst;
-    entity_list_init(&src);
-    entity_list_init(&dst);
+
 
     Entity e1 = make_test_entity("SCHEMA-001", ENTITY_KIND_DOCUMENT_SCHEMA,
                                   "draft", "must");
     Entity e2 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
                                   "draft", "must");
-    entity_list_add(&src, &e1);
-    entity_list_add(&src, &e2);
+    src.push_back(e1);
+    src.push_back(e2);
 
     entity_apply_filter(&src, &dst, "document-schema", nullptr, nullptr,
                         nullptr);
-    EXPECT_EQ(dst.count, 1);
-    EXPECT_STREQ(dst.items[0].identity.id, "SCHEMA-001");
+    EXPECT_EQ((int)dst.size(), 1);
+    EXPECT_EQ(dst[0].identity.id, std::string("SCHEMA-001"));
 
-    entity_list_free(&src);
-    entity_list_free(&dst);
 }

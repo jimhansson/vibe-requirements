@@ -22,8 +22,8 @@ YAML_OBJS = $(BUILD_DIR)/yaml/yaml_helpers.o \
             $(BUILD_DIR)/yaml/entity_parser.o
 
 # Main binary sources (C and C++)
-C_SRCS   = main.c entity.c discovery.c config.c report.c new_cmd.c coverage.c cli_args.c list_cmd.c
-CPP_SRCS = triplet_store.cpp triplet_store_c.cpp
+C_SRCS   = config.c
+CPP_SRCS = triplet_store.cpp triplet_store_c.cpp entity.cpp discovery.cpp coverage.cpp list_cmd.cpp new_cmd.cpp report.cpp main.cpp cli_args.cpp
 C_OBJS   = $(addprefix $(BUILD_DIR)/,$(C_SRCS:.c=.o))
 CPP_OBJS = $(addprefix $(BUILD_DIR)/,$(CPP_SRCS:.cpp=.o))
 OBJS     = $(C_OBJS) $(CPP_OBJS) $(YAML_OBJS)
@@ -143,6 +143,9 @@ $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 
 $(BUILD_DIR)/yaml/%.o: yaml/%.c | $(BUILD_DIR)/yaml
 	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILD_DIR)/yaml/%.o: yaml/%.cpp | $(BUILD_DIR)/yaml
+	$(CXX) $(CXXFLAGS) -MMD -MP -c -o $@ $<
 
 $(BUILD_DIR)/%.o: %.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -MMD -MP -c -o $@ $<

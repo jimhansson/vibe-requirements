@@ -29,4 +29,8 @@ int config_load(const char *root_dir, VibeConfig *cfg);
  */
 int config_is_ignored_dir(const VibeConfig *cfg, const char *dir_name);
 
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
 #endif /* VIBE_CONFIG_H */

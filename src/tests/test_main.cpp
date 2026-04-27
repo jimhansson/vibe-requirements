@@ -26,11 +26,9 @@
 #include <string>
 #include <functional>
 
-extern "C" {
 #include "entity.h"
 #include "triplet_store_c.h"
 #include "list_cmd.h"
-}
 
 using ::testing::HasSubstr;
 using ::testing::Not;
@@ -112,13 +110,12 @@ static Entity make_entity(const char *id, const char *title,
                            const char *status   = "draft",
                            const char *priority = "must")
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
-    strncpy(e.identity.id,        id,       sizeof(e.identity.id)     - 1);
-    strncpy(e.identity.title,     title,    sizeof(e.identity.title)  - 1);
+    Entity e{};
+    e.identity.id = id;
+    e.identity.title = title;
     e.identity.kind = kind;
-    strncpy(e.lifecycle.status,   status,   sizeof(e.lifecycle.status)   - 1);
-    strncpy(e.lifecycle.priority, priority, sizeof(e.lifecycle.priority) - 1);
+    e.lifecycle.status = status;
+    e.lifecycle.priority = priority;
     return e;
 }
 
@@ -129,30 +126,27 @@ static Entity make_entity(const char *id, const char *title,
 TEST(BuildEntityRelationStoreTest, EmptyListReturnsEmptyStore)
 {
     EntityList list;
-    entity_list_init(&list);
 
     TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     CTripleList all = triplet_store_find_all(store);
-    EXPECT_EQ(all.count, 0u);
+    EXPECT_EQ((int)all.size(), 0u);
     triplet_store_list_free(all);
 
     triplet_store_destroy(store);
-    entity_list_free(&list);
 }
 
 TEST(BuildEntityRelationStoreTest, EntityWithLinksPopulatesStore)
 {
     EntityList list;
-    entity_list_init(&list);
 
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
     /* Add a declared traceability entry: REQ-001 verified-by TC-001 */
     strncpy(req.traceability.entries, "TC-001\tverified-by\n",
             sizeof(req.traceability.entries) - 1);
-    req.traceability.count = 1;
-    entity_list_add(&list, &req);
+    req.(int)traceability.size() = 1;
+    list.push_back(req);
 
     TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
@@ -160,7 +154,7 @@ TEST(BuildEntityRelationStoreTest, EntityWithLinksPopulatesStore)
     CTripleList by_subj = triplet_store_find_by_subject(store, "REQ-001");
     /* At least one declared triple for REQ-001. */
     int declared = 0;
-    for (size_t i = 0; i < by_subj.count; i++) {
+    for (size_t i = 0; i < (int)by_subj.size(); i++) {
         if (!by_subj.triples[i].inferred)
             declared++;
     }
@@ -168,19 +162,17 @@ TEST(BuildEntityRelationStoreTest, EntityWithLinksPopulatesStore)
     triplet_store_list_free(by_subj);
 
     triplet_store_destroy(store);
-    entity_list_free(&list);
 }
 
 TEST(BuildEntityRelationStoreTest, InverseRelationsAreInferred)
 {
     EntityList list;
-    entity_list_init(&list);
 
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
     strncpy(req.traceability.entries, "TC-001\tverified-by\n",
             sizeof(req.traceability.entries) - 1);
-    req.traceability.count = 1;
-    entity_list_add(&list, &req);
+    req.(int)traceability.size() = 1;
+    list.push_back(req);
 
     TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
@@ -188,7 +180,7 @@ TEST(BuildEntityRelationStoreTest, InverseRelationsAreInferred)
     /* The inverse (TC-001, verifies, REQ-001) should have been inferred. */
     CTripleList by_subj = triplet_store_find_by_subject(store, "TC-001");
     int inferred_verifies = 0;
-    for (size_t i = 0; i < by_subj.count; i++) {
+    for (size_t i = 0; i < (int)by_subj.size(); i++) {
         if (by_subj.triples[i].inferred &&
             strcmp(by_subj.triples[i].predicate, "verifies") == 0 &&
             strcmp(by_subj.triples[i].object, "REQ-001") == 0)
@@ -198,50 +190,46 @@ TEST(BuildEntityRelationStoreTest, InverseRelationsAreInferred)
     triplet_store_list_free(by_subj);
 
     triplet_store_destroy(store);
-    entity_list_free(&list);
 }
 
 TEST(BuildEntityRelationStoreTest, MultipleEntitiesAllLinksPresent)
 {
     EntityList list;
-    entity_list_init(&list);
 
     Entity req = make_entity("REQ-010", "Feature", ENTITY_KIND_REQUIREMENT);
     strncpy(req.traceability.entries, "TC-010\tverified-by\n",
             sizeof(req.traceability.entries) - 1);
-    req.traceability.count = 1;
+    req.(int)traceability.size() = 1;
 
     Entity tc = make_entity("TC-010", "Test feature", ENTITY_KIND_TEST_CASE);
     strncpy(tc.traceability.entries, "REQ-010\tverifies\n",
             sizeof(tc.traceability.entries) - 1);
-    tc.traceability.count = 1;
+    tc.(int)traceability.size() = 1;
 
-    entity_list_add(&list, &req);
-    entity_list_add(&list, &tc);
+    list.push_back(req);
+    list.push_back(tc);
 
     TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     CTripleList all = triplet_store_find_all(store);
-    EXPECT_GE(all.count, 2u); /* at least the two declared triples */
+    EXPECT_GE((int)all.size(), 2u); /* at least the two declared triples */
     triplet_store_list_free(all);
 
     triplet_store_destroy(store);
-    entity_list_free(&list);
 }
 
 TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
 {
     EntityList list;
-    entity_list_init(&list);
 
     /* Entity that belongs to a document. */
     Entity req = make_entity("REQ-DOC-001", "Member requirement",
                              ENTITY_KIND_REQUIREMENT);
     strncpy(req.doc_membership.doc_ids, "SRS-MAIN-001",
             sizeof(req.doc_membership.doc_ids) - 1);
-    req.doc_membership.count = 1;
-    entity_list_add(&list, &req);
+    req.(int)doc_membership.size() = 1;
+    list.push_back(req);
 
     TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
@@ -249,7 +237,7 @@ TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
     /* A declared (REQ-DOC-001, part-of, SRS-MAIN-001) triple must exist. */
     CTripleList by_subj = triplet_store_find_by_subject(store, "REQ-DOC-001");
     int part_of_declared = 0;
-    for (size_t i = 0; i < by_subj.count; i++) {
+    for (size_t i = 0; i < (int)by_subj.size(); i++) {
         if (!by_subj.triples[i].inferred &&
             strcmp(by_subj.triples[i].predicate, "part-of") == 0 &&
             strcmp(by_subj.triples[i].object, "SRS-MAIN-001") == 0)
@@ -261,7 +249,7 @@ TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
     /* The inferred inverse (SRS-MAIN-001, contains, REQ-DOC-001) must exist. */
     CTripleList by_doc = triplet_store_find_by_subject(store, "SRS-MAIN-001");
     int contains_inferred = 0;
-    for (size_t i = 0; i < by_doc.count; i++) {
+    for (size_t i = 0; i < (int)by_doc.size(); i++) {
         if (by_doc.triples[i].inferred &&
             strcmp(by_doc.triples[i].predicate, "contains") == 0 &&
             strcmp(by_doc.triples[i].object, "REQ-DOC-001") == 0)
@@ -271,7 +259,6 @@ TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
     triplet_store_list_free(by_doc);
 
     triplet_store_destroy(store);
-    entity_list_free(&list);
 }
 
 /* =========================================================================
@@ -281,51 +268,40 @@ TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
 TEST(CollectDocumentEntitiesTest, MissingDocumentReturnsMinusOne)
 {
     EntityList list;
-    entity_list_init(&list);
 
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&list, &req);
+    list.push_back(req);
 
     TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     EntityList collected;
-    entity_list_init(&collected);
 
     EXPECT_EQ(collect_document_entities(&list, store, "SRS-001", &collected), -1);
-    EXPECT_EQ(collected.count, 0);
-
-    entity_list_free(&collected);
+    EXPECT_EQ((int)collected.size(), 0);
     triplet_store_destroy(store);
-    entity_list_free(&list);
 }
 
 TEST(CollectDocumentEntitiesTest, NonDocumentEntityReturnsMinusTwo)
 {
     EntityList list;
-    entity_list_init(&list);
 
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&list, &req);
+    list.push_back(req);
 
     TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     EntityList collected;
-    entity_list_init(&collected);
 
     EXPECT_EQ(collect_document_entities(&list, store, "REQ-001", &collected), -2);
-    EXPECT_EQ(collected.count, 0);
-
-    entity_list_free(&collected);
+    EXPECT_EQ((int)collected.size(), 0);
     triplet_store_destroy(store);
-    entity_list_free(&list);
 }
 
 TEST(CollectDocumentEntitiesTest, CollectsDocumentAndMembers)
 {
     EntityList list;
-    entity_list_init(&list);
 
     Entity doc = make_entity("SRS-001", "System Requirements", ENTITY_KIND_DOCUMENT);
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
@@ -334,32 +310,28 @@ TEST(CollectDocumentEntitiesTest, CollectsDocumentAndMembers)
 
     strncpy(req.doc_membership.doc_ids, "SRS-001",
             sizeof(req.doc_membership.doc_ids) - 1);
-    req.doc_membership.count = 1;
+    req.(int)doc_membership.size() = 1;
 
     strncpy(tc.traceability.entries, "SRS-001\tpart-of\n",
             sizeof(tc.traceability.entries) - 1);
-    tc.traceability.count = 1;
+    tc.(int)traceability.size() = 1;
 
-    entity_list_add(&list, &doc);
-    entity_list_add(&list, &req);
-    entity_list_add(&list, &tc);
-    entity_list_add(&list, &ext);
+    list.push_back(doc);
+    list.push_back(req);
+    list.push_back(tc);
+    list.push_back(ext);
 
     TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     EntityList collected;
-    entity_list_init(&collected);
 
     ASSERT_EQ(collect_document_entities(&list, store, "SRS-001", &collected), 0);
-    ASSERT_EQ(collected.count, 3);
-    EXPECT_STREQ(collected.items[0].identity.id, "SRS-001");
-    EXPECT_STREQ(collected.items[1].identity.id, "REQ-001");
-    EXPECT_STREQ(collected.items[2].identity.id, "TC-001");
-
-    entity_list_free(&collected);
+    ASSERT_EQ((int)collected.size(), 3);
+    EXPECT_EQ(collected[0].identity.id, std::string("SRS-001"));
+    EXPECT_EQ(collected[1].identity.id, std::string("REQ-001"));
+    EXPECT_EQ(collected[2].identity.id, std::string("TC-001"));
     triplet_store_destroy(store);
-    entity_list_free(&list);
 }
 
 /* =========================================================================
@@ -369,24 +341,20 @@ TEST(CollectDocumentEntitiesTest, CollectsDocumentAndMembers)
 TEST(ListEntitiesTest, EmptyListPrintsNoEntitiesFound)
 {
     EntityList list;
-    entity_list_init(&list);
 
     std::string out = capture_stdout([&]() {
         list_entities(&list);
     });
 
     EXPECT_THAT(out, HasSubstr("No entities found."));
-
-    entity_list_free(&list);
 }
 
 TEST(ListEntitiesTest, SingleEntityShowsHeaderAndRow)
 {
     EntityList list;
-    entity_list_init(&list);
     Entity e = make_entity("REQ-001", "Login required",
                             ENTITY_KIND_REQUIREMENT, "approved", "must");
-    entity_list_add(&list, &e);
+    list.push_back(e);
 
     std::string out = capture_stdout([&]() {
         list_entities(&list);
@@ -408,18 +376,15 @@ TEST(ListEntitiesTest, SingleEntityShowsHeaderAndRow)
 
     /* Footer */
     EXPECT_THAT(out, HasSubstr("Total: 1 entity"));
-
-    entity_list_free(&list);
 }
 
 TEST(ListEntitiesTest, MultipleEntitiesFooterShowsCount)
 {
     EntityList list;
-    entity_list_init(&list);
     Entity e1 = make_entity("REQ-001", "Alpha", ENTITY_KIND_REQUIREMENT);
     Entity e2 = make_entity("TC-001",  "Beta",  ENTITY_KIND_TEST_CASE);
-    entity_list_add(&list, &e1);
-    entity_list_add(&list, &e2);
+    list.push_back(e1);
+    list.push_back(e2);
 
     std::string out = capture_stdout([&]() {
         list_entities(&list);
@@ -428,19 +393,16 @@ TEST(ListEntitiesTest, MultipleEntitiesFooterShowsCount)
     EXPECT_THAT(out, HasSubstr("Total: 2 entities"));
     EXPECT_THAT(out, HasSubstr("REQ-001"));
     EXPECT_THAT(out, HasSubstr("TC-001"));
-
-    entity_list_free(&list);
 }
 
 TEST(ListEntitiesTest, LongTitleIsTruncated)
 {
     EntityList list;
-    entity_list_init(&list);
     /* Title is 52 characters — should be truncated to 48 with "..." suffix. */
     Entity e = make_entity("REQ-002",
                             "This title is exactly fifty-two characters long!!",
                             ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&list, &e);
+    list.push_back(e);
 
     std::string out = capture_stdout([&]() {
         list_entities(&list);
@@ -449,51 +411,42 @@ TEST(ListEntitiesTest, LongTitleIsTruncated)
     EXPECT_THAT(out, HasSubstr("..."));
     /* The full 52-char title must NOT appear verbatim. */
     EXPECT_THAT(out, Not(HasSubstr("This title is exactly fifty-two characters long!!")));
-
-    entity_list_free(&list);
 }
 
 TEST(ListEntitiesTest, TitleAtExactly48CharactersIsNotTruncated)
 {
     EntityList list;
-    entity_list_init(&list);
     /* Title is exactly 48 characters — should not be truncated. */
     const char *title48 = "Exactly48CharsLongTitle1234567890123456789012345";
     ASSERT_EQ(strlen(title48), 48u);
     Entity e = make_entity("REQ-003", title48, ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&list, &e);
+    list.push_back(e);
 
     std::string out = capture_stdout([&]() {
         list_entities(&list);
     });
 
     EXPECT_THAT(out, HasSubstr(title48));
-
-    entity_list_free(&list);
 }
 
 TEST(ListEntitiesTest, EntityKindLabelsAppearCorrectly)
 {
     EntityList list;
-    entity_list_init(&list);
     Entity tc = make_entity("TC-001", "A test", ENTITY_KIND_TEST_CASE);
-    entity_list_add(&list, &tc);
+    list.push_back(tc);
 
     std::string out = capture_stdout([&]() {
         list_entities(&list);
     });
 
     EXPECT_THAT(out, HasSubstr("test-case"));
-
-    entity_list_free(&list);
 }
 
 TEST(ListEntitiesTest, TableContainsBorderCharacters)
 {
     EntityList list;
-    entity_list_init(&list);
     Entity e = make_entity("REQ-001", "Title", ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&list, &e);
+    list.push_back(e);
 
     std::string out = capture_stdout([&]() {
         list_entities(&list);
@@ -502,8 +455,6 @@ TEST(ListEntitiesTest, TableContainsBorderCharacters)
     /* The ASCII table uses '+' for corners and '|' for column separators. */
     EXPECT_THAT(out, HasSubstr("+"));
     EXPECT_THAT(out, HasSubstr("|"));
-
-    entity_list_free(&list);
 }
 
 /* =========================================================================
@@ -634,7 +585,6 @@ TEST(ListRelationsTest, LongObjectIsTruncated)
 TEST(CmdTraceEntityTest, EntityNotFoundShowsNotFoundMessage)
 {
     EntityList elist;
-    entity_list_init(&elist);
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
 
@@ -646,16 +596,14 @@ TEST(CmdTraceEntityTest, EntityNotFoundShowsNotFoundMessage)
     EXPECT_THAT(out, HasSubstr("(entity not found in scanned files)"));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdTraceEntityTest, EntityFoundShowsMetadata)
 {
     EntityList elist;
-    entity_list_init(&elist);
     Entity req = make_entity("REQ-001", "Login required",
                               ENTITY_KIND_REQUIREMENT, "approved", "must");
-    entity_list_add(&elist, &req);
+    elist.push_back(req);
 
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
@@ -670,15 +618,13 @@ TEST(CmdTraceEntityTest, EntityFoundShowsMetadata)
     EXPECT_THAT(out, HasSubstr("approved"));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdTraceEntityTest, NoLinksShowsNoneForBothDirections)
 {
     EntityList elist;
-    entity_list_init(&elist);
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&elist, &req);
+    elist.push_back(req);
 
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
@@ -696,15 +642,13 @@ TEST(CmdTraceEntityTest, NoLinksShowsNoneForBothDirections)
     EXPECT_NE(second_none, std::string::npos);
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdTraceEntityTest, OutgoingLinkAppearsInOutput)
 {
     EntityList elist;
-    entity_list_init(&elist);
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&elist, &req);
+    elist.push_back(req);
 
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
@@ -718,15 +662,13 @@ TEST(CmdTraceEntityTest, OutgoingLinkAppearsInOutput)
     EXPECT_THAT(out, HasSubstr("TC-001"));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdTraceEntityTest, IncomingLinkAppearsInOutput)
 {
     EntityList elist;
-    entity_list_init(&elist);
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&elist, &req);
+    elist.push_back(req);
 
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
@@ -741,19 +683,16 @@ TEST(CmdTraceEntityTest, IncomingLinkAppearsInOutput)
     EXPECT_THAT(out, HasSubstr("verifies"));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdTraceEntityTest, EntityWithNoTitleOrStatusSuppressesThoseLines)
 {
     EntityList elist;
-    entity_list_init(&elist);
     /* Entity with empty title and status */
-    Entity e;
-    memset(&e, 0, sizeof(e));
+    Entity e{};
     strncpy(e.identity.id, "REQ-BARE", sizeof(e.identity.id) - 1);
     e.identity.kind = ENTITY_KIND_REQUIREMENT;
-    entity_list_add(&elist, &e);
+    elist.push_back(e);
 
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
@@ -768,7 +707,6 @@ TEST(CmdTraceEntityTest, EntityWithNoTitleOrStatusSuppressesThoseLines)
     EXPECT_THAT(out, Not(HasSubstr("Status:")));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 /* =========================================================================

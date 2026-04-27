@@ -17,10 +17,6 @@
 #include "entity.h"
 #include "triplet_store_c.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * Return 1 if @p pred is a coverage-indicating relation type.
  *
@@ -79,9 +75,5 @@ void cmd_coverage(const EntityList *elist, const TripletStore *store);
  * @param store  populated TripletStore containing all declared links
  */
 void cmd_orphan(const EntityList *elist, const TripletStore *store);
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #endif /* VIBE_COVERAGE_H */

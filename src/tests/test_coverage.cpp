@@ -19,11 +19,9 @@
 #include <cstring>
 #include <string>
 
-extern "C" {
 #include "entity.h"
 #include "coverage.h"
 #include "triplet_store_c.h"
-}
 
 using ::testing::HasSubstr;
 using ::testing::Not;
@@ -38,13 +36,12 @@ static Entity make_entity(const char *id, const char *title,
                            const char *status   = "draft",
                            const char *priority = "must")
 {
-    Entity e;
-    memset(&e, 0, sizeof(e));
-    strncpy(e.identity.id,     id,       sizeof(e.identity.id)     - 1);
-    strncpy(e.identity.title,  title,    sizeof(e.identity.title)  - 1);
+    Entity e{};
+    e.identity.id = id;
+    e.identity.title = title;
     e.identity.kind = kind;
-    strncpy(e.lifecycle.status,   status,   sizeof(e.lifecycle.status)   - 1);
-    strncpy(e.lifecycle.priority, priority, sizeof(e.lifecycle.priority) - 1);
+    e.lifecycle.status = status;
+    e.lifecycle.priority = priority;
     return e;
 }
 
@@ -231,7 +228,6 @@ TEST_F(CoverageStoreTest, InferredInverseDoesNotMakeUnrelatedEntityCovered)
 TEST(CmdCoverageTest, EmptyListPrints100PercentCovered)
 {
     EntityList elist;
-    entity_list_init(&elist);
     TripletStore *store = triplet_store_create();
 
     std::string out = capture_stdout([&]() {
@@ -242,15 +238,13 @@ TEST(CmdCoverageTest, EmptyListPrints100PercentCovered)
     EXPECT_THAT(out, HasSubstr("Total requirements:    0"));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdCoverageTest, SingleCoveredRequirementShows100Percent)
 {
     EntityList elist;
-    entity_list_init(&elist);
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&elist, &req);
+    elist.push_back(req);
 
     TripletStore *store = triplet_store_create();
     triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
@@ -264,16 +258,14 @@ TEST(CmdCoverageTest, SingleCoveredRequirementShows100Percent)
     EXPECT_THAT(out, HasSubstr("Unlinked requirements: 0 (0%)"));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdCoverageTest, UncoveredRequirementAppearsInTable)
 {
     EntityList elist;
-    entity_list_init(&elist);
     Entity req = make_entity("REQ-002", "Logout", ENTITY_KIND_REQUIREMENT,
                              "approved");
-    entity_list_add(&elist, &req);
+    elist.push_back(req);
 
     TripletStore *store = triplet_store_create();
 
@@ -285,7 +277,6 @@ TEST(CmdCoverageTest, UncoveredRequirementAppearsInTable)
     EXPECT_THAT(out, HasSubstr("REQ-002"));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 /* =========================================================================
@@ -295,7 +286,6 @@ TEST(CmdCoverageTest, UncoveredRequirementAppearsInTable)
 TEST(CmdOrphanTest, EmptyListPrintsNoOrphans)
 {
     EntityList elist;
-    entity_list_init(&elist);
     TripletStore *store = triplet_store_create();
 
     std::string out = capture_stdout([&]() {
@@ -305,15 +295,13 @@ TEST(CmdOrphanTest, EmptyListPrintsNoOrphans)
     EXPECT_THAT(out, HasSubstr("No orphaned requirements or test cases found."));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdOrphanTest, LinkedEntityIsNotOrphaned)
 {
     EntityList elist;
-    entity_list_init(&elist);
     Entity req = make_entity("REQ-010", "Linked req", ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&elist, &req);
+    elist.push_back(req);
 
     TripletStore *store = triplet_store_create();
     triplet_store_add(store, "REQ-010", "verified-by", "TC-010");
@@ -325,15 +313,13 @@ TEST(CmdOrphanTest, LinkedEntityIsNotOrphaned)
     EXPECT_THAT(out, HasSubstr("No orphaned requirements or test cases found."));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdOrphanTest, UnlinkedRequirementAppearsAsOrphan)
 {
     EntityList elist;
-    entity_list_init(&elist);
     Entity req = make_entity("REQ-011", "Unlinked req", ENTITY_KIND_REQUIREMENT);
-    entity_list_add(&elist, &req);
+    elist.push_back(req);
 
     TripletStore *store = triplet_store_create();
 
@@ -345,17 +331,15 @@ TEST(CmdOrphanTest, UnlinkedRequirementAppearsAsOrphan)
     EXPECT_THAT(out, HasSubstr("Total: 1 orphan(s)"));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdOrphanTest, NonRequirementNonTestKindsAreIgnored)
 {
     EntityList elist;
-    entity_list_init(&elist);
     /* A design note with no links — should NOT appear as an orphan. */
     Entity dn = make_entity("DESIGN-001", "Some design",
                             ENTITY_KIND_DESIGN_NOTE);
-    entity_list_add(&elist, &dn);
+    elist.push_back(dn);
 
     TripletStore *store = triplet_store_create();
 
@@ -366,15 +350,13 @@ TEST(CmdOrphanTest, NonRequirementNonTestKindsAreIgnored)
     EXPECT_THAT(out, HasSubstr("No orphaned requirements or test cases found."));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }
 
 TEST(CmdOrphanTest, UnlinkedTestCaseAppearsAsOrphan)
 {
     EntityList elist;
-    entity_list_init(&elist);
     Entity tc = make_entity("TC-020", "Unlinked test", ENTITY_KIND_TEST_CASE);
-    entity_list_add(&elist, &tc);
+    elist.push_back(tc);
 
     TripletStore *store = triplet_store_create();
 
@@ -386,5 +368,4 @@ TEST(CmdOrphanTest, UnlinkedTestCaseAppearsAsOrphan)
     EXPECT_THAT(out, HasSubstr("Total: 1 orphan(s)"));
 
     triplet_store_destroy(store);
-    entity_list_free(&elist);
 }

@@ -1,5 +1,9 @@
-/*
- * Forwarding header — the implementation has moved to src/yaml/.
- * Existing consumers can continue to include "yaml_simple.h" unchanged.
+/**
+ * @file yaml_simple.h
+ * @brief Forwarding header for yaml/yaml_simple.h.
  */
+
+#ifndef VIBE_YAML_SIMPLE_FWD_H
+#define VIBE_YAML_SIMPLE_FWD_H
 #include "yaml/yaml_simple.h"
+#endif /* VIBE_YAML_SIMPLE_FWD_H */
