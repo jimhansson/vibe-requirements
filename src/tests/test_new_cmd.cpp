@@ -190,7 +190,7 @@ TEST(NewCmdContentTest, StoryHasRoleGoalReason)
     EXPECT_NE(content.find("role:"), std::string::npos);
     EXPECT_NE(content.find("goal:"), std::string::npos);
     EXPECT_NE(content.find("reason:"), std::string::npos);
-    EXPECT_NE(content.find("acceptance_criteria:"), std::string::npos);
+    EXPECT_NE(content.find("acceptance-criteria:"), std::string::npos);
     remove_file(path);
 }
 
@@ -222,7 +222,7 @@ TEST(NewCmdContentTest, TestCaseHasPreconditionsAndSteps)
     std::string content = read_file(path);
     EXPECT_NE(content.find("preconditions:"), std::string::npos);
     EXPECT_NE(content.find("steps:"), std::string::npos);
-    EXPECT_NE(content.find("expected_result:"), std::string::npos);
+    EXPECT_NE(content.find("expected-result:"), std::string::npos);
     remove_file(path);
 }
 
@@ -242,7 +242,7 @@ TEST(NewCmdContentTest, DocumentHasDocMeta)
     remove_file(path);
     ASSERT_EQ(new_cmd_scaffold("document", "NEW-DOC-CONTENT-001", "/tmp"), 0);
     std::string content = read_file(path);
-    EXPECT_NE(content.find("doc_meta:"), std::string::npos);
+    EXPECT_NE(content.find("doc-meta:"), std::string::npos);
     remove_file(path);
 }
 
@@ -263,9 +263,9 @@ TEST(NewCmdContentTest, DocumentSchemaHasCompositionAndRenderProfiles)
     ASSERT_EQ(new_cmd_scaffold("document-schema", "NEW-SCHEMA-CONTENT-001",
                                "/tmp"), 0);
     std::string content = read_file(path);
-    EXPECT_NE(content.find("variant_profile:"),     std::string::npos);
-    EXPECT_NE(content.find("composition_profile:"), std::string::npos);
-    EXPECT_NE(content.find("render_profile:"),      std::string::npos);
+    EXPECT_NE(content.find("variant-profile:"),     std::string::npos);
+    EXPECT_NE(content.find("composition-profile:"), std::string::npos);
+    EXPECT_NE(content.find("render-profile:"),      std::string::npos);
     remove_file(path);
 }
 

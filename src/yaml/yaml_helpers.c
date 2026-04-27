@@ -10,6 +10,15 @@
 #include "yaml_helpers.h"
 #include <string.h>
 
+void yaml_normalize_key(char *key)
+{
+    if (!key)
+        return;
+    for (char *p = key; *p; p++)
+        if (*p == '_')
+            *p = '-';
+}
+
 void yaml_copy_field(char *dst, size_t dst_size, const char *src)
 {
     strncpy(dst, src, dst_size - 1);
