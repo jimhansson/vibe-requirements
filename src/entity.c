@@ -156,6 +156,9 @@ EntityKind entity_kind_from_string(const char *type_str)
         strcmp(type_str, "sdd")      == 0)
         return ENTITY_KIND_DOCUMENT;
 
+    if (strcmp(type_str, "document-schema") == 0)
+        return ENTITY_KIND_DOCUMENT_SCHEMA;
+
     return ENTITY_KIND_UNKNOWN;
 }
 
@@ -172,6 +175,7 @@ const char *entity_kind_label(EntityKind kind)
     case ENTITY_KIND_TEST_CASE:   return "test-case";
     case ENTITY_KIND_EXTERNAL:    return "external";
     case ENTITY_KIND_DOCUMENT:    return "document";
+    case ENTITY_KIND_DOCUMENT_SCHEMA: return "document-schema";
     default:                      return "unknown";
     }
 }
@@ -234,6 +238,23 @@ int entity_has_component(const Entity *entity, const char *comp)
     if (strcmp(comp, "attachment") == 0 ||
         strcmp(comp, "attachments") == 0)
         return entity->attachment.count > 0;
+
+    if (strcmp(comp, "applies-to") == 0 ||
+        strcmp(comp, "applies_to") == 0)
+        return entity->applies_to.count > 0;
+
+    if (strcmp(comp, "variant-profile") == 0 ||
+        strcmp(comp, "variant_profile") == 0)
+        return entity->variant_profile.customer[0] != '\0' ||
+               entity->variant_profile.product[0]  != '\0';
+
+    if (strcmp(comp, "composition-profile") == 0 ||
+        strcmp(comp, "composition_profile") == 0)
+        return entity->composition_profile.order_count > 0;
+
+    if (strcmp(comp, "render-profile") == 0 ||
+        strcmp(comp, "render_profile") == 0)
+        return entity->render_profile.format[0] != '\0';
 
     return 0; /* unrecognised component name */
 }

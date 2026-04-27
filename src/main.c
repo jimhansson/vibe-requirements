@@ -50,7 +50,8 @@ int main(int argc, char *argv[])
             fprintf(stderr, "error: unrecognised entity type '%s'\n"
                     "Valid types: requirement, group, story, design-note,\n"
                     "             section, assumption, constraint, test-case,\n"
-                    "             external, document, srs, sdd\n",
+                    "             external, document, srs, sdd,\n"
+                    "             document-schema\n",
                     opts.new_type);
             return 1;
         }

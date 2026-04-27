@@ -96,6 +96,15 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     fprintf(stderr, "warning: failed to allocate expected_result\n");
                 continue;
             }
+
+            /* applies_to — scalar form: a single applicability tag */
+            if (strcmp(key, "applies_to") == 0) {
+                if (val[0] != '\0')
+                    yaml_append_to_flat(out->applies_to.applies_to,
+                                        sizeof(out->applies_to.applies_to),
+                                        &out->applies_to.count, val);
+                continue;
+            }
         }
 
         /* --- Sequence fields ----------------------------------------- */
@@ -316,6 +325,14 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 }
                 continue;
             }
+            if (strcmp(key, "applies_to") == 0) {
+                /* applies_to — sequence form: multiple applicability tags */
+                yaml_collect_sequence(doc, val_node,
+                                      out->applies_to.applies_to,
+                                      sizeof(out->applies_to.applies_to),
+                                      &out->applies_to.count);
+                continue;
+            }
         }
 
         /* --- Mapping fields ------------------------------------------ */
@@ -389,6 +406,66 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                     else if (strcmp(skey, "status") == 0)
                         yaml_copy_field(out->doc_meta.status,
                                         sizeof(out->doc_meta.status), sval);
+                }
+                continue;
+            }
+            if (strcmp(key, "variant_profile") == 0) {
+                yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
+                yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
+                for (; sp < se; sp++) {
+                    yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                    yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                    if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                    if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                    const char *skey = (const char *)sk->data.scalar.value;
+                    const char *sval = (const char *)sv->data.scalar.value;
+                    if (strcmp(skey, "customer") == 0)
+                        yaml_copy_field(out->variant_profile.customer,
+                                        sizeof(out->variant_profile.customer),
+                                        sval);
+                    else if (strcmp(skey, "product") == 0 ||
+                             strcmp(skey, "delivery") == 0)
+                        yaml_copy_field(out->variant_profile.product,
+                                        sizeof(out->variant_profile.product),
+                                        sval);
+                }
+                continue;
+            }
+            if (strcmp(key, "composition_profile") == 0) {
+                /* Walk the mapping looking for the "order" sequence. */
+                yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
+                yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
+                for (; sp < se; sp++) {
+                    yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                    yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                    if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                    if (!sv) continue;
+                    const char *skey = (const char *)sk->data.scalar.value;
+                    if (strcmp(skey, "order") == 0 &&
+                        sv->type == YAML_SEQUENCE_NODE) {
+                        yaml_collect_sequence(
+                            doc, sv,
+                            out->composition_profile.order,
+                            sizeof(out->composition_profile.order),
+                            &out->composition_profile.order_count);
+                    }
+                }
+                continue;
+            }
+            if (strcmp(key, "render_profile") == 0) {
+                yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
+                yaml_node_pair_t *se = val_node->data.mapping.pairs.top;
+                for (; sp < se; sp++) {
+                    yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
+                    yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
+                    if (!sk || sk->type != YAML_SCALAR_NODE) continue;
+                    if (!sv || sv->type != YAML_SCALAR_NODE) continue;
+                    const char *skey = (const char *)sk->data.scalar.value;
+                    const char *sval = (const char *)sv->data.scalar.value;
+                    if (strcmp(skey, "format") == 0)
+                        yaml_copy_field(out->render_profile.format,
+                                        sizeof(out->render_profile.format),
+                                        sval);
                 }
                 continue;
             }

@@ -2125,3 +2125,380 @@ TEST(EntityMemoryTest, ParsedEntityHeapFieldsAreIndependentFromList)
 
     entity_list_free(&list);
 }
+
+/* =========================================================================
+ * Tests — ENTITY_KIND_DOCUMENT_SCHEMA / entity_kind_from_string
+ * ======================================================================= */
+
+TEST(EntityKindTest, DocumentSchema)
+{
+    EXPECT_EQ(entity_kind_from_string("document-schema"),
+              ENTITY_KIND_DOCUMENT_SCHEMA);
+}
+
+TEST(EntityKindTest, DocumentSchemaLabel)
+{
+    EXPECT_STREQ(entity_kind_label(ENTITY_KIND_DOCUMENT_SCHEMA),
+                 "document-schema");
+}
+
+/* =========================================================================
+ * Tests — AppliesToComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, AppliesToScalar)
+{
+    /* applies_to given as a scalar string. */
+    const char *path = write_yaml("ent_applies_scalar.yaml",
+        "id: REQ-ACME-001\n"
+        "title: Acme-specific requirement\n"
+        "type: functional\n"
+        "applies_to: acme\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.applies_to.count, 1);
+    EXPECT_NE(strstr(e.applies_to.applies_to, "acme"), nullptr);
+    EXPECT_EQ(entity_has_component(&e, "applies-to"), 1);
+    EXPECT_EQ(entity_has_component(&e, "applies_to"), 1);
+}
+
+TEST(YamlParseEntityTest, AppliesToSequence)
+{
+    /* applies_to given as a sequence of applicability tags. */
+    const char *path = write_yaml("ent_applies_seq.yaml",
+        "id: REQ-SHARED-001\n"
+        "title: Shared requirement\n"
+        "type: functional\n"
+        "applies_to:\n"
+        "  - acme\n"
+        "  - bmw\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.applies_to.count, 2);
+    EXPECT_NE(strstr(e.applies_to.applies_to, "acme"), nullptr);
+    EXPECT_NE(strstr(e.applies_to.applies_to, "bmw"),  nullptr);
+    EXPECT_EQ(entity_has_component(&e, "applies-to"), 1);
+    EXPECT_EQ(entity_has_component(&e, "applies_to"), 1);
+}
+
+TEST(YamlParseEntityTest, AppliesToAbsentWhenMissing)
+{
+    /* Entities without applies_to have a zero-initialised component. */
+    const char *path = write_yaml("ent_no_applies.yaml",
+        "id: REQ-GEN-001\n"
+        "title: Generic requirement\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.applies_to.count,          0);
+    EXPECT_EQ(e.applies_to.applies_to[0],  '\0');
+    EXPECT_EQ(entity_has_component(&e, "applies-to"), 0);
+}
+
+/* =========================================================================
+ * Tests — VariantProfileComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, VariantProfileCustomerAndDelivery)
+{
+    /* A document-schema entity with variant_profile using "delivery" alias. */
+    const char *path = write_yaml("ent_variant_profile.yaml",
+        "id: SCHEMA-ACME-001\n"
+        "title: Acme Document Schema\n"
+        "type: document-schema\n"
+        "status: draft\n"
+        "variant_profile:\n"
+        "  customer: acme\n"
+        "  delivery: v1.0\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind, ENTITY_KIND_DOCUMENT_SCHEMA);
+    EXPECT_STREQ(e.variant_profile.customer, "acme");
+    EXPECT_STREQ(e.variant_profile.product,  "v1.0");
+    EXPECT_EQ(entity_has_component(&e, "variant-profile"), 1);
+    EXPECT_EQ(entity_has_component(&e, "variant_profile"), 1);
+}
+
+TEST(YamlParseEntityTest, VariantProfileCustomerAndProduct)
+{
+    /* variant_profile using the canonical "product" key. */
+    const char *path = write_yaml("ent_variant_product.yaml",
+        "id: SCHEMA-BMW-001\n"
+        "title: BMW Document Schema\n"
+        "type: document-schema\n"
+        "variant_profile:\n"
+        "  customer: bmw\n"
+        "  product: platform-x\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.variant_profile.customer, "bmw");
+    EXPECT_STREQ(e.variant_profile.product,  "platform-x");
+    EXPECT_EQ(entity_has_component(&e, "variant-profile"), 1);
+}
+
+TEST(YamlParseEntityTest, VariantProfileAbsentWhenMissing)
+{
+    /* Entities without variant_profile have a zero-initialised component. */
+    const char *path = write_yaml("ent_no_variant.yaml",
+        "id: REQ-017\n"
+        "title: Requirement without variant profile\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.variant_profile.customer[0], '\0');
+    EXPECT_EQ(e.variant_profile.product[0],  '\0');
+    EXPECT_EQ(entity_has_component(&e, "variant-profile"), 0);
+}
+
+/* =========================================================================
+ * Tests — CompositionProfileComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, CompositionProfileOrderSequence)
+{
+    /* A document-schema entity with a composition_profile.order sequence. */
+    const char *path = write_yaml("ent_comp_profile.yaml",
+        "id: SCHEMA-SRS-001\n"
+        "title: SRS Composition Schema\n"
+        "type: document-schema\n"
+        "composition_profile:\n"
+        "  order:\n"
+        "    - SEC-INTRO\n"
+        "    - SEC-FUNC\n"
+        "    - SEC-TRACE\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.identity.kind, ENTITY_KIND_DOCUMENT_SCHEMA);
+    EXPECT_EQ(e.composition_profile.order_count, 3);
+    EXPECT_NE(strstr(e.composition_profile.order, "SEC-INTRO"), nullptr);
+    EXPECT_NE(strstr(e.composition_profile.order, "SEC-FUNC"),  nullptr);
+    EXPECT_NE(strstr(e.composition_profile.order, "SEC-TRACE"), nullptr);
+    EXPECT_EQ(entity_has_component(&e, "composition-profile"), 1);
+    EXPECT_EQ(entity_has_component(&e, "composition_profile"), 1);
+}
+
+TEST(YamlParseEntityTest, CompositionProfileAbsentWhenMissing)
+{
+    /* Entities without composition_profile have a zero-initialised component. */
+    const char *path = write_yaml("ent_no_comp_profile.yaml",
+        "id: REQ-018\n"
+        "title: Requirement without composition profile\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.composition_profile.order_count, 0);
+    EXPECT_EQ(e.composition_profile.order[0],    '\0');
+    EXPECT_EQ(entity_has_component(&e, "composition-profile"), 0);
+}
+
+/* =========================================================================
+ * Tests — RenderProfileComponent (yaml_parse_entity)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, RenderProfileMarkdown)
+{
+    /* A document-schema entity with render_profile.format = markdown. */
+    const char *path = write_yaml("ent_render_profile.yaml",
+        "id: SCHEMA-MD-001\n"
+        "title: Markdown Schema\n"
+        "type: document-schema\n"
+        "render_profile:\n"
+        "  format: markdown\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.render_profile.format, "markdown");
+    EXPECT_EQ(entity_has_component(&e, "render-profile"), 1);
+    EXPECT_EQ(entity_has_component(&e, "render_profile"), 1);
+}
+
+TEST(YamlParseEntityTest, RenderProfileHtml)
+{
+    /* render_profile with html format. */
+    const char *path = write_yaml("ent_render_html.yaml",
+        "id: SCHEMA-HTML-001\n"
+        "title: HTML Schema\n"
+        "type: document-schema\n"
+        "render_profile:\n"
+        "  format: html\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.render_profile.format, "html");
+    EXPECT_EQ(entity_has_component(&e, "render-profile"), 1);
+}
+
+TEST(YamlParseEntityTest, RenderProfileAbsentWhenMissing)
+{
+    /* Entities without render_profile have a zero-initialised component. */
+    const char *path = write_yaml("ent_no_render.yaml",
+        "id: REQ-019\n"
+        "title: Requirement without render profile\n"
+        "type: functional\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(e.render_profile.format[0], '\0');
+    EXPECT_EQ(entity_has_component(&e, "render-profile"), 0);
+}
+
+/* =========================================================================
+ * Tests — Full document-schema entity parse (all new components together)
+ * ======================================================================= */
+
+TEST(YamlParseEntityTest, DocumentSchemaFullParse)
+{
+    /* A complete document-schema entity as proposed in the issue. */
+    const char *path = write_yaml("ent_doc_schema_full.yaml",
+        "id: SRS-ACME-001\n"
+        "title: Acme SRS Document Structure\n"
+        "type: document-schema\n"
+        "status: draft\n"
+        "applies_to:\n"
+        "  - acme\n"
+        "variant_profile:\n"
+        "  customer: acme\n"
+        "  delivery: v1.0\n"
+        "composition_profile:\n"
+        "  order:\n"
+        "    - SEC-INTRO\n"
+        "    - SEC-FUNC\n"
+        "    - SEC-TRACE\n"
+        "render_profile:\n"
+        "  format: markdown\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(e.identity.id, "SRS-ACME-001");
+    EXPECT_EQ(e.identity.kind,  ENTITY_KIND_DOCUMENT_SCHEMA);
+
+    /* applies_to */
+    EXPECT_EQ(e.applies_to.count, 1);
+    EXPECT_NE(strstr(e.applies_to.applies_to, "acme"), nullptr);
+
+    /* variant_profile */
+    EXPECT_STREQ(e.variant_profile.customer, "acme");
+    EXPECT_STREQ(e.variant_profile.product,  "v1.0");
+
+    /* composition_profile */
+    EXPECT_EQ(e.composition_profile.order_count, 3);
+    EXPECT_NE(strstr(e.composition_profile.order, "SEC-INTRO"), nullptr);
+    EXPECT_NE(strstr(e.composition_profile.order, "SEC-FUNC"),  nullptr);
+    EXPECT_NE(strstr(e.composition_profile.order, "SEC-TRACE"), nullptr);
+
+    /* render_profile */
+    EXPECT_STREQ(e.render_profile.format, "markdown");
+
+    EXPECT_EQ(entity_has_component(&e, "applies-to"),          1);
+    EXPECT_EQ(entity_has_component(&e, "variant-profile"),     1);
+    EXPECT_EQ(entity_has_component(&e, "composition-profile"), 1);
+    EXPECT_EQ(entity_has_component(&e, "render-profile"),      1);
+}
+
+/* =========================================================================
+ * Tests — entity_has_component: new components absent/present
+ * ======================================================================= */
+
+TEST(EntityHasComponentTest, AppliesToAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "applies-to"), 0);
+    EXPECT_EQ(entity_has_component(&e, "applies_to"), 0);
+
+    e.applies_to.count = 1;
+    EXPECT_EQ(entity_has_component(&e, "applies-to"), 1);
+    EXPECT_EQ(entity_has_component(&e, "applies_to"), 1);
+}
+
+TEST(EntityHasComponentTest, VariantProfileAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "variant-profile"), 0);
+    EXPECT_EQ(entity_has_component(&e, "variant_profile"), 0);
+
+    strncpy(e.variant_profile.customer, "acme",
+            sizeof(e.variant_profile.customer) - 1);
+    EXPECT_EQ(entity_has_component(&e, "variant-profile"), 1);
+    EXPECT_EQ(entity_has_component(&e, "variant_profile"), 1);
+}
+
+TEST(EntityHasComponentTest, CompositionProfileAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "composition-profile"), 0);
+    EXPECT_EQ(entity_has_component(&e, "composition_profile"), 0);
+
+    e.composition_profile.order_count = 2;
+    EXPECT_EQ(entity_has_component(&e, "composition-profile"), 1);
+    EXPECT_EQ(entity_has_component(&e, "composition_profile"), 1);
+}
+
+TEST(EntityHasComponentTest, RenderProfileAbsentAndPresent)
+{
+    Entity e;
+    memset(&e, 0, sizeof(e));
+    EXPECT_EQ(entity_has_component(&e, "render-profile"), 0);
+    EXPECT_EQ(entity_has_component(&e, "render_profile"), 0);
+
+    strncpy(e.render_profile.format, "html",
+            sizeof(e.render_profile.format) - 1);
+    EXPECT_EQ(entity_has_component(&e, "render-profile"), 1);
+    EXPECT_EQ(entity_has_component(&e, "render_profile"), 1);
+}
+
+TEST(EntityApplyFilterTest, KindFilterSelectsDocumentSchema)
+{
+    EntityList src, dst;
+    entity_list_init(&src);
+    entity_list_init(&dst);
+
+    Entity e1 = make_test_entity("SCHEMA-001", ENTITY_KIND_DOCUMENT_SCHEMA,
+                                  "draft", "must");
+    Entity e2 = make_test_entity("REQ-001", ENTITY_KIND_REQUIREMENT,
+                                  "draft", "must");
+    entity_list_add(&src, &e1);
+    entity_list_add(&src, &e2);
+
+    entity_apply_filter(&src, &dst, "document-schema", nullptr, nullptr,
+                        nullptr);
+    EXPECT_EQ(dst.count, 1);
+    EXPECT_STREQ(dst.items[0].identity.id, "SCHEMA-001");
+
+    entity_list_free(&src);
+    entity_list_free(&dst);
+}

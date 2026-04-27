@@ -162,7 +162,8 @@ INSTANTIATE_TEST_SUITE_P(
         ScaffoldCase{"regulation",   "NEW-EXT-004",    "external"},
         ScaffoldCase{"document",     "NEW-DOC-001",    "document"},
         ScaffoldCase{"srs",          "NEW-DOC-002",    "srs"},
-        ScaffoldCase{"sdd",          "NEW-DOC-003",    "sdd"}
+        ScaffoldCase{"sdd",          "NEW-DOC-003",    "sdd"},
+        ScaffoldCase{"document-schema", "NEW-SCHEMA-001", "document-schema"}
     )
 );
 
@@ -252,6 +253,19 @@ TEST(NewCmdContentTest, DesignNoteHasBody)
     ASSERT_EQ(new_cmd_scaffold("design-note", "NEW-DN-CONTENT-001", "/tmp"), 0);
     std::string content = read_file(path);
     EXPECT_NE(content.find("body:"), std::string::npos);
+    remove_file(path);
+}
+
+TEST(NewCmdContentTest, DocumentSchemaHasCompositionAndRenderProfiles)
+{
+    const char *path = "/tmp/NEW-SCHEMA-CONTENT-001.yaml";
+    remove_file(path);
+    ASSERT_EQ(new_cmd_scaffold("document-schema", "NEW-SCHEMA-CONTENT-001",
+                               "/tmp"), 0);
+    std::string content = read_file(path);
+    EXPECT_NE(content.find("variant_profile:"),     std::string::npos);
+    EXPECT_NE(content.find("composition_profile:"), std::string::npos);
+    EXPECT_NE(content.find("render_profile:"),      std::string::npos);
     remove_file(path);
 }
 
