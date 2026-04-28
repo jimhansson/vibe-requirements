@@ -553,6 +553,7 @@ automatically creates the inferred inverse triple.
 | Option | Description |
 |--------|-------------|
 | `-h`, `--help` | Print the help message and exit |
+| `--fail-fast` | Stop on the first YAML parse or validation error |
 | `directory` | Root directory to scan (default: `.`) |
 
 ---
@@ -578,7 +579,7 @@ ignore_dirs:
 | Code | Meaning |
 |------|---------|
 | `0` | Success |
-| `1` | Error (cannot open directory, missing argument, `--strict-links` warnings found) |
+| `1` | Error (cannot open directory, missing argument, parse/validation failure, `--strict-links` warnings found) |
 
 ---
 

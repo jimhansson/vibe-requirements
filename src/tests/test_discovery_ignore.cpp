@@ -302,6 +302,38 @@ TEST(DiscoveryIgnoreTest, BrokenYamlSkipped)
 }
 
 /*
+ * With fail-fast enabled, discovery stops at the first malformed YAML file
+ * and reports a parse error to the caller.
+ */
+TEST(DiscoveryIgnoreTest, BrokenYamlStopsDiscoveryWhenFailFast)
+{
+    const char *root = "/tmp/vibe_disco_fail_fast_yaml_test";
+
+    /* Clean up any previous test run */
+    char cleanup_cmd[1024];
+    snprintf(cleanup_cmd, sizeof(cleanup_cmd), "rm -rf %s", root);
+    system(cleanup_cmd);
+
+    make_dir(root);
+
+    /* Write a broken YAML file (invalid syntax) */
+    char broken_path[512];
+    snprintf(broken_path, sizeof(broken_path), "%s/broken.yaml", root);
+    write_file(broken_path,
+        "id: BROKEN-001\n"
+        "random: [\n"
+        "more junk\n");
+
+    EntityList list;
+
+    int found = discover_entities_with_options(root, &list, nullptr, 1);
+
+    EXPECT_EQ(found, -2);
+    EXPECT_EQ((int)list.size(), 0);
+
+}
+
+/*
  * Test that hidden directories (names starting with '.') are skipped.
  */
 TEST(DiscoveryIgnoreTest, HiddenDirectoriesSkipped)

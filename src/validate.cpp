@@ -11,7 +11,24 @@
 #include <unordered_set>
 #include <vector>
 
+static int finish_validation(int problems)
+{
+    if (problems == 0)
+        printf("validate: OK — no problems found.\n");
+    else
+        fprintf(stderr, "validate: %d problem(s) found.\n", problems);
+
+    return problems;
+}
+
 int cmd_validate(const EntityList *elist, const vibe::TripletStore *store)
+{
+    return cmd_validate_with_options(elist, store, 0);
+}
+
+int cmd_validate_with_options(const EntityList *elist,
+                              const vibe::TripletStore *store,
+                              int fail_fast)
 {
     int problems = 0;
 
@@ -29,6 +46,8 @@ int cmd_validate(const EntityList *elist, const vibe::TripletStore *store)
             for (const auto &fp : files)
                 fprintf(stderr, "  %s\n", fp.c_str());
             ++problems;
+            if (fail_fast)
+                return finish_validation(problems);
         }
     }
 
@@ -58,13 +77,10 @@ int cmd_validate(const EntityList *elist, const vibe::TripletStore *store)
                     obj.c_str(),
                     triple->predicate.c_str());
             ++problems;
+            if (fail_fast)
+                return finish_validation(problems);
         }
     }
 
-    if (problems == 0)
-        printf("validate: OK — no problems found.\n");
-    else
-        fprintf(stderr, "validate: %d problem(s) found.\n", problems);
-
-    return problems;
+    return finish_validation(problems);
 }

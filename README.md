@@ -372,6 +372,7 @@ Total: 2 relation(s)
 | Option | Description |
 |--------|-------------|
 | `-h`, `--help` | Print the help message and exit |
+| `--fail-fast` | Stop on the first YAML parse or validation error |
 | `--strict-links` | Warn when a known bidirectional relation is only declared in one direction (used with `links`) |
 | `directory` | Root directory to scan (default: `.`) |
 

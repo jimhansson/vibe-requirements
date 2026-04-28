@@ -42,6 +42,9 @@ typedef struct {
     /** Non-zero when --strict-links flag was present. */
     int         strict_links;
 
+    /** Non-zero when --fail-fast flag was present. */
+    int         fail_fast;
+
     /** Non-zero when 'list' or 'entities' subcommand was requested. */
     int         show_entities;
 

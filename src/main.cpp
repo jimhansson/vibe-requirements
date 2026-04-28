@@ -68,11 +68,14 @@ int main(int argc, char *argv[])
     VibeConfig cfg;
     config_load(opts.root, &cfg);
 
-    int found = discover_entities(opts.root, &elist, &cfg);
-    if (found < 0) {
+    int found = discover_entities_with_options(opts.root, &elist, &cfg,
+                                               opts.fail_fast);
+    if (found == -1) {
         fprintf(stderr, "error: cannot open directory '%s'\n", opts.root);
         return 1;
     }
+    if (found < 0)
+        return 1;
 
     if (elist.size() > 1) {
         std::sort(elist.begin(), elist.end(),
@@ -188,7 +191,8 @@ int main(int argc, char *argv[])
             fprintf(stderr, "error: failed to create relation store\n");
             return 1;
         }
-        int problems = cmd_validate(&elist, store);
+        int problems = cmd_validate_with_options(&elist, store,
+                                                 opts.fail_fast);
         delete store;
         return problems > 0 ? 1 : 0;
     }

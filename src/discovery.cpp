@@ -14,11 +14,12 @@ static int is_yaml(const char *name)
     return strcmp(dot, ".yaml") == 0 || strcmp(dot, ".yml") == 0;
 }
 
-static void walk(const char *dir, EntityList *list, const VibeConfig *cfg)
+static int walk(const char *dir, EntityList *list, const VibeConfig *cfg,
+                int fail_fast)
 {
     DIR *d = opendir(dir);
     if (!d)
-        return;
+        return 0;
 
     struct dirent *entry;
     while ((entry = readdir(d)) != NULL) {
@@ -41,24 +42,42 @@ static void walk(const char *dir, EntityList *list, const VibeConfig *cfg)
         if (S_ISDIR(st.st_mode)) {
             if (config_is_ignored_dir(cfg, name))
                 continue;
-            walk(path, list, cfg);
+            if (walk(path, list, cfg, fail_fast) < 0) {
+                closedir(d);
+                return -1;
+            }
         } else if (S_ISREG(st.st_mode) && is_yaml(name)) {
-            if (yaml_parse_entities(path, list) < 0)
-                fprintf(stderr, "warning: could not parse: %s\n", path);
+            if (yaml_parse_entities(path, list) < 0) {
+                fprintf(stderr, "%s: could not parse: %s\n",
+                        fail_fast ? "error" : "warning", path);
+                if (fail_fast) {
+                    closedir(d);
+                    return -1;
+                }
+            }
         }
     }
 
     closedir(d);
+    return 0;
 }
 
 int discover_entities(const char *root_dir, EntityList *list,
                       const VibeConfig *cfg)
+{
+    return discover_entities_with_options(root_dir, list, cfg, 0);
+}
+
+int discover_entities_with_options(const char *root_dir, EntityList *list,
+                                   const VibeConfig *cfg, int fail_fast)
 {
     DIR *probe = opendir(root_dir);
     if (!probe)
         return -1;
     closedir(probe);
 
-    walk(root_dir, list, cfg);
+    if (walk(root_dir, list, cfg, fail_fast) < 0)
+        return -2;
+
     return (int)list->size();
 }

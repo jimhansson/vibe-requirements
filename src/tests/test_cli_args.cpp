@@ -64,6 +64,7 @@ TEST(CliParseArgsTest, NoArgumentsGivesDefaults)
     EXPECT_EQ(opts.parse_error,   0);
     EXPECT_EQ(opts.show_links,    0);
     EXPECT_EQ(opts.strict_links,  0);
+    EXPECT_EQ(opts.fail_fast,     0);
     EXPECT_EQ(opts.show_entities, 0);
     EXPECT_EQ(opts.show_coverage, 0);
     EXPECT_EQ(opts.show_status,   0);
@@ -490,6 +491,26 @@ TEST(CliParseArgsTest, StrictLinksFlag)
     EXPECT_EQ(opts.strict_links, 1);
 }
 
+TEST(CliParseArgsTest, FailFastFlag)
+{
+    Argv a{"vibe-req", "--fail-fast"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.fail_fast, 1);
+}
+
+TEST(CliParseArgsTest, ValidateSubcommandWithFailFast)
+{
+    Argv a{"vibe-req", "validate", "--fail-fast", "requirements/"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.is_validate_cmd, 1);
+    EXPECT_EQ(opts.fail_fast, 1);
+    EXPECT_STREQ(opts.root, "requirements/");
+}
+
 TEST(CliParseArgsTest, DirectoryPositionalArgument)
 {
     Argv a{"vibe-req", "requirements/"};
@@ -581,6 +602,7 @@ TEST(CliPrintHelpTest, PrintsUsageLine)
     EXPECT_THAT(out, HasSubstr("status"));
     EXPECT_THAT(out, HasSubstr("orphan"));
     EXPECT_THAT(out, HasSubstr("validate"));
+    EXPECT_THAT(out, HasSubstr("--fail-fast"));
     EXPECT_THAT(out, HasSubstr("--kind"));
     EXPECT_THAT(out, HasSubstr("--strict-links"));
 }

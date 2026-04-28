@@ -424,13 +424,16 @@ int yaml_parse_entities(const char *path, EntityList *list)
     yaml_parser_initialize(&parser);
     yaml_parser_set_input_file(&parser, f);
 
-    int added   = 0;
-    int doc_idx = 0;
+    int added       = 0;
+    int doc_idx     = 0;
+    int parse_error = 0;
 
     while (true) {
         yaml_document_t doc;
-        if (!yaml_parser_load(&parser, &doc))
+        if (!yaml_parser_load(&parser, &doc)) {
+            parse_error = 1;
             break;
+        }
 
         yaml_node_t *root = yaml_document_get_root_node(&doc);
         if (!root) {
@@ -453,7 +456,7 @@ int yaml_parse_entities(const char *path, EntityList *list)
 
     yaml_parser_delete(&parser);
     fclose(f);
-    return added;
+    return parse_error ? -1 : added;
 }
 
 int entity_doc_membership_to_triplets(const Entity *entity,

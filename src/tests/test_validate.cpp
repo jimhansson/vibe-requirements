@@ -346,6 +346,25 @@ TEST(CmdValidateTest, MultipleProblemsAreAllCounted)
     EXPECT_GE(out, 2);
 }
 
+TEST(CmdValidateTest, FailFastStopsAfterFirstProblem)
+{
+    EntityList elist;
+    elist.push_back(make_entity("REQ-001", "a.yaml"));
+    elist.push_back(make_entity("REQ-001", "b.yaml")); /* duplicate */
+
+    vibe::TripletStore store;
+    store.add("REQ-001", "verified-by", "TC-MISSING"); /* broken link */
+
+    int out = 0;
+    capture_stderr([&]() {
+        capture_stdout([&]() {
+            out = cmd_validate_with_options(&elist, &store, 1);
+        });
+    });
+
+    EXPECT_EQ(out, 1);
+}
+
 TEST(CmdValidateTest, SummaryLinePrintedToStderrOnProblems)
 {
     EntityList elist;
