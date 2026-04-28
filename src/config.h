@@ -21,6 +21,10 @@ typedef struct {
  * Returns -1 if the file cannot be opened or parsed; *cfg is zeroed so
  *            the caller can safely treat it as "no ignored directories".
  */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int config_load(const char *root_dir, VibeConfig *cfg);
 
 /*
