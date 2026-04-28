@@ -456,7 +456,8 @@ int yaml_parse_entities(const char *path, EntityList *list)
     return added;
 }
 
-int entity_doc_membership_to_triplets(const Entity *entity, TripletStore *store)
+int entity_doc_membership_to_triplets(const Entity *entity,
+                                      vibe::TripletStore *store)
 {
     if (!entity || !store)
         return -1;
@@ -464,21 +465,21 @@ int entity_doc_membership_to_triplets(const Entity *entity, TripletStore *store)
     if (entity->identity.id.empty())
         return 0;
 
-    const char *subject = entity->identity.id.c_str();
+    const std::string &subject = entity->identity.id;
     int added = 0;
 
     for (const auto &doc_id : entity->doc_membership.doc_ids) {
         if (doc_id.empty()) continue;
-        size_t id = triplet_store_add(store, subject, "part-of",
-                                      doc_id.c_str());
-        if (id != TRIPLE_ID_INVALID)
+        vibe::TripleId id = store->add(subject, "part-of", doc_id);
+        if (id != vibe::INVALID_TRIPLE_ID)
             added++;
     }
 
     return added;
 }
 
-int entity_traceability_to_triplets(const Entity *entity, TripletStore *store)
+int entity_traceability_to_triplets(const Entity *entity,
+                                    vibe::TripletStore *store)
 {
     if (!entity || !store)
         return -1;
@@ -486,16 +487,15 @@ int entity_traceability_to_triplets(const Entity *entity, TripletStore *store)
     if (entity->identity.id.empty())
         return 0;
 
-    const char *subject = entity->identity.id.c_str();
+    const std::string &subject = entity->identity.id;
     int added = 0;
 
     for (const auto &entry : entity->traceability.entries) {
         const std::string &target   = entry.first;
         const std::string &relation = entry.second;
         if (target.empty() || relation.empty()) continue;
-        size_t id = triplet_store_add(store, subject, relation.c_str(),
-                                      target.c_str());
-        if (id != TRIPLE_ID_INVALID)
+        vibe::TripleId id = store->add(subject, relation, target);
+        if (id != vibe::INVALID_TRIPLE_ID)
             added++;
     }
 

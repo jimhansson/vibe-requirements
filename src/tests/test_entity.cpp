@@ -14,6 +14,7 @@
 
 #include "entity.h"
 #include "yaml_simple.h"
+#include "triplet_store.hpp"
 
 /* -------------------------------------------------------------------------
  * Helpers — write temporary YAML files into /tmp
@@ -690,31 +691,30 @@ TEST(TraceabilityToTripletsTest, LoadsEntriesIntoStore)
     ASSERT_EQ(rc, 0);
     ASSERT_EQ((int)e.traceability.entries.size(), 2);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     int added = entity_traceability_to_triplets(&e, store);
     EXPECT_EQ(added, 2);
-    EXPECT_EQ(triplet_store_count(store), 2u);
+    EXPECT_EQ(store->count(), 2u);
 
     /* Verify the triples are queryable by subject. */
-    CTripleList list = triplet_store_find_by_subject(store, "REQ-SW-020");
-    ASSERT_EQ((int)list.count, 2u);
-    triplet_store_list_free(list);
+    auto list = store->find_by_subject("REQ-SW-020");
+    ASSERT_EQ((int)list.size(), 2u);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(TraceabilityToTripletsTest, NullInputsReturnMinusOne)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     Entity e{};
     EXPECT_EQ(entity_traceability_to_triplets(nullptr, store), -1);
     EXPECT_EQ(entity_traceability_to_triplets(&e, nullptr),    -1);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(TraceabilityToTripletsTest, EmptyTraceabilityReturnsZero)
@@ -722,13 +722,13 @@ TEST(TraceabilityToTripletsTest, EmptyTraceabilityReturnsZero)
     Entity e{};
     e.identity.id = "ENT-001";
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     EXPECT_EQ(entity_traceability_to_triplets(&e, store), 0);
-    EXPECT_EQ(triplet_store_count(store), 0u);
+    EXPECT_EQ(store->count(), 0u);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(TraceabilityToTripletsTest, DuplicatesNotAdded)
@@ -744,15 +744,15 @@ TEST(TraceabilityToTripletsTest, DuplicatesNotAdded)
     Entity e;
     ASSERT_EQ(yaml_parse_entity(path, &e), 0);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     EXPECT_EQ(entity_traceability_to_triplets(&e, store), 1);
     /* Loading again must add 0 new triples (TripletStore deduplicates). */
     EXPECT_EQ(entity_traceability_to_triplets(&e, store), 0);
-    EXPECT_EQ(triplet_store_count(store), 1u);
+    EXPECT_EQ(store->count(), 1u);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 /* =========================================================================
@@ -775,46 +775,43 @@ TEST(DocMembershipToTripletsTest, LoadsMembershipsAsPartOfTriples)
     ASSERT_EQ(rc, 0);
     ASSERT_EQ((int)e.doc_membership.doc_ids.size(), 2);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     int added = entity_doc_membership_to_triplets(&e, store);
     EXPECT_EQ(added, 2);
-    EXPECT_EQ(triplet_store_count(store), 2u);
+    EXPECT_EQ(store->count(), 2u);
 
     /* Both triples must use "part-of" as the predicate. */
-    CTripleList list = triplet_store_find_by_subject(store, "REQ-SW-100");
-    ASSERT_EQ((int)list.count, 2u);
+    auto list = store->find_by_subject("REQ-SW-100");
+    ASSERT_EQ((int)list.size(), 2u);
     int part_of_count = 0;
-    for (size_t i = 0; i < list.count; i++) {
-        if (strcmp(list.triples[i].predicate, "part-of") == 0)
+    for (const auto *t : list) {
+        if (t->predicate == "part-of")
             part_of_count++;
     }
     EXPECT_EQ(part_of_count, 2);
-    triplet_store_list_free(list);
 
     /* The objects must be the two document IDs. */
-    CTripleList by_obj1 = triplet_store_find_by_object(store, "SRS-CLIENT-001");
-    EXPECT_GE((int)by_obj1.count, 1u);
-    triplet_store_list_free(by_obj1);
+    auto by_obj1 = store->find_by_object("SRS-CLIENT-001");
+    EXPECT_GE((int)by_obj1.size(), 1);
 
-    CTripleList by_obj2 = triplet_store_find_by_object(store, "SDD-SYS-001");
-    EXPECT_GE((int)by_obj2.count, 1u);
-    triplet_store_list_free(by_obj2);
+    auto by_obj2 = store->find_by_object("SDD-SYS-001");
+    EXPECT_GE((int)by_obj2.size(), 1);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(DocMembershipToTripletsTest, NullInputsReturnMinusOne)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     Entity e{};
     EXPECT_EQ(entity_doc_membership_to_triplets(nullptr, store), -1);
     EXPECT_EQ(entity_doc_membership_to_triplets(&e, nullptr),    -1);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(DocMembershipToTripletsTest, EmptyMembershipReturnsZero)
@@ -822,13 +819,13 @@ TEST(DocMembershipToTripletsTest, EmptyMembershipReturnsZero)
     Entity e{};
     e.identity.id = "REQ-SW-200";
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     EXPECT_EQ(entity_doc_membership_to_triplets(&e, store), 0);
-    EXPECT_EQ(triplet_store_count(store), 0u);
+    EXPECT_EQ(store->count(), 0u);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(DocMembershipToTripletsTest, DuplicatesNotAdded)
@@ -844,15 +841,15 @@ TEST(DocMembershipToTripletsTest, DuplicatesNotAdded)
     Entity e;
     ASSERT_EQ(yaml_parse_entity(path, &e), 0);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     EXPECT_EQ(entity_doc_membership_to_triplets(&e, store), 1);
     /* Loading again must add 0 new triples (TripletStore deduplicates). */
     EXPECT_EQ(entity_doc_membership_to_triplets(&e, store), 0);
-    EXPECT_EQ(triplet_store_count(store), 1u);
+    EXPECT_EQ(store->count(), 1u);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(DocMembershipToTripletsTest, InverseContainsIsInferred)
@@ -868,25 +865,24 @@ TEST(DocMembershipToTripletsTest, InverseContainsIsInferred)
     Entity e;
     ASSERT_EQ(yaml_parse_entity(path, &e), 0);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     ASSERT_EQ(entity_doc_membership_to_triplets(&e, store), 1);
-    triplet_store_infer_inverses(store);
+    store->infer_inverses();
 
     /* The inverse (SRS-INV-001, contains, REQ-SW-400) must be inferred. */
-    CTripleList by_doc = triplet_store_find_by_subject(store, "SRS-INV-001");
+    auto by_doc = store->find_by_subject("SRS-INV-001");
     int contains_count = 0;
-    for (size_t i = 0; i < by_doc.count; i++) {
-        if (by_doc.triples[i].inferred &&
-            strcmp(by_doc.triples[i].predicate, "contains") == 0 &&
-            strcmp(by_doc.triples[i].object, "REQ-SW-400") == 0)
+    for (const auto *t : by_doc) {
+        if (t->inferred &&
+            t->predicate == "contains" &&
+            t->object    == "REQ-SW-400")
             contains_count++;
     }
     EXPECT_EQ(contains_count, 1);
-    triplet_store_list_free(by_doc);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 /* =========================================================================

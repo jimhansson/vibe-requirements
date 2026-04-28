@@ -26,7 +26,7 @@
 static int add_traceability_triples(yaml_document_t *doc,
                                      yaml_node_t *map,
                                      const char *subject_id,
-                                     TripletStore *store)
+                                     vibe::TripletStore *store)
 {
     if (!map || map->type != YAML_MAPPING_NODE)
         return 0;
@@ -51,9 +51,8 @@ static int add_traceability_triples(yaml_document_t *doc,
             const char *target = reinterpret_cast<const char *>(
                 rv->data.scalar.value);
             if (target && target[0] != '\0') {
-                size_t id = triplet_store_add(store, subject_id, relation,
-                                              target);
-                if (id != TRIPLE_ID_INVALID)
+                vibe::TripleId id = store->add(subject_id, relation, target);
+                if (id != vibe::INVALID_TRIPLE_ID)
                     added++;
             }
         } else if (rv->type == YAML_SEQUENCE_NODE) {
@@ -65,9 +64,8 @@ static int add_traceability_triples(yaml_document_t *doc,
                 const char *target = reinterpret_cast<const char *>(
                     item->data.scalar.value);
                 if (target && target[0] != '\0') {
-                    size_t id = triplet_store_add(store, subject_id, relation,
-                                                  target);
-                    if (id != TRIPLE_ID_INVALID)
+                    vibe::TripleId id = store->add(subject_id, relation, target);
+                    if (id != vibe::INVALID_TRIPLE_ID)
                         added++;
                 }
             }
@@ -78,7 +76,7 @@ static int add_traceability_triples(yaml_document_t *doc,
 }
 
 int yaml_parse_links(const char *path, const char *subject_id,
-                     TripletStore *store)
+                     vibe::TripletStore *store)
 {
     if (!path || !subject_id || !store)
         return -1;

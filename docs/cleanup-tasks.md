@@ -26,27 +26,11 @@ This repetition increases code size and makes future changes error-prone.
 
 ---
 
-### Cleanup task 2: Remove duplicated API docs and constants between C and C++ triplet store interfaces
+### Cleanup task 2: ~~Remove duplicated API docs and constants between C and C++ triplet store interfaces~~ (Completed — C API wrapper removed)
 
-**Why**
-`src/triplet_store.hpp` and `src/triplet_store_c.h` duplicate:
-- sentinel invalid IDs (`INVALID_TRIPLE_ID` vs `TRIPLE_ID_INVALID`)
-- long-form documentation of compaction / ID invalidation rules
-
-This is easy to let drift and adds maintenance overhead.
-
-**What to do**
-- Make one source of truth for the invalid-id constant:
-  - Option A (preferred): expose `vibe::INVALID_TRIPLE_ID` to C via a function like `size_t triplet_store_invalid_id(void);` and remove the macro.
-  - Option B: keep macro but generate it from a single header included by both (careful with C vs C++ compatibility).
-- Reduce duplicated docs:
-  - Keep full documentation in the C++ header (`triplet_store.hpp`).
-  - In the C header, link/reference the C++ docs and keep only C-specific memory-model notes.
-
-**Acceptance criteria**
-- Only one authoritative definition for the invalid ID.
-- Documentation remains clear and correct for both C and C++ callers.
-- Public C API remains stable (or document the small API addition if using Option A).
+The legacy C wrapper (`src/triplet_store_c.h` and `src/triplet_store_c.cpp`)
+has been deleted.  All internal code now uses `vibe::TripletStore` (C++ API)
+directly.  The duplicated constants, docs, and `CTripleList` type are gone.
 
 ---
 

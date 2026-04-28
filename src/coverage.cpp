@@ -49,53 +49,39 @@ int is_coverage_predicate(const char *pred)
     return 0;
 }
 
-int entity_is_covered(const TripletStore *store, const char *id)
+int entity_is_covered(const vibe::TripletStore *store, const char *id)
 {
-    CTripleList out = triplet_store_find_by_subject(store, id);
-    for (size_t i = 0; i < out.count; i++) {
-        if (!out.triples[i].inferred &&
-            is_coverage_predicate(out.triples[i].predicate)) {
-            triplet_store_list_free(out);
+    auto out = store->find_by_subject(id);
+    for (const auto *t : out) {
+        if (!t->inferred && is_coverage_predicate(t->predicate.c_str()))
             return 1;
-        }
     }
-    triplet_store_list_free(out);
 
-    CTripleList in = triplet_store_find_by_object(store, id);
-    for (size_t i = 0; i < in.count; i++) {
-        if (!in.triples[i].inferred &&
-            is_coverage_predicate(in.triples[i].predicate)) {
-            triplet_store_list_free(in);
+    auto in = store->find_by_object(id);
+    for (const auto *t : in) {
+        if (!t->inferred && is_coverage_predicate(t->predicate.c_str()))
             return 1;
-        }
     }
-    triplet_store_list_free(in);
     return 0;
 }
 
-int entity_has_any_link(const TripletStore *store, const char *id)
+int entity_has_any_link(const vibe::TripletStore *store, const char *id)
 {
-    CTripleList out = triplet_store_find_by_subject(store, id);
-    for (size_t i = 0; i < out.count; i++) {
-        if (!out.triples[i].inferred) {
-            triplet_store_list_free(out);
+    auto out = store->find_by_subject(id);
+    for (const auto *t : out) {
+        if (!t->inferred)
             return 1;
-        }
     }
-    triplet_store_list_free(out);
 
-    CTripleList in = triplet_store_find_by_object(store, id);
-    for (size_t i = 0; i < in.count; i++) {
-        if (!in.triples[i].inferred) {
-            triplet_store_list_free(in);
+    auto in = store->find_by_object(id);
+    for (const auto *t : in) {
+        if (!t->inferred)
             return 1;
-        }
     }
-    triplet_store_list_free(in);
     return 0;
 }
 
-void cmd_coverage(const EntityList *elist, const TripletStore *store)
+void cmd_coverage(const EntityList *elist, const vibe::TripletStore *store)
 {
     int total   = 0;
     int covered = 0;
@@ -161,7 +147,7 @@ void cmd_coverage(const EntityList *elist, const TripletStore *store)
     print_rule(w3, 3);
 }
 
-void cmd_orphan(const EntityList *elist, const TripletStore *store)
+void cmd_orphan(const EntityList *elist, const vibe::TripletStore *store)
 {
     int orphan_count = 0;
     for (const auto &e : *elist) {

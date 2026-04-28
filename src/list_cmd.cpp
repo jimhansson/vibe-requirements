@@ -4,11 +4,10 @@
  */
 
 #include "list_cmd.h"
+#include "yaml_simple.h"
 #include <cstdio>
 #include <cstring>
 #include "entity.h"
-#include "triplet_store_c.h"
-#include "yaml_simple.h"
 
 #define SUBJ_MAX_DISPLAY 32
 #define OBJ_MAX_DISPLAY  48
@@ -26,13 +25,12 @@ static void print_rel_rule(int subj_w, int pred_w, int obj_w, int src_w)
     puts("+");
 }
 
-void list_relations(const TripletStore *store)
+void list_relations(const vibe::TripletStore *store)
 {
-    CTripleList all = triplet_store_find_all(store);
+    auto all = store->find_all();
 
-    if (all.count == 0) {
+    if (all.empty()) {
         puts("No relations found.");
-        triplet_store_list_free(all);
         return;
     }
 
@@ -41,14 +39,11 @@ void list_relations(const TripletStore *store)
     int obj_w  = (int)strlen("Object");
     int src_w  = (int)strlen("Source");
 
-    for (size_t i = 0; i < all.count; i++) {
+    for (const auto *t : all) {
         int len;
-        len = (int)strlen(all.triples[i].subject);
-        if (len > subj_w) subj_w = len;
-        len = (int)strlen(all.triples[i].predicate);
-        if (len > pred_w) pred_w = len;
-        len = (int)strlen(all.triples[i].object);
-        if (len > obj_w)  obj_w  = len;
+        len = (int)t->subject.size();   if (len > subj_w) subj_w = len;
+        len = (int)t->predicate.size(); if (len > pred_w) pred_w = len;
+        len = (int)t->object.size();    if (len > obj_w)  obj_w  = len;
     }
 
     if (subj_w > SUBJ_MAX_DISPLAY) subj_w = SUBJ_MAX_DISPLAY;
@@ -60,112 +55,99 @@ void list_relations(const TripletStore *store)
            src_w, "Source");
     print_rel_rule(subj_w, pred_w, obj_w, src_w);
 
-    for (size_t i = 0; i < all.count; i++) {
-        const CTriple *t = &all.triples[i];
-
+    for (const auto *t : all) {
         char sbuf[SUBJ_MAX_DISPLAY + 1];
-        strncpy(sbuf, t->subject, sizeof(sbuf) - 1);
+        strncpy(sbuf, t->subject.c_str(), sizeof(sbuf) - 1);
         sbuf[sizeof(sbuf) - 1] = '\0';
-        if (subj_w >= 3 && (int)strlen(t->subject) > subj_w) {
+        if (subj_w >= 3 && (int)t->subject.size() > subj_w) {
             sbuf[subj_w - 3] = sbuf[subj_w - 2] = sbuf[subj_w - 1] = '.';
             sbuf[subj_w] = '\0';
         }
 
         char obuf[OBJ_MAX_DISPLAY + 1];
-        strncpy(obuf, t->object, sizeof(obuf) - 1);
+        strncpy(obuf, t->object.c_str(), sizeof(obuf) - 1);
         obuf[sizeof(obuf) - 1] = '\0';
-        if (obj_w >= 3 && (int)strlen(t->object) > obj_w) {
+        if (obj_w >= 3 && (int)t->object.size() > obj_w) {
             obuf[obj_w - 3] = obuf[obj_w - 2] = obuf[obj_w - 1] = '.';
             obuf[obj_w] = '\0';
         }
 
         const char *src = t->inferred ? "inferred" : "declared";
         printf("| %-*s | %-*s | %-*s | %-*s |\n",
-               subj_w, sbuf, pred_w, t->predicate, obj_w, obuf,
+               subj_w, sbuf, pred_w, t->predicate.c_str(), obj_w, obuf,
                src_w, src);
     }
 
     print_rel_rule(subj_w, pred_w, obj_w, src_w);
-    printf("\nTotal: %zu relation(s)\n", all.count);
-    triplet_store_list_free(all);
+    printf("\nTotal: %zu relation(s)\n", all.size());
 }
 
-int check_strict_links(const TripletStore *store)
+int check_strict_links(const vibe::TripletStore *store)
 {
-    CTripleList all = triplet_store_find_all(store);
+    auto all = store->find_all();
     int warnings = 0;
 
-    for (size_t i = 0; i < all.count; i++) {
-        const CTriple *t = &all.triples[i];
+    for (const auto *t : all) {
         if (t->inferred) continue;
 
-        CTripleList by_subj = triplet_store_find_by_subject(store, t->object);
+        auto by_subj = store->find_by_subject(t->object);
 
-        char inv_pred_buf[256] = {0};
-        int  found_declared    = 0;
+        std::string inv_pred;
 
-        for (size_t j = 0; j < by_subj.count; j++) {
-            const CTriple *cand = &by_subj.triples[j];
-            if (cand->inferred && strcmp(cand->object, t->subject) == 0) {
-                strncpy(inv_pred_buf, cand->predicate,
-                        sizeof(inv_pred_buf) - 1);
+        for (const auto *cand : by_subj) {
+            if (cand->inferred && cand->object == t->subject) {
+                inv_pred = cand->predicate;
                 break;
             }
         }
 
-        if (inv_pred_buf[0] == '\0') {
-            triplet_store_list_free(by_subj);
+        if (inv_pred.empty())
             continue;
-        }
 
-        for (size_t j = 0; j < by_subj.count; j++) {
-            const CTriple *cand = &by_subj.triples[j];
+        bool found_declared = false;
+        for (const auto *cand : by_subj) {
             if (!cand->inferred &&
-                strcmp(cand->predicate, inv_pred_buf) == 0 &&
-                strcmp(cand->object, t->subject) == 0) {
-                found_declared = 1;
+                cand->predicate == inv_pred &&
+                cand->object == t->subject) {
+                found_declared = true;
                 break;
             }
         }
-        triplet_store_list_free(by_subj);
 
         if (!found_declared) {
             fprintf(stderr,
                 "warning: strict-links: '%s -[%s]-> %s' — "
                 "inverse '[%s]' not explicitly declared by '%s'\n",
-                t->subject, t->predicate, t->object,
-                inv_pred_buf, t->object);
+                t->subject.c_str(), t->predicate.c_str(), t->object.c_str(),
+                inv_pred.c_str(), t->object.c_str());
             warnings++;
         }
     }
 
-    triplet_store_list_free(all);
     return warnings;
 }
 
-static void trace_subject(const TripletStore *store, const char *subject,
+static void trace_subject(const vibe::TripletStore *store,
+                           const std::string &subject,
                            int depth, int max_depth)
 {
-    CTripleList list = triplet_store_find_by_subject(store, subject);
+    auto list = store->find_by_subject(subject);
 
-    for (size_t i = 0; i < list.count; i++) {
-        const CTriple *t = &list.triples[i];
+    for (const auto *t : list) {
         if (t->inferred)
             continue;
 
         for (int d = 0; d < depth; d++)
             printf("  ");
-        printf("-[%s]-> %s\n", t->predicate, t->object);
+        printf("-[%s]-> %s\n", t->predicate.c_str(), t->object.c_str());
 
         if (depth < max_depth)
             trace_subject(store, t->object, depth + 1, max_depth);
     }
-
-    triplet_store_list_free(list);
 }
 
 void cmd_trace_entity(const EntityList *elist,
-                      const TripletStore *store, const char *id)
+                      const vibe::TripletStore *store, const char *id)
 {
     const Entity *found = NULL;
     for (const auto &e : *elist) {
@@ -188,13 +170,11 @@ void cmd_trace_entity(const EntityList *elist,
     }
 
     printf("\nOutgoing links:\n");
-    CTripleList out_links = triplet_store_find_by_subject(store, id);
+    auto out_links = store->find_by_subject(id);
     int out_count = 0;
-    for (size_t i = 0; i < out_links.count; i++) {
-        if (!out_links.triples[i].inferred)
-            out_count++;
+    for (const auto *t : out_links) {
+        if (!t->inferred) out_count++;
     }
-    triplet_store_list_free(out_links);
     if (out_count == 0) {
         printf("  (none)\n");
     } else {
@@ -202,32 +182,28 @@ void cmd_trace_entity(const EntityList *elist,
     }
 
     printf("\nIncoming links:\n");
-    CTripleList in_links = triplet_store_find_by_object(store, id);
+    auto in_links = store->find_by_object(id);
     int in_count = 0;
-    for (size_t i = 0; i < in_links.count; i++) {
-        const CTriple *t = &in_links.triples[i];
+    for (const auto *t : in_links) {
         if (t->inferred)
             continue;
-        printf("  %s -[%s]->\n", t->subject, t->predicate);
+        printf("  %s -[%s]->\n", t->subject.c_str(), t->predicate.c_str());
         in_count++;
     }
     if (in_count == 0)
         printf("  (none)\n");
-    triplet_store_list_free(in_links);
 }
 
-TripletStore *build_entity_relation_store(const EntityList *list)
+vibe::TripletStore *build_entity_relation_store(const EntityList *list)
 {
-    TripletStore *store = triplet_store_create();
-    if (!store)
-        return NULL;
+    vibe::TripletStore *store = new vibe::TripletStore();
 
     for (const auto &e : *list) {
         entity_traceability_to_triplets(&e, store);
         entity_doc_membership_to_triplets(&e, store);
     }
 
-    triplet_store_infer_inverses(store);
+    store->infer_inverses();
     return store;
 }
 
@@ -245,27 +221,22 @@ static int list_contains_entity_id(const EntityList *list, const char *id)
     return find_entity_by_id(list, id) != NULL;
 }
 
-static int entity_is_member_of_document(const TripletStore *store,
+static int entity_is_member_of_document(const vibe::TripletStore *store,
                                         const char *entity_id,
                                         const char *doc_id)
 {
-    CTripleList by_subject = triplet_store_find_by_subject(store, entity_id);
-    int is_member = 0;
+    auto by_subject = store->find_by_subject(entity_id);
 
-    for (size_t i = 0; i < by_subject.count; i++) {
-        const CTriple *triple = &by_subject.triples[i];
-        if (strcmp(triple->predicate, "part-of") == 0 &&
-            strcmp(triple->object, doc_id) == 0) {
-            is_member = 1;
-            break;
-        }
+    for (const auto *t : by_subject) {
+        if (t->predicate == "part-of" && t->object == doc_id)
+            return 1;
     }
 
-    triplet_store_list_free(by_subject);
-    return is_member;
+    return 0;
 }
 
-int collect_document_entities(const EntityList *all, const TripletStore *store,
+int collect_document_entities(const EntityList *all,
+                               const vibe::TripletStore *store,
                                const char *doc_id, EntityList *out)
 {
     const Entity *doc = find_entity_by_id(all, doc_id);

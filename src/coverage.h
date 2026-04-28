@@ -15,7 +15,7 @@
 #define VIBE_COVERAGE_H
 
 #include "entity.h"
-#include "triplet_store_c.h"
+#include "triplet_store.hpp"
 
 /**
  * Return 1 if @p pred is a coverage-indicating relation type.
@@ -39,7 +39,7 @@ int is_coverage_predicate(const char *pred);
  * @param id     entity identifier to check (must not be NULL)
  * @return       1 if covered, 0 otherwise
  */
-int entity_is_covered(const TripletStore *store, const char *id);
+int entity_is_covered(const vibe::TripletStore *store, const char *id);
 
 /**
  * Return 1 if the entity identified by @p id has at least one declared
@@ -51,7 +51,7 @@ int entity_is_covered(const TripletStore *store, const char *id);
  * @param id     entity identifier to check (must not be NULL)
  * @return       1 if at least one link exists, 0 if the entity is an orphan
  */
-int entity_has_any_link(const TripletStore *store, const char *id);
+int entity_has_any_link(const vibe::TripletStore *store, const char *id);
 
 /**
  * Print a requirement coverage report to stdout.
@@ -62,7 +62,7 @@ int entity_has_any_link(const TripletStore *store, const char *id);
  * @param elist  full entity list to inspect
  * @param store  populated TripletStore containing all declared links
  */
-void cmd_coverage(const EntityList *elist, const TripletStore *store);
+void cmd_coverage(const EntityList *elist, const vibe::TripletStore *store);
 
 /**
  * Print a list of orphaned requirements and test cases to stdout.
@@ -74,6 +74,6 @@ void cmd_coverage(const EntityList *elist, const TripletStore *store);
  * @param elist  full entity list to inspect
  * @param store  populated TripletStore containing all declared links
  */
-void cmd_orphan(const EntityList *elist, const TripletStore *store);
+void cmd_orphan(const EntityList *elist, const vibe::TripletStore *store);
 
 #endif /* VIBE_COVERAGE_H */

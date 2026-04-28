@@ -27,8 +27,9 @@
 #include <functional>
 
 #include "entity.h"
-#include "triplet_store_c.h"
+
 #include "list_cmd.h"
+#include "triplet_store.hpp"
 
 using ::testing::HasSubstr;
 using ::testing::Not;
@@ -127,14 +128,13 @@ TEST(BuildEntityRelationStoreTest, EmptyListReturnsEmptyStore)
 {
     EntityList list;
 
-    TripletStore *store = build_entity_relation_store(&list);
+    vibe::TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
-    CTripleList all = triplet_store_find_all(store);
-    EXPECT_EQ((int)all.count, 0u);
-    triplet_store_list_free(all);
+    auto all = store->find_all();
+    EXPECT_EQ((int)all.size(), 0u);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(BuildEntityRelationStoreTest, EntityWithLinksPopulatesStore)
@@ -146,20 +146,19 @@ TEST(BuildEntityRelationStoreTest, EntityWithLinksPopulatesStore)
     req.traceability.entries.push_back({"TC-001", "verified-by"});
     list.push_back(req);
 
-    TripletStore *store = build_entity_relation_store(&list);
+    vibe::TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
-    CTripleList by_subj = triplet_store_find_by_subject(store, "REQ-001");
+    auto by_subj = store->find_by_subject("REQ-001");
     /* At least one declared triple for REQ-001. */
     int declared = 0;
-    for (size_t i = 0; i < by_subj.count; i++) {
-        if (!by_subj.triples[i].inferred)
+    for (const auto *t : by_subj) {
+        if (!t->inferred)
             declared++;
     }
     EXPECT_GE(declared, 1);
-    triplet_store_list_free(by_subj);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(BuildEntityRelationStoreTest, InverseRelationsAreInferred)
@@ -170,22 +169,21 @@ TEST(BuildEntityRelationStoreTest, InverseRelationsAreInferred)
     req.traceability.entries.push_back({"TC-001", "verified-by"});
     list.push_back(req);
 
-    TripletStore *store = build_entity_relation_store(&list);
+    vibe::TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     /* The inverse (TC-001, verifies, REQ-001) should have been inferred. */
-    CTripleList by_subj = triplet_store_find_by_subject(store, "TC-001");
+    auto by_subj = store->find_by_subject("TC-001");
     int inferred_verifies = 0;
-    for (size_t i = 0; i < by_subj.count; i++) {
-        if (by_subj.triples[i].inferred &&
-            strcmp(by_subj.triples[i].predicate, "verifies") == 0 &&
-            strcmp(by_subj.triples[i].object, "REQ-001") == 0)
+    for (const auto *t : by_subj) {
+        if (t->inferred &&
+            t->predicate == "verifies" &&
+            t->object    == "REQ-001")
             inferred_verifies++;
     }
     EXPECT_EQ(inferred_verifies, 1);
-    triplet_store_list_free(by_subj);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(BuildEntityRelationStoreTest, MultipleEntitiesAllLinksPresent)
@@ -201,14 +199,13 @@ TEST(BuildEntityRelationStoreTest, MultipleEntitiesAllLinksPresent)
     list.push_back(req);
     list.push_back(tc);
 
-    TripletStore *store = build_entity_relation_store(&list);
+    vibe::TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
-    CTripleList all = triplet_store_find_all(store);
-    EXPECT_GE((int)all.count, 2); /* at least the two declared triples */
-    triplet_store_list_free(all);
+    auto all = store->find_all();
+    EXPECT_GE((int)all.size(), 2); /* at least the two declared triples */
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
@@ -221,34 +218,32 @@ TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
     req.doc_membership.doc_ids.push_back("SRS-MAIN-001");
     list.push_back(req);
 
-    TripletStore *store = build_entity_relation_store(&list);
+    vibe::TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     /* A declared (REQ-DOC-001, part-of, SRS-MAIN-001) triple must exist. */
-    CTripleList by_subj = triplet_store_find_by_subject(store, "REQ-DOC-001");
+    auto by_subj = store->find_by_subject("REQ-DOC-001");
     int part_of_declared = 0;
-    for (size_t i = 0; i < by_subj.count; i++) {
-        if (!by_subj.triples[i].inferred &&
-            strcmp(by_subj.triples[i].predicate, "part-of") == 0 &&
-            strcmp(by_subj.triples[i].object, "SRS-MAIN-001") == 0)
+    for (const auto *t : by_subj) {
+        if (!t->inferred &&
+            t->predicate == "part-of" &&
+            t->object    == "SRS-MAIN-001")
             part_of_declared++;
     }
     EXPECT_EQ(part_of_declared, 1);
-    triplet_store_list_free(by_subj);
 
     /* The inferred inverse (SRS-MAIN-001, contains, REQ-DOC-001) must exist. */
-    CTripleList by_doc = triplet_store_find_by_subject(store, "SRS-MAIN-001");
+    auto by_doc = store->find_by_subject("SRS-MAIN-001");
     int contains_inferred = 0;
-    for (size_t i = 0; i < by_doc.count; i++) {
-        if (by_doc.triples[i].inferred &&
-            strcmp(by_doc.triples[i].predicate, "contains") == 0 &&
-            strcmp(by_doc.triples[i].object, "REQ-DOC-001") == 0)
+    for (const auto *t : by_doc) {
+        if (t->inferred &&
+            t->predicate == "contains" &&
+            t->object    == "REQ-DOC-001")
             contains_inferred++;
     }
     EXPECT_EQ(contains_inferred, 1);
-    triplet_store_list_free(by_doc);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 /* =========================================================================
@@ -262,14 +257,14 @@ TEST(CollectDocumentEntitiesTest, MissingDocumentReturnsMinusOne)
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
     list.push_back(req);
 
-    TripletStore *store = build_entity_relation_store(&list);
+    vibe::TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     EntityList collected;
 
     EXPECT_EQ(collect_document_entities(&list, store, "SRS-001", &collected), -1);
     EXPECT_EQ((int)collected.size(), 0);
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CollectDocumentEntitiesTest, NonDocumentEntityReturnsMinusTwo)
@@ -279,14 +274,14 @@ TEST(CollectDocumentEntitiesTest, NonDocumentEntityReturnsMinusTwo)
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
     list.push_back(req);
 
-    TripletStore *store = build_entity_relation_store(&list);
+    vibe::TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     EntityList collected;
 
     EXPECT_EQ(collect_document_entities(&list, store, "REQ-001", &collected), -2);
     EXPECT_EQ((int)collected.size(), 0);
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CollectDocumentEntitiesTest, CollectsDocumentAndMembers)
@@ -307,7 +302,7 @@ TEST(CollectDocumentEntitiesTest, CollectsDocumentAndMembers)
     list.push_back(tc);
     list.push_back(ext);
 
-    TripletStore *store = build_entity_relation_store(&list);
+    vibe::TripletStore *store = build_entity_relation_store(&list);
     ASSERT_NE(store, nullptr);
 
     EntityList collected;
@@ -317,7 +312,7 @@ TEST(CollectDocumentEntitiesTest, CollectsDocumentAndMembers)
     EXPECT_EQ(collected[0].identity.id, std::string("SRS-001"));
     EXPECT_EQ(collected[1].identity.id, std::string("REQ-001"));
     EXPECT_EQ(collected[2].identity.id, std::string("TC-001"));
-    triplet_store_destroy(store);
+    delete store;
 }
 
 /* =========================================================================
@@ -449,7 +444,7 @@ TEST(ListEntitiesTest, TableContainsBorderCharacters)
 
 TEST(ListRelationsTest, EmptyStorePrintsNoRelationsFound)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     std::string out = capture_stdout([&]() {
@@ -458,14 +453,14 @@ TEST(ListRelationsTest, EmptyStorePrintsNoRelationsFound)
 
     EXPECT_THAT(out, HasSubstr("No relations found."));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ListRelationsTest, SingleRelationShowsHeaderAndRow)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
-    triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
+    store->add( "REQ-001", "verified-by", "TC-001");
 
     std::string out = capture_stdout([&]() {
         list_relations(store);
@@ -479,14 +474,14 @@ TEST(ListRelationsTest, SingleRelationShowsHeaderAndRow)
     EXPECT_THAT(out, HasSubstr("verified-by"));
     EXPECT_THAT(out, HasSubstr("TC-001"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ListRelationsTest, DeclaredRelationMarkedAsDeclared)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
-    triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
+    store->add( "REQ-001", "verified-by", "TC-001");
 
     std::string out = capture_stdout([&]() {
         list_relations(store);
@@ -494,15 +489,15 @@ TEST(ListRelationsTest, DeclaredRelationMarkedAsDeclared)
 
     EXPECT_THAT(out, HasSubstr("declared"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ListRelationsTest, InferredRelationMarkedAsInferred)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
-    triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
-    triplet_store_infer_inverses(store);
+    store->add( "REQ-001", "verified-by", "TC-001");
+    store->infer_inverses();
 
     std::string out = capture_stdout([&]() {
         list_relations(store);
@@ -510,15 +505,15 @@ TEST(ListRelationsTest, InferredRelationMarkedAsInferred)
 
     EXPECT_THAT(out, HasSubstr("inferred"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ListRelationsTest, FooterShowsTotalRelationCount)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
-    triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
-    triplet_store_add(store, "REQ-002", "verified-by", "TC-002");
+    store->add( "REQ-001", "verified-by", "TC-001");
+    store->add( "REQ-002", "verified-by", "TC-002");
 
     std::string out = capture_stdout([&]() {
         list_relations(store);
@@ -526,15 +521,15 @@ TEST(ListRelationsTest, FooterShowsTotalRelationCount)
 
     EXPECT_THAT(out, HasSubstr("relation(s)"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ListRelationsTest, LongSubjectIsTruncated)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
     /* Subject is 40 chars — exceeds SUBJ_MAX_DISPLAY (32), should be truncated. */
-    triplet_store_add(store,
+    store->add(
                       "REQ-THIS-SUBJECT-IS-LONGER-THAN-32-CHARS",
                       "verified-by", "TC-001");
 
@@ -544,15 +539,15 @@ TEST(ListRelationsTest, LongSubjectIsTruncated)
 
     EXPECT_THAT(out, HasSubstr("..."));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ListRelationsTest, LongObjectIsTruncated)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
     /* Object is 55 chars — exceeds OBJ_MAX_DISPLAY (48), should be truncated. */
-    triplet_store_add(store, "REQ-001", "verified-by",
+    store->add( "REQ-001", "verified-by",
                       "TC-THIS-OBJECT-IS-MUCH-LONGER-THAN-48-CHARS-XXXXXXX");
 
     std::string out = capture_stdout([&]() {
@@ -561,7 +556,7 @@ TEST(ListRelationsTest, LongObjectIsTruncated)
 
     EXPECT_THAT(out, HasSubstr("..."));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 /* =========================================================================
@@ -571,7 +566,7 @@ TEST(ListRelationsTest, LongObjectIsTruncated)
 TEST(CmdTraceEntityTest, EntityNotFoundShowsNotFoundMessage)
 {
     EntityList elist;
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     std::string out = capture_stdout([&]() {
@@ -581,7 +576,7 @@ TEST(CmdTraceEntityTest, EntityNotFoundShowsNotFoundMessage)
     EXPECT_THAT(out, HasSubstr("Traceability chain for: REQ-UNKNOWN"));
     EXPECT_THAT(out, HasSubstr("(entity not found in scanned files)"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdTraceEntityTest, EntityFoundShowsMetadata)
@@ -591,7 +586,7 @@ TEST(CmdTraceEntityTest, EntityFoundShowsMetadata)
                               ENTITY_KIND_REQUIREMENT, "approved", "must");
     elist.push_back(req);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     std::string out = capture_stdout([&]() {
@@ -603,7 +598,7 @@ TEST(CmdTraceEntityTest, EntityFoundShowsMetadata)
     EXPECT_THAT(out, HasSubstr("Login required"));
     EXPECT_THAT(out, HasSubstr("approved"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdTraceEntityTest, NoLinksShowsNoneForBothDirections)
@@ -612,7 +607,7 @@ TEST(CmdTraceEntityTest, NoLinksShowsNoneForBothDirections)
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
     elist.push_back(req);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     std::string out = capture_stdout([&]() {
@@ -627,7 +622,7 @@ TEST(CmdTraceEntityTest, NoLinksShowsNoneForBothDirections)
     EXPECT_NE(first_none,  std::string::npos);
     EXPECT_NE(second_none, std::string::npos);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdTraceEntityTest, OutgoingLinkAppearsInOutput)
@@ -636,9 +631,9 @@ TEST(CmdTraceEntityTest, OutgoingLinkAppearsInOutput)
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
     elist.push_back(req);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
-    triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
+    store->add( "REQ-001", "verified-by", "TC-001");
 
     std::string out = capture_stdout([&]() {
         cmd_trace_entity(&elist, store, "REQ-001");
@@ -647,7 +642,7 @@ TEST(CmdTraceEntityTest, OutgoingLinkAppearsInOutput)
     EXPECT_THAT(out, HasSubstr("verified-by"));
     EXPECT_THAT(out, HasSubstr("TC-001"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdTraceEntityTest, IncomingLinkAppearsInOutput)
@@ -656,10 +651,10 @@ TEST(CmdTraceEntityTest, IncomingLinkAppearsInOutput)
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
     elist.push_back(req);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
     /* TC-002 links TO REQ-001 — incoming for REQ-001 */
-    triplet_store_add(store, "TC-002", "verifies", "REQ-001");
+    store->add( "TC-002", "verifies", "REQ-001");
 
     std::string out = capture_stdout([&]() {
         cmd_trace_entity(&elist, store, "REQ-001");
@@ -668,7 +663,7 @@ TEST(CmdTraceEntityTest, IncomingLinkAppearsInOutput)
     EXPECT_THAT(out, HasSubstr("TC-002"));
     EXPECT_THAT(out, HasSubstr("verifies"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdTraceEntityTest, EntityWithNoTitleOrStatusSuppressesThoseLines)
@@ -680,7 +675,7 @@ TEST(CmdTraceEntityTest, EntityWithNoTitleOrStatusSuppressesThoseLines)
     e.identity.kind = ENTITY_KIND_REQUIREMENT;
     elist.push_back(e);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     std::string out = capture_stdout([&]() {
@@ -692,7 +687,7 @@ TEST(CmdTraceEntityTest, EntityWithNoTitleOrStatusSuppressesThoseLines)
     EXPECT_THAT(out, Not(HasSubstr("Title:")));
     EXPECT_THAT(out, Not(HasSubstr("Status:")));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 /* =========================================================================
@@ -701,37 +696,37 @@ TEST(CmdTraceEntityTest, EntityWithNoTitleOrStatusSuppressesThoseLines)
 
 TEST(CheckStrictLinksTest, EmptyStoreReturnsZeroWarnings)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     int warnings = check_strict_links(store);
     EXPECT_EQ(warnings, 0);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CheckStrictLinksTest, UnknownRelationIsIgnored)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
     /* "annotates" is not in the known-pair table — no warning expected. */
-    triplet_store_add(store, "REQ-001", "annotates", "NOTE-001");
-    triplet_store_infer_inverses(store);
+    store->add( "REQ-001", "annotates", "NOTE-001");
+    store->infer_inverses();
 
     int warnings = check_strict_links(store);
     EXPECT_EQ(warnings, 0);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CheckStrictLinksTest, BidirectionalLinkGivesZeroWarnings)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
     /* Both directions explicitly declared. */
-    triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
-    triplet_store_add(store, "TC-001",  "verifies",    "REQ-001");
-    triplet_store_infer_inverses(store);
+    store->add( "REQ-001", "verified-by", "TC-001");
+    store->add( "TC-001",  "verifies",    "REQ-001");
+    store->infer_inverses();
 
     std::string err = capture_stderr([&]() {
         int w = check_strict_links(store);
@@ -740,16 +735,16 @@ TEST(CheckStrictLinksTest, BidirectionalLinkGivesZeroWarnings)
 
     EXPECT_THAT(err, Not(HasSubstr("warning")));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CheckStrictLinksTest, OneSidedKnownLinkEmitsWarning)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
     /* Only REQ-001 → TC-001 declared; TC-001 → REQ-001 is missing. */
-    triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
-    triplet_store_infer_inverses(store);
+    store->add( "REQ-001", "verified-by", "TC-001");
+    store->infer_inverses();
 
     std::string err = capture_stderr([&]() {
         int w = check_strict_links(store);
@@ -759,31 +754,31 @@ TEST(CheckStrictLinksTest, OneSidedKnownLinkEmitsWarning)
     EXPECT_THAT(err, HasSubstr("strict-links"));
     EXPECT_THAT(err, HasSubstr("REQ-001"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CheckStrictLinksTest, MultipleMissingInversesCountsCorrectly)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
     /* Two one-sided links. */
-    triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
-    triplet_store_add(store, "REQ-002", "verified-by", "TC-002");
-    triplet_store_infer_inverses(store);
+    store->add( "REQ-001", "verified-by", "TC-001");
+    store->add( "REQ-002", "verified-by", "TC-002");
+    store->infer_inverses();
 
     int warnings = check_strict_links(store);
     EXPECT_EQ(warnings, 2);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CheckStrictLinksTest, ImplementsRelationPairChecked)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
     /* One-sided "implements" link — expect a warning. */
-    triplet_store_add(store, "STORY-001", "implements", "REQ-001");
-    triplet_store_infer_inverses(store);
+    store->add( "STORY-001", "implements", "REQ-001");
+    store->infer_inverses();
 
     std::string err = capture_stderr([&]() {
         int w = check_strict_links(store);
@@ -792,5 +787,5 @@ TEST(CheckStrictLinksTest, ImplementsRelationPairChecked)
 
     EXPECT_THAT(err, HasSubstr("strict-links"));
 
-    triplet_store_destroy(store);
+    delete store;
 }

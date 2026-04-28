@@ -11,21 +11,20 @@
 #define VIBE_LIST_CMD_H
 
 #include "entity.h"
-#include "triplet_store_c.h"
+#include "triplet_store.hpp"
 
 /**
  * Build a TripletStore from all traceability links declared in @p list.
  *
  * Iterates every entity in @p list and adds its traceability entries to a
- * newly-created TripletStore, then calls triplet_store_infer_inverses() to
+ * newly-created TripletStore, then calls infer_inverses() to
  * populate the symmetric reverse relations.
  *
  * @param list  source entity list (may be empty)
- * @return      heap-allocated TripletStore; caller must call
- *              triplet_store_destroy() when done.
+ * @return      heap-allocated TripletStore; caller must delete it when done.
  *              Returns NULL on allocation failure.
  */
-TripletStore *build_entity_relation_store(const EntityList *list);
+vibe::TripletStore *build_entity_relation_store(const EntityList *list);
 
 /**
  * Print all entities in @p list as a formatted ASCII table to stdout.
@@ -47,7 +46,7 @@ void list_entities(const EntityList *list);
  *
  * @param store  populated TripletStore (may be empty)
  */
-void list_relations(const TripletStore *store);
+void list_relations(const vibe::TripletStore *store);
 
 /**
  * Show the full traceability chain for the entity identified by @p id.
@@ -60,7 +59,7 @@ void list_relations(const TripletStore *store);
  * @param store  TripletStore containing all relation triples
  * @param id     entity identifier to trace (must not be NULL)
  */
-void cmd_trace_entity(const EntityList *elist, const TripletStore *store,
+void cmd_trace_entity(const EntityList *elist, const vibe::TripletStore *store,
                       const char *id);
 
 /**
@@ -73,7 +72,7 @@ void cmd_trace_entity(const EntityList *elist, const TripletStore *store,
  * @param store  TripletStore populated and with inverses already inferred
  * @return       number of one-sided link warnings found (0 = all good)
  */
-int check_strict_links(const TripletStore *store);
+int check_strict_links(const vibe::TripletStore *store);
 
 /**
  * Collect a document entity and all entities that are members of it.
@@ -92,7 +91,8 @@ int check_strict_links(const TripletStore *store);
  *               -2 if the matching entity is not a document
  *               -3 on allocation failure while building @p out
  */
-int collect_document_entities(const EntityList *all, const TripletStore *store,
+int collect_document_entities(const EntityList *all,
+                               const vibe::TripletStore *store,
                               const char *doc_id, EntityList *out);
 
 

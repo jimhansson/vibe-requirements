@@ -650,7 +650,7 @@ component.
 `build_entity_relation_store()` automatically calls
 `entity_doc_membership_to_triplets()` for every entity, which adds
 `(entity_id, "part-of", doc_id)` triples to the global TripletStore.
-`triplet_store_infer_inverses()` then adds the matching `(doc_id, "contains",
+`infer_inverses()` then adds the matching `(doc_id, "contains",
 entity_id)` triple.
 
 This means all standard TripletStore queries work for document membership:
@@ -664,12 +664,6 @@ auto docs = store.find_by_subject("REQ-SW-001");
 // Which entities does SRS-CLIENT-001 contain?
 auto members = store.find_by_subject("SRS-CLIENT-001");
 // filter for predicate == "contains" (inferred)
-
-// C API wrapper (triplet_store_c.h) — use if calling from C code or
-// from modules that predate the C++ migration
-CTripleList docs_c = triplet_store_find_by_subject(store, "REQ-SW-001");
-// filter for predicate == "part-of"
-triplet_store_list_free(&docs_c);
 ```
 
 **Relation pair: `part-of` ↔ `contains`**

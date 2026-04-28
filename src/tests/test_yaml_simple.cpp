@@ -15,7 +15,8 @@
 #include <utility>
 
 #include "yaml_simple.h"
-#include "triplet_store_c.h"
+#include "triplet_store.hpp"
+
 #include "entity.h"
 
 static bool contains_in_pairs(
@@ -173,13 +174,13 @@ TEST(YamlSimpleTest, LinksSingleDocument)
         "  refines: REQ-003\n");
     ASSERT_NE(path, nullptr);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     int rc = yaml_parse_links(path, "REQ-001", store);
     EXPECT_EQ(rc, 2);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(YamlSimpleTest, LinksMultiDocumentCorrectSubject)
@@ -195,7 +196,7 @@ TEST(YamlSimpleTest, LinksMultiDocumentCorrectSubject)
         "  implements: REQ-003\n");
     ASSERT_NE(path, nullptr);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     /* Asking for links of REQ-001 should yield 0 — it has none. */
@@ -206,18 +207,18 @@ TEST(YamlSimpleTest, LinksMultiDocumentCorrectSubject)
     int rc2 = yaml_parse_links(path, "REQ-002", store);
     EXPECT_EQ(rc2, 1);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(YamlSimpleTest, LinksNonexistentFile)
 {
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     int rc = yaml_parse_links("/tmp/no_such_file_xyz.yaml", "REQ-001", store);
     EXPECT_EQ(rc, -1);
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(YamlSimpleTest, LinksArtefactKey)
@@ -233,37 +234,35 @@ TEST(YamlSimpleTest, LinksArtefactKey)
         "    - src/tests/test_foo.cpp#Suite.Test\n");
     ASSERT_NE(path, nullptr);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     int rc = yaml_parse_links(path, "TC-001", store);
     EXPECT_EQ(rc, 3);
 
     /* Verify that each triple was stored with the correct object. */
-    CTripleList list = triplet_store_find_by_subject(store, "TC-001");
-    EXPECT_EQ((int)list.count, 3u);
+    auto list = store->find_by_subject("TC-001");
+    EXPECT_EQ((int)list.size(), 3);
 
     int found_verifies          = 0;
     int found_implemented_by    = 0;
     int found_implemented_by_test = 0;
-    for (size_t i = 0; i < list.count; i++) {
-        const CTriple *t = &list.triples[i];
-        if (strcmp(t->predicate, "verifies") == 0 &&
-            strcmp(t->object, "REQ-005") == 0)
+    for (const auto *t : list) {
+        if (t->predicate == "verifies" &&
+            t->object    == "REQ-005")
             found_verifies = 1;
-        if (strcmp(t->predicate, "implemented-by") == 0 &&
-            strcmp(t->object, "src/tests/test_foo.cpp") == 0)
+        if (t->predicate == "implemented-by" &&
+            t->object    == "src/tests/test_foo.cpp")
             found_implemented_by = 1;
-        if (strcmp(t->predicate, "implemented-by") == 0 &&
-            strcmp(t->object, "src/tests/test_foo.cpp#Suite.Test") == 0)
+        if (t->predicate == "implemented-by" &&
+            t->object    == "src/tests/test_foo.cpp#Suite.Test")
             found_implemented_by_test = 1;
     }
     EXPECT_EQ(found_verifies, 1);
     EXPECT_EQ(found_implemented_by, 1);
     EXPECT_EQ(found_implemented_by_test, 1);
 
-    triplet_store_list_free(list);
-    triplet_store_destroy(store);
+    delete store;
 }
 
 /* -------------------------------------------------------------------------
@@ -313,18 +312,17 @@ TEST(YamlSimpleTest, EntityLinksKeyLoadedIntoTripletStore)
     ASSERT_EQ(rc, 0);
     ASSERT_EQ((int)e.traceability.entries.size(), 1);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
     ASSERT_NE(store, nullptr);
 
     int added = entity_traceability_to_triplets(&e, store);
     EXPECT_EQ(added, 1);
 
-    CTripleList list = triplet_store_find_by_subject(store, "TC-ALIAS-002");
-    ASSERT_EQ((int)list.count, 1u);
-    EXPECT_STREQ(list.triples[0].subject,   "TC-ALIAS-002");
-    EXPECT_STREQ(list.triples[0].predicate, "verifies");
-    EXPECT_STREQ(list.triples[0].object,    "REQ-010");
+    auto list = store->find_by_subject("TC-ALIAS-002");
+    ASSERT_EQ((int)list.size(), 1);
+    EXPECT_EQ(list[0]->subject,   "TC-ALIAS-002");
+    EXPECT_EQ(list[0]->predicate, "verifies");
+    EXPECT_EQ(list[0]->object,    "REQ-010");
 
-    triplet_store_list_free(list);
-    triplet_store_destroy(store);
+    delete store;
 }
