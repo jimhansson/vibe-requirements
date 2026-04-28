@@ -1,7 +1,7 @@
 #include "config.h"
 #include <yaml.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 int config_load(const char *root_dir, VibeConfig *cfg)
 {
@@ -13,7 +13,7 @@ int config_load(const char *root_dir, VibeConfig *cfg)
     /* Build path: <root_dir>/.vibe-req.yaml */
     char path[CONFIG_PATH_BUF_LEN];
     int n = snprintf(path, sizeof(path), "%s/%s", root_dir, VIBE_CONFIG_FILENAME);
-    if (n < 0 || (size_t)n >= sizeof(path))
+    if (n < 0 || static_cast<size_t>(n) >= sizeof(path))
         return -1;
 
     FILE *f = fopen(path, "r");
@@ -42,7 +42,7 @@ int config_load(const char *root_dir, VibeConfig *cfg)
             if (!key_node || key_node->type != YAML_SCALAR_NODE)
                 continue;
 
-            const char *key = (const char *)key_node->data.scalar.value;
+            const char *key = reinterpret_cast<const char *>(key_node->data.scalar.value);
             if (strcmp(key, "ignore_dirs") != 0)
                 continue;
 
@@ -59,7 +59,7 @@ int config_load(const char *root_dir, VibeConfig *cfg)
                 if (!entry || entry->type != YAML_SCALAR_NODE)
                     continue;
 
-                const char *val = (const char *)entry->data.scalar.value;
+                const char *val = reinterpret_cast<const char *>(entry->data.scalar.value);
                 strncpy(cfg->ignore_dirs[cfg->ignore_dirs_count],
                         val, CONFIG_IGNORE_DIR_LEN - 1);
                 cfg->ignore_dirs[cfg->ignore_dirs_count]

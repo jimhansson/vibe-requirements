@@ -1,6 +1,6 @@
 /**
  * @file test_config.cpp
- * @brief Unit tests for the project configuration parser (config.h / config.c)
+ * @brief Unit tests for the project configuration parser (config.h / config.cpp)
  *        using gtest/gmock.
  */
 
@@ -10,9 +10,7 @@
 #include <cstdio>
 #include <cstring>
 
-extern "C" {
 #include "config.h"
-}
 
 /* -------------------------------------------------------------------------
  * Helpers
