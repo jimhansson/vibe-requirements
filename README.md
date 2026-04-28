@@ -30,6 +30,7 @@ orphan-detection commands.
   - [Constraint](#constraint)
   - [Test Case](#test-case)
   - [Document (SRS / SDD)](#document-srs--sdd)
+  - [Document Schema](#document-schema)
   - [Traceability links](#traceability-links)
 - [ECS Architecture](#ecs-architecture)
   - [Entity kinds](#entity-kinds)
@@ -452,6 +453,65 @@ documents:
   - SRS-CLIENT-001
 ```
 
+### Document Schema
+
+A `document-schema` entity is a variant-aware blueprint that controls how a
+document is assembled from its constituent section entities.  It is separate
+from the `document` entity (which holds identity and metadata) — the schema
+defines *how* the document is composed and rendered.
+
+```yaml
+id: SCHEMA-SRS-ACME-V1
+title: "SRS Schema — Acme v1.0"
+type: document-schema
+status: approved
+# Which document or variant this schema applies to
+applies-to: SRS-ACME-001
+# Customer / product variant identifiers
+variant-profile:
+  customer: acme
+  product: v1.0          # alias: delivery
+# Ordered list of section entity IDs to include
+composition-profile:
+  order:
+    - SEC-INTRO
+    - SEC-SCOPE
+    - SEC-FUNCTIONAL-REQS
+    - SEC-NON-FUNCTIONAL-REQS
+    - SEC-TRACEABILITY
+# Target output format
+render-profile:
+  format: markdown       # or: html
+```
+
+Section entities carry the narrative content via `body:`:
+
+```yaml
+id: SEC-INTRO
+title: "Introduction"
+type: section
+status: approved
+body: |
+  This document specifies the software requirements for the Acme
+  product line …
+```
+
+List and inspect document schemas with the CLI:
+
+```bash
+# List all document-schema entities
+vibe-req list --kind document-schema
+
+# Show entities that carry a composition-profile
+vibe-req list --component composition-profile
+
+# Show the traceability chain for a schema
+vibe-req trace SCHEMA-SRS-ACME-V1
+```
+
+See [design/chapter-12-document-composition-system.yaml](design/chapter-12-document-composition-system.yaml)
+for the full design documentation.
+
 ### Traceability links
 
 Traceability entries may appear under `traceability:` **or** `links:` — both
@@ -517,7 +577,11 @@ Entity (stable ID: e.g. "REQ-SW-001")
 ├── DocumentMembershipComponent — parent doc IDs   (sparse)
 ├── DocumentBodyComponent  — free-form body text    (sparse)
 ├── TraceabilityComponent  — outgoing relation links (sparse)
-└── SourceComponent        — normative source refs   (sparse)
+├── SourceComponent        — normative source refs   (sparse)
+├── AppliesToComponent     — variant/doc targets for a schema (sparse)
+├── VariantProfileComponent — customer/product identifiers  (sparse)
+├── CompositionProfileComponent — ordered section list      (sparse)
+└── RenderProfileComponent — output format for rendering    (sparse)
 ```
 
 Traceability links stored in `TraceabilityComponent` are also loaded into a
@@ -541,6 +605,7 @@ queryable through the same indexed graph API as all other relations.
 | `test-case`, `test` | `test-case` | An explicit test case |
 | `external`, `directive`, `standard`, `regulation` | `external` | An external normative source |
 | `document`, `srs`, `sdd` | `document` | A document entity (SRS, SDD, …) |
+| `document-schema` | `document-schema` | A schema that controls how a document is assembled (variant, section order, render format) |
 
 ### Component types
 
@@ -560,6 +625,10 @@ queryable through the same indexed graph API as all other relations.
 | `DocumentBodyComponent` | `body` | `body` | Free-form body text (design notes, sections) |
 | `TraceabilityComponent` | `traceability` or `links` (sequence) | `entries` (`std::vector<std::pair<std::string,std::string>>`) | Outgoing directed relation links |
 | `SourceComponent` | `sources` (sequence) | `sources` (`std::vector<std::string>`) | Normative source references (external standards, requirement IDs) |
+| `AppliesToComponent` | `applies-to` (scalar or sequence) | `applies_to` (`std::vector<std::string>`) | Document IDs or variant identifiers that a `document-schema` applies to |
+| `VariantProfileComponent` | `variant-profile` (mapping) | `customer`, `product` | Customer and product/delivery identifiers for a document variant |
+| `CompositionProfileComponent` | `composition-profile` (mapping) | `order` (`std::vector<std::string>`) | Ordered list of section entity IDs defining the document structure |
+| `RenderProfileComponent` | `render-profile` (mapping) | `format` | Output format for document rendering (`markdown`, `html`) |
 
 Any component can be attached to any entity kind — for example, a
 `requirement` entity can carry a `UserStoryComponent` if it also has `role:`,
@@ -642,3 +711,22 @@ and `entity_has_component()` predicate).
 - [Scripting](docs/SCRIPTING.md) — research on embedded scripting and programmability approaches
 - [Open Questions](docs/OPEN_QUESTIONS.md) — unresolved design decisions
 - [AI Integration](docs/AI_INTEGRATION.md) — research and recommendations on MCP server, AI-assisted authoring, and agent skills
+
+### Design Notes
+
+The `design/` directory contains numbered chapters that document the internal architecture as vibe-requirement YAML entities:
+
+| Chapter | File | Topic |
+|---|---|---|
+| 1 | [chapter-01](design/chapter-01-architecture-overview.yaml) | Architecture Overview |
+| 2 | [chapter-02](design/chapter-02-file-format-yaml.yaml) | File Format: YAML |
+| 3 | [chapter-03](design/chapter-03-alternative-formats.yaml) | Alternative Formats |
+| 4 | [chapter-04](design/chapter-04-core-library-modules.yaml) | Core Library Modules |
+| 5 | [chapter-05](design/chapter-05-in-memory-graph-model.yaml) | In-Memory Graph Model |
+| 6 | [chapter-06](design/chapter-06-entity-component-model.yaml) | Entity-Component Model |
+| 7 | [chapter-07](design/chapter-07-cli-command-design.yaml) | CLI Command Design |
+| 8 | [chapter-08](design/chapter-08-implementation-language.yaml) | Implementation Language |
+| 9 | [chapter-09](design/chapter-09-memory-layout.yaml) | Memory Layout |
+| 10 | [chapter-10](design/chapter-10-internal-state-coupling.yaml) | Internal State Coupling |
+| 11 | [chapter-11](design/chapter-11-cpp23-migration.yaml) | C++23 Migration |
+| 12 | [chapter-12](design/chapter-12-document-composition-system.yaml) | **Schema-Driven Document Composition** |
