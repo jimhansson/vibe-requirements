@@ -497,8 +497,10 @@ Relation types are free-form strings.  Common conventions:
 
 `vibe-requirements` uses an Entity-Component-System (ECS) inspired model.
 Rather than a single monolithic struct with many optional fields, every entity
-is a stable ID that carries a set of optional **components**.  Components are
-fixed-size C structs so the entire `Entity` can be stack-allocated.
+is a stable ID that carries a set of optional **components**.  The entire
+codebase is pure **C++23**: all component structs use `std::string` and
+`std::vector` for their fields, and the entity list is a
+`std::vector<Entity>` (`EntityList`).
 
 ```
 Entity (stable ID: e.g. "REQ-SW-001")
@@ -547,17 +549,17 @@ queryable through the same indexed graph API as all other relations.
 | `IdentityComponent` | `id`, `title`, `type` | `id`, `title`, `kind`, `type_raw`, `file_path`, `doc_index` | Always present; core identity of every entity |
 | `LifecycleComponent` | `status`, `priority`, `owner`, `version` | `status`, `priority`, `owner`, `version` | Workflow metadata |
 | `TextComponent` | `description`, `rationale` | `description`, `rationale` | Free-text narrative |
-| `TagComponent` | `tags` | `tags` (newline-separated), `count` | Optional tag list |
+| `TagComponent` | `tags` | `tags` (`std::vector<std::string>`) | Optional tag list |
 | `UserStoryComponent` | `role`/`as_a`, `goal`/`i_want`, `reason`/`so_that` | `role`, `goal`, `reason` | User-story "as a / I want / so that" triad |
-| `AcceptanceCriteriaComponent` | `acceptance_criteria` | `criteria` (newline-separated), `count` | List of acceptance criteria |
+| `AcceptanceCriteriaComponent` | `acceptance_criteria` | `criteria` (`std::vector<std::string>`) | List of acceptance criteria |
 | `EpicMembershipComponent` | `epic` | `epic_id` | Parent epic entity ID |
 | `AssumptionComponent` | `assumption` (mapping) | `text`, `status`, `source` | Assumption text, validation status, and source reference |
 | `ConstraintComponent` | `constraint` (mapping) | `text`, `kind`, `source` | Constraint wording, category, and source reference |
 | `DocumentMetaComponent` | `doc_meta` (mapping) | `title`, `doc_type`, `version`, `client`, `status` | Document-level metadata |
-| `DocumentMembershipComponent` | `documents` (sequence) | `doc_ids` (newline-separated), `count` | Parent document entity IDs |
+| `DocumentMembershipComponent` | `documents` (sequence) | `doc_ids` (`std::vector<std::string>`) | Parent document entity IDs |
 | `DocumentBodyComponent` | `body` | `body` | Free-form body text (design notes, sections) |
-| `TraceabilityComponent` | `traceability` or `links` (sequence) | `entries` (newline-separated `target\trelation` pairs), `count` | Outgoing directed relation links |
-| `SourceComponent` | `sources` (sequence) | `sources` (newline-separated), `count` | Normative source references (external standards, requirement IDs) |
+| `TraceabilityComponent` | `traceability` or `links` (sequence) | `entries` (`std::vector<std::pair<std::string,std::string>>`) | Outgoing directed relation links |
+| `SourceComponent` | `sources` (sequence) | `sources` (`std::vector<std::string>`) | Normative source references (external standards, requirement IDs) |
 
 Any component can be attached to any entity kind — for example, a
 `requirement` entity can carry a `UserStoryComponent` if it also has `role:`,
@@ -590,14 +592,21 @@ entity_id)` triple.
 
 This means all standard TripletStore queries work for document membership:
 
-```c
-/* Which documents does REQ-SW-001 belong to? */
-CTripleList docs = triplet_store_find_by_subject(store, "REQ-SW-001");
-/* filter for predicate == "part-of" */
+```cpp
+// C++ API (triplet_store.hpp)
+// Which documents does REQ-SW-001 belong to?
+auto docs = store.find_by_subject("REQ-SW-001");
+// filter for predicate == "part-of"
 
-/* Which entities does SRS-CLIENT-001 contain? */
-CTripleList members = triplet_store_find_by_subject(store, "SRS-CLIENT-001");
-/* filter for predicate == "contains" (inferred) */
+// Which entities does SRS-CLIENT-001 contain?
+auto members = store.find_by_subject("SRS-CLIENT-001");
+// filter for predicate == "contains" (inferred)
+
+// C API wrapper (triplet_store_c.h) — use if calling from C code or
+// from modules that predate the C++ migration
+CTripleList docs_c = triplet_store_find_by_subject(store, "REQ-SW-001");
+// filter for predicate == "part-of"
+triplet_store_list_free(&docs_c);
 ```
 
 **Relation pair: `part-of` ↔ `contains`**
@@ -629,6 +638,7 @@ and `entity_has_component()` predicate).
 - [Requirements](docs/REQUIREMENTS.md) — functional and non-functional requirements, constraints, and roadmap
 - [Design](docs/DESIGN.md) — high-level architecture, ECS domain model, and file format specification
 - [CLI Reference](docs/CLI.md) — complete CLI command reference
+- [Porting Guide](docs/PORTING.md) — migration instructions from pre-C++23 versions for contributors and packagers
 - [Scripting](docs/SCRIPTING.md) — research on embedded scripting and programmability approaches
 - [Open Questions](docs/OPEN_QUESTIONS.md) — unresolved design decisions
 - [AI Integration](docs/AI_INTEGRATION.md) — research and recommendations on MCP server, AI-assisted authoring, and agent skills

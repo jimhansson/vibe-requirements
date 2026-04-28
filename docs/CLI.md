@@ -542,3 +542,4 @@ ignore_dirs:
 
 - [README](../README.md) — quick start and YAML file format examples
 - [Design](DESIGN.md) — architecture, ECS domain model, and component reference
+- [Porting Guide](PORTING.md) — migration instructions from pre-C++23 versions
