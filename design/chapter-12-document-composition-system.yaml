@@ -1,0 +1,451 @@
+id: DESIGN-CH-12
+title: "Schema-Driven Document Composition System"
+type: design-note
+status: approved
+tags:
+  - architecture
+  - document-schema
+  - composition
+  - variant
+body: |
+  The schema-driven document composition system provides a structured,
+  variant-aware way to define how SRS/SDD documents are assembled from
+  their constituent section entities.
+
+  Instead of treating a document purely as a flat container of member
+  entities, a `document-schema` entity acts as a blueprint that
+  captures:
+
+  - **Which variant** (customer/product/delivery) the schema targets
+    (`variant-profile`)
+  - **Which section IDs** are included and in what order
+    (`composition-profile`)
+  - **What output format** to use when rendering
+    (`render-profile`)
+  - **Which document(s) or variants** this schema applies to
+    (`applies-to`)
+
+  This enables projects that serve multiple clients or product lines
+  to maintain a single set of section entities and produce variant-
+  specific documents by selecting different schemas — without
+  duplicating requirement content.
+traceability:
+  - id: DESIGN-CH-6
+    relation: refines
+---
+id: DESIGN-CH-12-1
+title: "document-schema Entity Kind"
+type: design-note
+status: approved
+tags:
+  - document-schema
+  - entity-kind
+body: |
+  `ENTITY_KIND_DOCUMENT_SCHEMA` is mapped from the YAML `type:
+  document-schema` field.
+
+  A `document-schema` entity is distinct from a `document` entity
+  (type: `srs`, `sdd`, `document`).  The `document` entity describes
+  the document's identity and metadata (`doc-meta:`); the
+  `document-schema` entity describes *how that document is constructed*
+  — which sections to include, in which order, for which variant,
+  and in which format.
+
+  **Minimal example:**
+
+  ```yaml
+  id: SCHEMA-SRS-ACME-001
+  title: "SRS Schema for Acme v1.0"
+  type: document-schema
+  status: approved
+  ```
+
+  The entity is discoverable via:
+
+  ```bash
+  vibe-req list --kind document-schema
+  ```
+
+  and carries the same lifecycle fields (`status`, `priority`, `owner`,
+  `version`) as any other entity kind.
+traceability:
+  - id: DESIGN-CH-12
+    relation: part-of
+---
+id: DESIGN-CH-12-2
+title: "AppliesToComponent"
+type: design-note
+status: approved
+tags:
+  - document-schema
+  - applies-to
+  - variant
+body: |
+  `AppliesToComponent` records which document IDs or variant
+  identifiers a schema applies to.  The YAML key is `applies-to`
+  (hyphenated, not underscored) and accepts either a scalar or a
+  sequence of strings.
+
+  **Scalar form:**
+
+  ```yaml
+  id: SCHEMA-SRS-ACME-001
+  type: document-schema
+  applies-to: SRS-ACME-001
+  ```
+
+  **Sequence form:**
+
+  ```yaml
+  id: SCHEMA-SRS-MULTI-001
+  type: document-schema
+  applies-to:
+    - SRS-ACME-001
+    - SRS-BMW-001
+  ```
+
+  The values may be document entity IDs (e.g. `SRS-ACME-001`) or
+  free-form variant identifiers (e.g. `acme`, `eu-market`).  The
+  tool stores them verbatim in `AppliesToComponent.applies_to`
+  (`std::vector<std::string>`).
+
+  **`entity_has_component()` key:** `"applies-to"`
+
+  **`--component` filter:**
+
+  ```bash
+  vibe-req list --component applies-to
+  ```
+traceability:
+  - id: DESIGN-CH-12
+    relation: part-of
+---
+id: DESIGN-CH-12-3
+title: "VariantProfileComponent"
+type: design-note
+status: approved
+tags:
+  - document-schema
+  - variant-profile
+body: |
+  `VariantProfileComponent` captures the customer and product (or
+  delivery) identifiers that parameterize a document variant.  The
+  YAML key is `variant-profile:` (a mapping).
+
+  | Sub-key | Alias | Field | Description |
+  |---|---|---|---|
+  | `customer` | — | `VariantProfileComponent::customer` | Customer or market identifier |
+  | `product` | `delivery` | `VariantProfileComponent::product` | Product version or delivery milestone |
+
+  Both `product` and `delivery` map to the same `product` field;
+  `product` is the canonical key and `delivery` is accepted as an alias
+  for backward compatibility.
+
+  **Example:**
+
+  ```yaml
+  id: SCHEMA-SRS-ACME-V1
+  type: document-schema
+  variant-profile:
+    customer: acme
+    product: v1.0
+  ```
+
+  ```yaml
+  id: SCHEMA-SRS-BMW-R2
+  type: document-schema
+  variant-profile:
+    customer: bmw
+    delivery: release-2
+  ```
+
+  **`entity_has_component()` key:** `"variant-profile"`
+  (present when either `customer` or `product` is non-empty)
+traceability:
+  - id: DESIGN-CH-12
+    relation: part-of
+---
+id: DESIGN-CH-12-4
+title: "CompositionProfileComponent"
+type: design-note
+status: approved
+tags:
+  - document-schema
+  - composition-profile
+  - sections
+body: |
+  `CompositionProfileComponent` defines the explicit, ordered list of
+  section entity IDs that form the document structure.  The YAML key
+  is `composition-profile:` (a mapping containing an `order:` sequence).
+
+  The `order` sequence is the authoritative section list — each entry
+  is an entity `id` that should resolve to a `section` (or
+  `design-note`) entity carrying `DocumentBodyComponent` content.
+
+  **Example:**
+
+  ```yaml
+  id: SCHEMA-SRS-ACME-V1
+  type: document-schema
+  composition-profile:
+    order:
+      - SEC-INTRO
+      - SEC-SCOPE
+      - SEC-FUNCTIONAL-REQS
+      - SEC-NON-FUNCTIONAL-REQS
+      - SEC-TRACEABILITY
+  ```
+
+  Section entities referenced in `order` should be authored separately
+  as `type: section` (or `type: design-note`) entities with `body:`
+  content.  The render pipeline assembles the sections in the declared
+  order.
+
+  **`entity_has_component()` key:** `"composition-profile"`
+  (present when `order` is non-empty)
+
+  **`--component` filter:**
+
+  ```bash
+  vibe-req list --component composition-profile
+  ```
+traceability:
+  - id: DESIGN-CH-12
+    relation: part-of
+---
+id: DESIGN-CH-12-5
+title: "RenderProfileComponent"
+type: design-note
+status: approved
+tags:
+  - document-schema
+  - render-profile
+  - output-format
+body: |
+  `RenderProfileComponent` specifies the target output format when the
+  document is rendered.  The YAML key is `render-profile:` (a mapping
+  containing a `format:` scalar).
+
+  | `format` value | Description |
+  |---|---|
+  | `markdown` | Render as Markdown (`.md`) |
+  | `html` | Render as self-contained HTML |
+
+  **Example:**
+
+  ```yaml
+  id: SCHEMA-SRS-ACME-V1
+  type: document-schema
+  render-profile:
+    format: markdown
+  ```
+
+  When `format` is absent or the component is not present, the default
+  render format is determined by the CLI `--format` flag (which itself
+  defaults to Markdown).
+
+  **`entity_has_component()` key:** `"render-profile"`
+  (present when `format` is non-empty)
+traceability:
+  - id: DESIGN-CH-12
+    relation: part-of
+---
+id: DESIGN-CH-12-6
+title: "Section Entities and Narrative Content"
+type: design-note
+status: approved
+tags:
+  - document-schema
+  - sections
+  - narrative
+body: |
+  Section entities are the atomic building blocks of composed
+  documents.  They carry narrative content through
+  `DocumentBodyComponent` (YAML key `body:`).
+
+  ```yaml
+  id: SEC-INTRO
+  title: "Introduction"
+  type: section
+  status: approved
+  body: |
+    This document specifies the software requirements for the Acme
+    product line. It is intended for use by the development team and
+    the client's technical stakeholders.
+  ```
+
+  Section entities may also carry `TraceabilityComponent` links to
+  requirements, design notes, or other artefacts:
+
+  ```yaml
+  id: SEC-FUNCTIONAL-REQS
+  title: "Functional Requirements"
+  type: section
+  status: approved
+  body: |
+    This section enumerates all functional requirements …
+  traceability:
+    - id: REQ-SW-001
+      relation: elaborates
+    - id: REQ-SW-002
+      relation: elaborates
+  ```
+
+  Any section that is not referenced by a `composition-profile.order`
+  sequence will appear as an orphan in `vibe-req orphan` output,
+  which helps catch stale or unlinked sections.
+traceability:
+  - id: DESIGN-CH-12
+    relation: part-of
+---
+id: DESIGN-CH-12-7
+title: "Full Authoring Example: Variant-Aware SRS"
+type: design-note
+status: approved
+tags:
+  - document-schema
+  - example
+  - variant
+body: |
+  The following example shows a complete multi-variant SRS setup.
+  One set of section entities is shared; two `document-schema`
+  entities target different customers.
+
+  **Shared section entities** (`sections/srs-common.yaml`):
+
+  ```yaml
+  id: SEC-INTRO
+  title: "Introduction"
+  type: section
+  status: approved
+  body: |
+    This document describes the software requirements …
+  ---
+  id: SEC-SCOPE
+  title: "Scope"
+  type: section
+  status: approved
+  body: |
+    The system shall support the following product families …
+  ---
+  id: SEC-FUNCTIONAL-REQS
+  title: "Functional Requirements"
+  type: section
+  status: approved
+  body: |
+    See the individual requirement entities linked below.
+  traceability:
+    - id: REQ-SW-001
+      relation: elaborates
+    - id: REQ-SW-002
+      relation: elaborates
+  ```
+
+  **Acme-specific schema** (`schemas/schema-srs-acme.yaml`):
+
+  ```yaml
+  id: SCHEMA-SRS-ACME-V1
+  title: "SRS Schema — Acme v1.0"
+  type: document-schema
+  status: approved
+  applies-to: SRS-ACME-001
+  variant-profile:
+    customer: acme
+    product: v1.0
+  composition-profile:
+    order:
+      - SEC-INTRO
+      - SEC-SCOPE
+      - SEC-FUNCTIONAL-REQS
+  render-profile:
+    format: markdown
+  traceability:
+    - id: SRS-ACME-001
+      relation: part-of
+  ```
+
+  **BMW-specific schema** (`schemas/schema-srs-bmw.yaml`):
+
+  ```yaml
+  id: SCHEMA-SRS-BMW-R2
+  title: "SRS Schema — BMW Release 2"
+  type: document-schema
+  status: approved
+  applies-to: SRS-BMW-001
+  variant-profile:
+    customer: bmw
+    delivery: release-2
+  composition-profile:
+    order:
+      - SEC-INTRO
+      - SEC-FUNCTIONAL-REQS
+  render-profile:
+    format: html
+  traceability:
+    - id: SRS-BMW-001
+      relation: part-of
+  ```
+
+  **CLI commands to inspect the schemas:**
+
+  ```bash
+  # List all document-schema entities
+  vibe-req list --kind document-schema
+
+  # Show all entities that carry a composition-profile
+  vibe-req list --component composition-profile
+
+  # Show the traceability chain for the Acme schema
+  vibe-req trace SCHEMA-SRS-ACME-V1
+
+  # Render the Acme SRS document
+  vibe-req doc SRS-ACME-001 --format md --output srs-acme.md
+  ```
+traceability:
+  - id: DESIGN-CH-12
+    relation: part-of
+---
+id: DESIGN-CH-12-8
+title: "ECS Integration of Document Composition Components"
+type: design-note
+status: approved
+tags:
+  - document-schema
+  - ecs
+  - components
+body: |
+  The four new components fit naturally into the existing ECS model:
+
+  | Component | YAML key | `entity_has_component()` key | Presence condition |
+  |---|---|---|---|
+  | `AppliesToComponent` | `applies-to` | `"applies-to"` | `applies_to` vector non-empty |
+  | `VariantProfileComponent` | `variant-profile` | `"variant-profile"` | `customer` or `product` non-empty |
+  | `CompositionProfileComponent` | `composition-profile` | `"composition-profile"` | `order` vector non-empty |
+  | `RenderProfileComponent` | `render-profile` | `"render-profile"` | `format` non-empty |
+
+  All four components are declared on the `Entity` struct alongside the
+  existing components and are zero-initialised for every entity.  Any
+  entity kind can technically carry any component, but in practice
+  these four are only meaningful on `document-schema` entities.
+
+  **Relation to existing document components:**
+
+  | Component | Purpose |
+  |---|---|
+  | `DocumentMetaComponent` | Document *identity*: title, type, version, client, status |
+  | `DocumentMembershipComponent` | Declares which documents an entity *belongs to* |
+  | `DocumentBodyComponent` | Free-form body text on a section or design note |
+  | `AppliesToComponent` | Which variant/document this *schema* targets |
+  | `VariantProfileComponent` | Customer/product identifiers for the schema |
+  | `CompositionProfileComponent` | Ordered section list for document assembly |
+  | `RenderProfileComponent` | Output format for document rendering |
+
+  The separation keeps document *content* (sections, requirements) in
+  standard entity kinds while concentrating *assembly instructions* in
+  `document-schema` entities — consistent with the ECS principle of
+  attaching only the components relevant to a given entity.
+traceability:
+  - id: DESIGN-CH-12
+    relation: part-of
+  - id: DESIGN-CH-6
+    relation: refines
