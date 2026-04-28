@@ -5,8 +5,8 @@
  * Tests cover:
  *   - Default values when no arguments are given
  *   - Help flag detection (-h and --help)
- *   - Each subcommand (links, list, entities, trace, coverage, orphan,
- *     report, doc, new)
+ *   - Each subcommand (links, list, entities, trace, coverage, status,
+ *     orphan, report, doc, new)
  *   - All filter flags (--kind, --component, --status, --priority)
  *   - Report flags (--output, --format md, --format html)
  *   - --strict-links flag
@@ -66,6 +66,7 @@ TEST(CliParseArgsTest, NoArgumentsGivesDefaults)
     EXPECT_EQ(opts.strict_links,  0);
     EXPECT_EQ(opts.show_entities, 0);
     EXPECT_EQ(opts.show_coverage, 0);
+    EXPECT_EQ(opts.show_status,   0);
     EXPECT_EQ(opts.show_orphan,   0);
     EXPECT_EQ(opts.show_report,   0);
     EXPECT_EQ(opts.is_doc_cmd,    0);
@@ -158,6 +159,15 @@ TEST(CliParseArgsTest, CoverageSubcommand)
     CliOptions opts;
     cli_parse_args(a.argc(), a.argv(), &opts);
     EXPECT_EQ(opts.show_coverage, 1);
+    EXPECT_EQ(opts.parse_error, 0);
+}
+
+TEST(CliParseArgsTest, StatusSubcommand)
+{
+    Argv a{"vibe-req", "status"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.show_status, 1);
     EXPECT_EQ(opts.parse_error, 0);
 }
 
@@ -568,6 +578,7 @@ TEST(CliPrintHelpTest, PrintsUsageLine)
     EXPECT_THAT(out, HasSubstr("list"));
     EXPECT_THAT(out, HasSubstr("doc <id>"));
     EXPECT_THAT(out, HasSubstr("coverage"));
+    EXPECT_THAT(out, HasSubstr("status"));
     EXPECT_THAT(out, HasSubstr("orphan"));
     EXPECT_THAT(out, HasSubstr("validate"));
     EXPECT_THAT(out, HasSubstr("--kind"));

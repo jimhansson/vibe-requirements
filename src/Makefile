@@ -19,7 +19,7 @@ YAML_OBJS = $(BUILD_DIR)/yaml/yaml_link_parser.o \
             $(BUILD_DIR)/yaml/entity_parser.o
 
 # Main binary sources (C++)
-CPP_SRCS = config.cpp triplet_store.cpp entity.cpp discovery.cpp coverage.cpp list_cmd.cpp new_cmd.cpp report.cpp validate.cpp main.cpp cli_args.cpp
+CPP_SRCS = config.cpp triplet_store.cpp entity.cpp discovery.cpp coverage.cpp list_cmd.cpp new_cmd.cpp report.cpp validate.cpp status.cpp main.cpp cli_args.cpp
 CPP_OBJS = $(addprefix $(BUILD_DIR)/,$(CPP_SRCS:.cpp=.o))
 OBJS     = $(CPP_OBJS) $(YAML_OBJS)
 
@@ -64,6 +64,10 @@ TEST_COVERAGE_OBJS   = $(BUILD_DIR)/tests/test_coverage.o \
                        $(BUILD_DIR)/coverage.o $(BUILD_DIR)/entity.o \
                        $(BUILD_DIR)/triplet_store.o \
                        $(YAML_OBJS)
+
+TEST_STATUS_TARGET = $(BIN_DIR)/tests/test_status
+TEST_STATUS_OBJS   = $(BUILD_DIR)/tests/test_status.o \
+                     $(BUILD_DIR)/status.o $(BUILD_DIR)/entity.o
 
 TEST_CLI_ARGS_TARGET = $(BIN_DIR)/tests/test_cli_args
 TEST_CLI_ARGS_OBJS   = $(BUILD_DIR)/tests/test_cli_args.o \
@@ -121,6 +125,9 @@ $(TEST_NEW_CMD_TARGET): $(TEST_NEW_CMD_OBJS) | $(BIN_DIR)/tests
 $(TEST_COVERAGE_TARGET): $(TEST_COVERAGE_OBJS) | $(BIN_DIR)/tests
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
+$(TEST_STATUS_TARGET): $(TEST_STATUS_OBJS) | $(BIN_DIR)/tests
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(GTEST_LDFLAGS)
+
 $(TEST_CLI_ARGS_TARGET): $(TEST_CLI_ARGS_OBJS) | $(BIN_DIR)/tests
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
@@ -130,7 +137,7 @@ $(TEST_MAIN_TARGET): $(TEST_MAIN_OBJS) | $(BIN_DIR)/tests
 $(TEST_VALIDATE_TARGET): $(TEST_VALIDATE_OBJS) | $(BIN_DIR)/tests
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
-test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET) $(TEST_ENTITY_TARGET) $(TEST_REPORT_TARGET) $(TEST_NEW_CMD_TARGET) $(TEST_COVERAGE_TARGET) $(TEST_CLI_ARGS_TARGET) $(TEST_MAIN_TARGET) $(TEST_VALIDATE_TARGET)
+test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET) $(TEST_ENTITY_TARGET) $(TEST_REPORT_TARGET) $(TEST_NEW_CMD_TARGET) $(TEST_COVERAGE_TARGET) $(TEST_STATUS_TARGET) $(TEST_CLI_ARGS_TARGET) $(TEST_MAIN_TARGET) $(TEST_VALIDATE_TARGET)
 	./$(TEST_TRIPLET_TARGET)
 	./$(TEST_CONFIG_TARGET)
 	./$(TEST_YAML_TARGET)
@@ -139,6 +146,7 @@ test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DI
 	./$(TEST_REPORT_TARGET)
 	./$(TEST_NEW_CMD_TARGET)
 	./$(TEST_COVERAGE_TARGET)
+	./$(TEST_STATUS_TARGET)
 	./$(TEST_CLI_ARGS_TARGET)
 	./$(TEST_MAIN_TARGET)
 	./$(TEST_VALIDATE_TARGET)
@@ -166,6 +174,7 @@ $(BIN_DIR) $(BIN_DIR)/tests $(BUILD_DIR) $(BUILD_DIR)/tests $(BUILD_DIR)/yaml:
          $(TEST_REPORT_OBJS:.o=.d) \
          $(TEST_NEW_CMD_OBJS:.o=.d) \
          $(TEST_COVERAGE_OBJS:.o=.d) \
+         $(TEST_STATUS_OBJS:.o=.d) \
          $(TEST_CLI_ARGS_OBJS:.o=.d) \
          $(TEST_MAIN_OBJS:.o=.d) \
          $(TEST_VALIDATE_OBJS:.o=.d)

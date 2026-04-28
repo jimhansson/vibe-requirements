@@ -30,6 +30,8 @@ void cli_print_help(const char *prog)
     printf("  coverage        Report how many requirements have traceability links\n");
     printf("                  to tests or code (verified-by, implemented-by, etc.).\n");
     printf("                  Example: %s coverage\n", prog);
+    printf("  status          Summarise entity counts by status, priority, and kind.\n");
+    printf("                  Example: %s status\n", prog);
     printf("  orphan          List requirements and test cases with no traceability\n");
     printf("                  links in either direction.\n");
     printf("                  Example: %s orphan\n", prog);
@@ -121,6 +123,9 @@ void cli_parse_args(int argc, char *argv[], CliOptions *opts)
         arg_idx = 3;
     } else if (strcmp(argv[1], "coverage") == 0) {
         opts->show_coverage = 1;
+        arg_idx = 2;
+    } else if (strcmp(argv[1], "status") == 0) {
+        opts->show_status = 1;
         arg_idx = 2;
     } else if (strcmp(argv[1], "orphan") == 0) {
         opts->show_orphan = 1;

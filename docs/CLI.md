@@ -221,6 +221,50 @@ Unlinked requirements:
 
 ---
 
+### status
+
+Summarize all discovered entities by lifecycle status, lifecycle priority, and
+entity kind.
+
+```bash
+vibe-req status [directory]
+```
+
+**Example:**
+
+```bash
+$ vibe-req status
+Status Summary
+==============
+Total entities: 10
+
+By status:
++----------+-------+
+| Status   | Count |
++----------+-------+
+| approved |     4 |
+| draft    |     6 |
++----------+-------+
+
+By priority:
++----------+-------+
+| Priority | Count |
++----------+-------+
+| must     |     6 |
+| should   |     4 |
++----------+-------+
+
+By kind:
++-------------+-------+
+| Kind        | Count |
++-------------+-------+
+| requirement |     7 |
+| test-case   |     3 |
++-------------+-------+
+```
+
+---
+
 ### orphan
 
 List all requirements and test cases that have **no** traceability links in

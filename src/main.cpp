@@ -14,6 +14,7 @@
 #include "cli_args.h"
 #include "list_cmd.h"
 #include "validate.h"
+#include "status.h"
 
 int main(int argc, char *argv[])
 {
@@ -190,6 +191,11 @@ int main(int argc, char *argv[])
         int problems = cmd_validate(&elist, store);
         delete store;
         return problems > 0 ? 1 : 0;
+    }
+
+    if (opts.show_status) {
+        cmd_status(&elist);
+        return 0;
     }
 
     if (opts.trace_id || opts.show_coverage || opts.show_orphan) {
