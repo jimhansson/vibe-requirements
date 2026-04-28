@@ -13,6 +13,7 @@
 #include "coverage.h"
 #include "cli_args.h"
 #include "list_cmd.h"
+#include "validate.h"
 
 int main(int argc, char *argv[])
 {
@@ -178,6 +179,17 @@ int main(int argc, char *argv[])
 
         delete store;
         return 0;
+    }
+
+    if (opts.is_validate_cmd) {
+        vibe::TripletStore *store = build_entity_relation_store(&elist);
+        if (!store) {
+            fprintf(stderr, "error: failed to create relation store\n");
+            return 1;
+        }
+        int problems = cmd_validate(&elist, store);
+        delete store;
+        return problems > 0 ? 1 : 0;
     }
 
     if (opts.trace_id || opts.show_coverage || opts.show_orphan) {

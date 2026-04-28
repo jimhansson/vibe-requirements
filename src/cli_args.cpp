@@ -39,6 +39,10 @@ void cli_print_help(const char *prog)
     printf("  doc <id>        Print a document entity (SRS/SDD) together with all\n");
     printf("                  entities that are part of it.\n");
     printf("                  Example: %s doc SRS-CLIENT-001 --output srs.md\n\n", prog);
+    printf("  validate        Check the repository for consistency problems:\n");
+    printf("                  duplicate entity IDs and links to unknown entities.\n");
+    printf("                  Exits with a non-zero code if any problems are found.\n");
+    printf("                  Example: %s validate\n\n", prog);
     printf("  new <type> <id> Scaffold a new entity YAML file named <id>.yaml.\n");
     printf("                  Types: requirement, group, story, design-note,\n");
     printf("                         section, assumption, constraint, test-case,\n");
@@ -133,6 +137,9 @@ void cli_parse_args(int argc, char *argv[], CliOptions *opts)
         opts->is_doc_cmd = 1;
         opts->doc_id     = argv[2];
         arg_idx = 3;
+    } else if (strcmp(argv[1], "validate") == 0) {
+        opts->is_validate_cmd = 1;
+        arg_idx = 2;
     } else if (strcmp(argv[1], "new") == 0) {
         if (argc < 4) {
             opts->parse_error = 1;

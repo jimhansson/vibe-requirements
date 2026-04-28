@@ -61,6 +61,9 @@ typedef struct {
      */
     int         is_doc_cmd;
 
+    /** Non-zero when the 'validate' subcommand was requested. */
+    int         is_validate_cmd;
+
     /** Document ID argument for 'doc'; valid when is_doc_cmd is set. */
     const char *doc_id;
 

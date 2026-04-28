@@ -513,6 +513,29 @@ TEST(CliParseArgsTest, FlagsAndDirectoryTogether)
 }
 
 /* =========================================================================
+ * Tests — validate subcommand
+ * ======================================================================= */
+
+TEST(CliParseArgsTest, ValidateSubcommandSetsFlag)
+{
+    Argv a{"vibe-req", "validate"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.is_validate_cmd, 1);
+}
+
+TEST(CliParseArgsTest, ValidateSubcommandWithDirectory)
+{
+    Argv a{"vibe-req", "validate", "requirements/"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.is_validate_cmd, 1);
+    EXPECT_STREQ(opts.root, "requirements/");
+}
+
+/* =========================================================================
  * Tests — cli_print_help (smoke test)
  * ======================================================================= */
 
@@ -546,6 +569,7 @@ TEST(CliPrintHelpTest, PrintsUsageLine)
     EXPECT_THAT(out, HasSubstr("doc <id>"));
     EXPECT_THAT(out, HasSubstr("coverage"));
     EXPECT_THAT(out, HasSubstr("orphan"));
+    EXPECT_THAT(out, HasSubstr("validate"));
     EXPECT_THAT(out, HasSubstr("--kind"));
     EXPECT_THAT(out, HasSubstr("--strict-links"));
 }
