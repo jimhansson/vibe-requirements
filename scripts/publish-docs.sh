@@ -29,7 +29,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 BIN_PATH="${BIN_PATH:-$REPO_ROOT/bin/vibe-req}"
 OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/.published-docs}"
 WIKI_DIR="${WIKI_DIR:-$REPO_ROOT/.wiki-publish}"
-SCAN_ROOT="${SCAN_ROOT:-$REPO_ROOT}"
+SCAN_ROOT="${SCAN_ROOT:-$REPO_ROOT/docs}"
 
 SRS_DOC_ID="${SRS_DOC_ID:-}"
 SDD_DOC_ID="${SDD_DOC_ID:-}"
