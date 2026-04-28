@@ -12,11 +12,9 @@
 #include <cstring>
 #include <sys/stat.h>
 
-extern "C" {
 #include "discovery.h"
 #include "config.h"
 #include "entity.h"
-}
 
 /* -------------------------------------------------------------------------
  * Helpers
@@ -100,8 +98,8 @@ static int setup_test_tree(const char *root)
 /* Return true if any item in list has the given id. */
 static bool list_contains_id(const EntityList *list, const char *id)
 {
-    for (int i = 0; i < list->count; i++) {
-        if (strcmp(list->items[i].identity.id, id) == 0)
+    for (size_t i = 0; i < list->size(); i++) {
+        if ((*list)[i].identity.id == id)
             return true;
     }
     return false;
@@ -127,13 +125,12 @@ TEST(DiscoveryIgnoreTest, IgnoredDirNotScanned)
     EXPECT_EQ(cfg.ignore_dirs_count, 1);
 
     EntityList list;
-    entity_list_init(&list);
 
     int found = discover_entities(root, &list, &cfg);
 
     /* At least one entity must be found (from requirements/). */
     EXPECT_GE(found, 1);
-    EXPECT_GE(list.count, 1);
+    EXPECT_GE((int)list.size(), 1);
 
     /* REQ-001 (from requirements/) must be present. */
     EXPECT_TRUE(list_contains_id(&list, "REQ-001"));
@@ -141,7 +138,6 @@ TEST(DiscoveryIgnoreTest, IgnoredDirNotScanned)
     /* EX-001 (from examples/) must NOT be present. */
     EXPECT_FALSE(list_contains_id(&list, "EX-001"));
 
-    entity_list_free(&list);
 }
 
 /*
@@ -154,16 +150,14 @@ TEST(DiscoveryIgnoreTest, NoCfgScansAllDirs)
     ASSERT_EQ(setup_test_tree(root), 0);
 
     EntityList list;
-    entity_list_init(&list);
 
     int found = discover_entities(root, &list, nullptr);
 
     EXPECT_GE(found, 2);
-    EXPECT_GE(list.count, 2);
+    EXPECT_GE((int)list.size(), 2);
     EXPECT_TRUE(list_contains_id(&list, "REQ-001"));
     EXPECT_TRUE(list_contains_id(&list, "EX-001"));
 
-    entity_list_free(&list);
 }
 
 /*
@@ -178,16 +172,14 @@ TEST(DiscoveryIgnoreTest, EmptyIgnoreListScansAllDirs)
     memset(&cfg, 0, sizeof(cfg));   /* ignore_dirs_count == 0 */
 
     EntityList list;
-    entity_list_init(&list);
 
     int found = discover_entities(root, &list, &cfg);
 
     EXPECT_GE(found, 2);
-    EXPECT_GE(list.count, 2);
+    EXPECT_GE((int)list.size(), 2);
     EXPECT_TRUE(list_contains_id(&list, "REQ-001"));
     EXPECT_TRUE(list_contains_id(&list, "EX-001"));
 
-    entity_list_free(&list);
 }
 
 /* discover_entities must return -1 for a nonexistent root. */
@@ -197,13 +189,11 @@ TEST(DiscoveryIgnoreTest, NonexistentRoot)
     memset(&cfg, 0, sizeof(cfg));
 
     EntityList list;
-    entity_list_init(&list);
 
     int rc = discover_entities("/tmp/vibe_disco_no_such_dir_xyz", &list, &cfg);
     EXPECT_EQ(rc, -1);
-    EXPECT_EQ(list.count, 0);
+    EXPECT_EQ((int)list.size(), 0);
 
-    entity_list_free(&list);
 }
 
 /*
@@ -249,7 +239,6 @@ TEST(DiscoveryIgnoreTest, LongPathNamesSkipped)
         "type: functional\n");
 
     EntityList list;
-    entity_list_init(&list);
 
     int found = discover_entities(root, &list, nullptr);
 
@@ -258,7 +247,6 @@ TEST(DiscoveryIgnoreTest, LongPathNamesSkipped)
     EXPECT_TRUE(list_contains_id(&list, "ROOT-001"));
     EXPECT_FALSE(list_contains_id(&list, "DEEP-001"));
 
-    entity_list_free(&list);
 }
 
 /*
@@ -302,17 +290,15 @@ TEST(DiscoveryIgnoreTest, BrokenYamlSkipped)
         "type: functional\n");
 
     EntityList list;
-    entity_list_init(&list);
 
     int found = discover_entities(root, &list, nullptr);
 
     /* Should find VALID-001 but not BROKEN-001 or the file without ID */
     EXPECT_EQ(found, 1);
-    EXPECT_EQ(list.count, 1);
+    EXPECT_EQ((int)list.size(), 1);
     EXPECT_TRUE(list_contains_id(&list, "VALID-001"));
     EXPECT_FALSE(list_contains_id(&list, "BROKEN-001"));
 
-    entity_list_free(&list);
 }
 
 /*
@@ -351,7 +337,6 @@ TEST(DiscoveryIgnoreTest, HiddenDirectoriesSkipped)
         "type: functional\n");
 
     EntityList list;
-    entity_list_init(&list);
 
     int found = discover_entities(root, &list, nullptr);
 
@@ -360,7 +345,6 @@ TEST(DiscoveryIgnoreTest, HiddenDirectoriesSkipped)
     EXPECT_TRUE(list_contains_id(&list, "VISIBLE-001"));
     EXPECT_FALSE(list_contains_id(&list, "HIDDEN-001"));
 
-    entity_list_free(&list);
 }
 
 /*
@@ -402,7 +386,6 @@ TEST(DiscoveryIgnoreTest, YmlExtensionRecognized)
         "type: functional\n");
 
     EntityList list;
-    entity_list_init(&list);
 
     int found = discover_entities(root, &list, nullptr);
 
@@ -412,7 +395,6 @@ TEST(DiscoveryIgnoreTest, YmlExtensionRecognized)
     EXPECT_TRUE(list_contains_id(&list, "YAML-001"));
     EXPECT_FALSE(list_contains_id(&list, "TXT-001"));
 
-    entity_list_free(&list);
 }
 
 /*
@@ -473,7 +455,6 @@ TEST(DiscoveryIgnoreTest, NestedIgnoredDirectories)
     ASSERT_EQ(rc, 0);
 
     EntityList list;
-    entity_list_init(&list);
 
     int found = discover_entities(root, &list, &cfg);
 
@@ -483,5 +464,4 @@ TEST(DiscoveryIgnoreTest, NestedIgnoredDirectories)
     EXPECT_TRUE(list_contains_id(&list, "DOCS-001"));
     EXPECT_FALSE(list_contains_id(&list, "TEMP-001"));
 
-    entity_list_free(&list);
 }
