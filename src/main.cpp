@@ -7,7 +7,7 @@
 #include "discovery.h"
 #include "config.h"
 #include "yaml_simple.h"
-#include "triplet_store_c.h"
+
 #include "report.h"
 #include "new_cmd.h"
 #include "coverage.h"
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     }
 
     if (opts.show_report) {
-        TripletStore *store = build_entity_relation_store(&elist);
+        vibe::TripletStore *store = build_entity_relation_store(&elist);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
             return 1;
@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
             if (!out) {
                 fprintf(stderr, "error: cannot open output file '%s'\n",
                         opts.report_output);
-                triplet_store_destroy(store);
+                delete store;
                 return 1;
             }
         }
@@ -126,12 +126,12 @@ int main(int argc, char *argv[])
         if (opts.report_output)
             fclose(out);
 
-        triplet_store_destroy(store);
+        delete store;
         return 0;
     }
 
     if (opts.is_doc_cmd) {
-        TripletStore *store = build_entity_relation_store(&elist);
+        vibe::TripletStore *store = build_entity_relation_store(&elist);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
             return 1;
@@ -143,20 +143,20 @@ int main(int argc, char *argv[])
                                            &doc_entities);
         if (rc == -1) {
             fprintf(stderr, "error: document '%s' not found\n", opts.doc_id);
-            triplet_store_destroy(store);
+            delete store;
             return 1;
         }
         if (rc == -2) {
             fprintf(stderr, "error: entity '%s' is not a document\n",
                     opts.doc_id);
-            triplet_store_destroy(store);
+            delete store;
             return 1;
         }
         if (rc != 0) {
             fprintf(stderr,
                     "error: failed to collect document members for '%s'\n",
                     opts.doc_id);
-            triplet_store_destroy(store);
+            delete store;
             return 1;
         }
 
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
             if (!out) {
                 fprintf(stderr, "error: cannot open output file '%s'\n",
                         opts.report_output);
-                triplet_store_destroy(store);
+                delete store;
                 return 1;
             }
         }
@@ -176,12 +176,12 @@ int main(int argc, char *argv[])
         if (opts.report_output)
             fclose(out);
 
-        triplet_store_destroy(store);
+        delete store;
         return 0;
     }
 
     if (opts.trace_id || opts.show_coverage || opts.show_orphan) {
-        TripletStore *store = build_entity_relation_store(&elist);
+        vibe::TripletStore *store = build_entity_relation_store(&elist);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
             return 1;
@@ -194,14 +194,14 @@ int main(int argc, char *argv[])
         if (opts.show_orphan)
             cmd_orphan(&elist, store);
 
-        triplet_store_destroy(store);
+        delete store;
         return 0;
     }
 
     int exit_code = 0;
 
     if (opts.show_links || opts.strict_links) {
-        TripletStore *store = build_entity_relation_store(&elist);
+        vibe::TripletStore *store = build_entity_relation_store(&elist);
         if (!store) {
             fprintf(stderr, "error: failed to create relation store\n");
             return 1;
@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
                 exit_code = 1;
             }
         }
-        triplet_store_destroy(store);
+        delete store;
     } else {
         list_entities(&elist);
     }

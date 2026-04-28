@@ -21,7 +21,8 @@
 
 #include "entity.h"
 #include "coverage.h"
-#include "triplet_store_c.h"
+#include "triplet_store.hpp"
+
 
 using ::testing::HasSubstr;
 using ::testing::Not;
@@ -124,18 +125,18 @@ TEST(IsCoveragePredicateTest, EmptyAndCaseSensitive)
 /** Fixture that provides a TripletStore pre-populated with a few triples. */
 class CoverageStoreTest : public ::testing::Test {
 protected:
-    TripletStore *store = nullptr;
+    vibe::TripletStore *store = nullptr;
 
     void SetUp() override
     {
-        store = triplet_store_create();
+        store = new vibe::TripletStore();
         ASSERT_NE(store, nullptr);
     }
 
     void TearDown() override
     {
         if (store) {
-            triplet_store_destroy(store);
+            delete store;
             store = nullptr;
         }
     }
@@ -143,7 +144,7 @@ protected:
     /** Add a declared (non-inferred) triple. */
     void add(const char *subj, const char *pred, const char *obj)
     {
-        triplet_store_add(store, subj, pred, obj);
+        store->add( subj, pred, obj);
     }
 };
 
@@ -203,7 +204,7 @@ TEST_F(CoverageStoreTest, InferredLinksDoNotCountForCoverage)
      * The inferred reverse (REQ-007 -[verified-by]-> TC-007) is inferred and
      * must NOT count.  Coverage is only provided by the incoming declared link.
      */
-    triplet_store_add(store, "TC-007", "verifies", "REQ-007");
+    store->add( "TC-007", "verifies", "REQ-007");
     /* Before inferring: REQ-007 has only the incoming declared link from TC-007.
      * entity_is_covered checks outgoing from REQ-007 (inferred, not counted)
      * and incoming to REQ-007 (declared "verifies" from TC-007 — counted). */
@@ -216,8 +217,8 @@ TEST_F(CoverageStoreTest, InferredInverseDoesNotMakeUnrelatedEntityCovered)
      * REQ-009 has only a non-coverage declared link.  After inferring inverses,
      * neither direction should yield a coverage-predicate declared link.
      */
-    triplet_store_add(store, "REQ-009", "derived-from", "REQ-001");
-    triplet_store_infer_inverses(store);
+    store->add( "REQ-009", "derived-from", "REQ-001");
+    store->infer_inverses();
     EXPECT_EQ(entity_is_covered(store, "REQ-009"), 0);
 }
 
@@ -228,7 +229,7 @@ TEST_F(CoverageStoreTest, InferredInverseDoesNotMakeUnrelatedEntityCovered)
 TEST(CmdCoverageTest, EmptyListPrints100PercentCovered)
 {
     EntityList elist;
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
 
     std::string out = capture_stdout([&]() {
         cmd_coverage(&elist, store);
@@ -237,7 +238,7 @@ TEST(CmdCoverageTest, EmptyListPrints100PercentCovered)
     EXPECT_THAT(out, HasSubstr("Coverage Report"));
     EXPECT_THAT(out, HasSubstr("Total requirements:    0"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdCoverageTest, SingleCoveredRequirementShows100Percent)
@@ -246,8 +247,8 @@ TEST(CmdCoverageTest, SingleCoveredRequirementShows100Percent)
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
     elist.push_back(req);
 
-    TripletStore *store = triplet_store_create();
-    triplet_store_add(store, "REQ-001", "verified-by", "TC-001");
+    vibe::TripletStore *store = new vibe::TripletStore();
+    store->add( "REQ-001", "verified-by", "TC-001");
 
     std::string out = capture_stdout([&]() {
         cmd_coverage(&elist, store);
@@ -257,7 +258,7 @@ TEST(CmdCoverageTest, SingleCoveredRequirementShows100Percent)
     EXPECT_THAT(out, HasSubstr("Linked requirements:   1"));
     EXPECT_THAT(out, HasSubstr("Unlinked requirements: 0 (0%)"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdCoverageTest, UncoveredRequirementAppearsInTable)
@@ -267,7 +268,7 @@ TEST(CmdCoverageTest, UncoveredRequirementAppearsInTable)
                              "approved");
     elist.push_back(req);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
 
     std::string out = capture_stdout([&]() {
         cmd_coverage(&elist, store);
@@ -276,7 +277,7 @@ TEST(CmdCoverageTest, UncoveredRequirementAppearsInTable)
     EXPECT_THAT(out, HasSubstr("Unlinked requirements:"));
     EXPECT_THAT(out, HasSubstr("REQ-002"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 /* =========================================================================
@@ -286,7 +287,7 @@ TEST(CmdCoverageTest, UncoveredRequirementAppearsInTable)
 TEST(CmdOrphanTest, EmptyListPrintsNoOrphans)
 {
     EntityList elist;
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
 
     std::string out = capture_stdout([&]() {
         cmd_orphan(&elist, store);
@@ -294,7 +295,7 @@ TEST(CmdOrphanTest, EmptyListPrintsNoOrphans)
 
     EXPECT_THAT(out, HasSubstr("No orphaned requirements or test cases found."));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdOrphanTest, LinkedEntityIsNotOrphaned)
@@ -303,8 +304,8 @@ TEST(CmdOrphanTest, LinkedEntityIsNotOrphaned)
     Entity req = make_entity("REQ-010", "Linked req", ENTITY_KIND_REQUIREMENT);
     elist.push_back(req);
 
-    TripletStore *store = triplet_store_create();
-    triplet_store_add(store, "REQ-010", "verified-by", "TC-010");
+    vibe::TripletStore *store = new vibe::TripletStore();
+    store->add( "REQ-010", "verified-by", "TC-010");
 
     std::string out = capture_stdout([&]() {
         cmd_orphan(&elist, store);
@@ -312,7 +313,7 @@ TEST(CmdOrphanTest, LinkedEntityIsNotOrphaned)
 
     EXPECT_THAT(out, HasSubstr("No orphaned requirements or test cases found."));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdOrphanTest, UnlinkedRequirementAppearsAsOrphan)
@@ -321,7 +322,7 @@ TEST(CmdOrphanTest, UnlinkedRequirementAppearsAsOrphan)
     Entity req = make_entity("REQ-011", "Unlinked req", ENTITY_KIND_REQUIREMENT);
     elist.push_back(req);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
 
     std::string out = capture_stdout([&]() {
         cmd_orphan(&elist, store);
@@ -330,7 +331,7 @@ TEST(CmdOrphanTest, UnlinkedRequirementAppearsAsOrphan)
     EXPECT_THAT(out, HasSubstr("REQ-011"));
     EXPECT_THAT(out, HasSubstr("Total: 1 orphan(s)"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdOrphanTest, NonRequirementNonTestKindsAreIgnored)
@@ -341,7 +342,7 @@ TEST(CmdOrphanTest, NonRequirementNonTestKindsAreIgnored)
                             ENTITY_KIND_DESIGN_NOTE);
     elist.push_back(dn);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
 
     std::string out = capture_stdout([&]() {
         cmd_orphan(&elist, store);
@@ -349,7 +350,7 @@ TEST(CmdOrphanTest, NonRequirementNonTestKindsAreIgnored)
 
     EXPECT_THAT(out, HasSubstr("No orphaned requirements or test cases found."));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(CmdOrphanTest, UnlinkedTestCaseAppearsAsOrphan)
@@ -358,7 +359,7 @@ TEST(CmdOrphanTest, UnlinkedTestCaseAppearsAsOrphan)
     Entity tc = make_entity("TC-020", "Unlinked test", ENTITY_KIND_TEST_CASE);
     elist.push_back(tc);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
 
     std::string out = capture_stdout([&]() {
         cmd_orphan(&elist, store);
@@ -367,5 +368,5 @@ TEST(CmdOrphanTest, UnlinkedTestCaseAppearsAsOrphan)
     EXPECT_THAT(out, HasSubstr("TC-020"));
     EXPECT_THAT(out, HasSubstr("Total: 1 orphan(s)"));
 
-    triplet_store_destroy(store);
+    delete store;
 }

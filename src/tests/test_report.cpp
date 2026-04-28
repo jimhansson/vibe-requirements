@@ -12,7 +12,7 @@
 
 #include "entity.h"
 #include "report.h"
-#include "triplet_store_c.h"
+#include "triplet_store.hpp"
 
 using ::testing::HasSubstr;
 using ::testing::Not;
@@ -22,7 +22,7 @@ using ::testing::Not;
  * ---------------------------------------------------------------------- */
 
 static std::string capture_report(const EntityList *list,
-                                   const TripletStore *store,
+                                   const vibe::TripletStore *store,
                                    ReportFormat fmt = REPORT_FORMAT_MARKDOWN)
 {
     /* Use a temporary file to capture output (portable; avoids fmemopen). */
@@ -149,16 +149,16 @@ TEST(ReportMdTest, TraceabilityLinksRendered)
     list.push_back(e);
 
     /* Build a triplet store with one outgoing and one incoming link. */
-    TripletStore *store = triplet_store_create();
-    triplet_store_add(store, "REQ-010", "implements", "REQ-020");
-    triplet_store_add(store, "STORY-001", "refines", "REQ-010");
+    vibe::TripletStore *store = new vibe::TripletStore();
+    store->add( "REQ-010", "implements", "REQ-020");
+    store->add( "STORY-001", "refines", "REQ-010");
 
     std::string out = capture_report(&list, store, REPORT_FORMAT_MARKDOWN);
 
     EXPECT_THAT(out, HasSubstr("**Traceability:**"));    EXPECT_THAT(out, HasSubstr("`[implements]` → REQ-020"));
     EXPECT_THAT(out, HasSubstr("`[refines]` ← STORY-001"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ReportMdTest, InferredLinksNotRendered)
@@ -169,11 +169,11 @@ TEST(ReportMdTest, InferredLinksNotRendered)
     list.push_back(e);
 
     /* Add a declared triple from TC-001 → REQ-011.  After
-     * triplet_store_infer_inverses() the inverse
+     * infer_inverses() the inverse
      * REQ-011 -[implemented-by]→ TC-001 will be marked inferred. */
-    TripletStore *store = triplet_store_create();
-    triplet_store_add(store, "TC-001", "implements", "REQ-011");
-    triplet_store_infer_inverses(store);
+    vibe::TripletStore *store = new vibe::TripletStore();
+    store->add( "TC-001", "implements", "REQ-011");
+    store->infer_inverses();
 
     std::string out = capture_report(&list, store, REPORT_FORMAT_MARKDOWN);
 
@@ -181,7 +181,7 @@ TEST(ReportMdTest, InferredLinksNotRendered)
      * outgoing section (it is only inferred, not declared by REQ-011). */
     EXPECT_THAT(out, Not(HasSubstr("`[implemented-by]`")));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ReportMdTest, NoTraceabilitySection_WhenNoLinks)
@@ -191,13 +191,13 @@ TEST(ReportMdTest, NoTraceabilitySection_WhenNoLinks)
     Entity e = make_entity("REQ-012", "Isolated", ENTITY_KIND_REQUIREMENT);
     list.push_back(e);
 
-    TripletStore *store = triplet_store_create();
+    vibe::TripletStore *store = new vibe::TripletStore();
 
     std::string out = capture_report(&list, store, REPORT_FORMAT_MARKDOWN);
 
     EXPECT_THAT(out, Not(HasSubstr("**Traceability:**")));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ReportMdTest, UserStoryRendered)
@@ -299,14 +299,14 @@ TEST(ReportHtmlTest, TraceabilityLinksAreAnchors)
     Entity e = make_entity("REQ-300", "Linked", ENTITY_KIND_REQUIREMENT);
     list.push_back(e);
 
-    TripletStore *store = triplet_store_create();
-    triplet_store_add(store, "REQ-300", "verifies", "TC-001");
+    vibe::TripletStore *store = new vibe::TripletStore();
+    store->add( "REQ-300", "verifies", "TC-001");
 
     std::string out = capture_report(&list, store, REPORT_FORMAT_HTML);
 
     EXPECT_THAT(out, HasSubstr("<a href=\"#TC-001\">TC-001</a>"));
 
-    triplet_store_destroy(store);
+    delete store;
 }
 
 TEST(ReportHtmlTest, EntityKindSectionHeading)

@@ -16,7 +16,7 @@ from a mixed C11/C++ codebase to a pure **C++23** codebase.
   - [5.1 Entity strings: char[] → std::string](#51-entity-strings-char--stdstring)
   - [5.2 Entity lists: EntityList struct → std::vector\<Entity\>](#52-entity-lists-entitylist-struct--stdvectorentity)
   - [5.3 Memory management: manual → RAII](#53-memory-management-manual--raii)
-  - [5.4 TripletStore API: prefer C++ over C wrapper](#54-tripletstore-api-prefer-c-over-c-wrapper)
+  - [5.4 TripletStore API: C++ only](#54-tripletstore-api-c-only)
 - [6. Migration checklist for packagers](#6-migration-checklist-for-packagers)
 - [7. Migration checklist for contributors](#7-migration-checklist-for-contributors)
 - [8. Frequently asked questions](#8-frequently-asked-questions)
@@ -214,34 +214,12 @@ These functions **no longer exist**.  RAII via `std::string` and
 `std::vector` destructors handles all cleanup automatically.  Simply let
 `Entity` and `EntityList` values go out of scope.
 
-### 5.4 TripletStore API: prefer C++ over C wrapper
+### 5.4 TripletStore API: C++ only
 
-Use the C++ API (`triplet_store.hpp` / `vibe::TripletStore`) in all new
-internal code.  The C wrapper (`triplet_store_c.h`) remains available for
-external consumers that cannot include C++ headers, but internal code should
-use the C++ API directly.
+Use the C++ API (`triplet_store.hpp` / `vibe::TripletStore`) in all code.
+The legacy C wrapper (`triplet_store_c.h`) has been removed.
 
-**C wrapper (still supported for external consumers):**
-
-```c
-#include "triplet_store_c.h"
-
-TripletStore *store = triplet_store_create();
-triplet_store_add(store, "REQ-SW-001", "derived-from", "REQ-SYS-005");
-triplet_store_infer_inverses(store);
-
-CTripleList result = triplet_store_find_by_subject(store, "REQ-SW-001");
-for (size_t i = 0; i < result.count; i++) {
-    printf("%s -[%s]-> %s\n",
-           result.triples[i].subject,
-           result.triples[i].predicate,
-           result.triples[i].object);
-}
-triplet_store_list_free(&result);
-triplet_store_destroy(store);
-```
-
-**C++ API (preferred for internal code):**
+**C++ API:**
 
 ```cpp
 #include "triplet_store.hpp"
@@ -285,8 +263,7 @@ for (const auto *t : links) {
 - [ ] Replace `entity_list_init()` / `entity_list_add()` / `entity_list_free()`
       with `std::vector<Entity>` operations.
 - [ ] Remove calls to `entity_free()` and `entity_copy()` (no longer exist).
-- [ ] Prefer the C++ TripletStore API (`triplet_store.hpp`) over the C wrapper
-      in new internal code.
+- [ ] Prefer the C++ TripletStore API (`triplet_store.hpp`) in all internal code.
 - [ ] Use RAII: do not manually `free()` strings or arrays that were previously
       heap-allocated by the old C helpers.
 - [ ] Update any patch or branch that adds a new component: add a
@@ -301,10 +278,9 @@ for (const auto *t : links) {
 
 **Q: Can I still call the tool's API from a C project?**
 
-Yes.  The `triplet_store_c.h` C wrapper is preserved and compiled with
-`extern "C"` linkage.  Link against the `vibe-req` binary or the compiled
-objects and include `triplet_store_c.h`.  You will need to link with `g++`
-(or add `-lstdc++` to the link flags) because the C++ runtime is required.
+No.  The `triplet_store_c.h` C wrapper has been removed.  All internal code
+uses the C++ API (`triplet_store.hpp` / `vibe::TripletStore`) directly.
+Embedding the tool's internals in a C project is not supported.
 
 **Q: Are there ABI compatibility guarantees?**
 

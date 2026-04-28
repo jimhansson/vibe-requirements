@@ -8,7 +8,7 @@
  * truth for all links between entities in the vibe-req graph model (see
  * design doc section 5).
  *
- * C callers should use the thin wrapper declared in triplet_store_c.h.
+ * All callers should use this C++ header directly.
  */
 
 #pragma once

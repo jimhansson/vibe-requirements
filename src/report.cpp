@@ -11,7 +11,6 @@
 
 #include "report.h"
 #include "entity.h"
-#include "triplet_store_c.h"
 
 static const EntityKind KIND_ORDER[] = {
     ENTITY_KIND_DOCUMENT,
@@ -53,7 +52,7 @@ static void md_bullet_list(FILE *out, const char *label,
 }
 
 static void md_write_entity(FILE *out, const Entity *e,
-                             const TripletStore *store)
+                             const vibe::TripletStore *store)
 {
     if (!e->identity.title.empty())
         fprintf(out, "### %s — %s\n\n", e->identity.id.c_str(),
@@ -95,35 +94,26 @@ static void md_write_entity(FILE *out, const Entity *e,
     }
 
     if (store) {
-        CTripleList out_links = triplet_store_find_by_subject(store,
-                                                              e->identity.id.c_str());
-        CTripleList in_links  = triplet_store_find_by_object(store,
-                                                             e->identity.id.c_str());
-        int has_out = 0, has_in = 0;
-        for (size_t i = 0; i < out_links.count; i++)
-            if (!out_links.triples[i].inferred) { has_out = 1; break; }
-        for (size_t i = 0; i < in_links.count; i++)
-            if (!in_links.triples[i].inferred) { has_in = 1; break; }
+        auto out_links = store->find_by_subject(e->identity.id);
+        auto in_links  = store->find_by_object(e->identity.id);
+        bool has_out = false, has_in = false;
+        for (const auto *t : out_links) if (!t->inferred) { has_out = true; break; }
+        for (const auto *t : in_links)  if (!t->inferred) { has_in  = true; break; }
 
         if (has_out || has_in) {
             fprintf(out, "**Traceability:**\n\n");
-            for (size_t i = 0; i < out_links.count; i++) {
-                if (!out_links.triples[i].inferred)
+            for (const auto *t : out_links) {
+                if (!t->inferred)
                     fprintf(out, "- `[%s]` → %s\n",
-                            out_links.triples[i].predicate,
-                            out_links.triples[i].object);
+                            t->predicate.c_str(), t->object.c_str());
             }
-            for (size_t i = 0; i < in_links.count; i++) {
-                if (!in_links.triples[i].inferred)
+            for (const auto *t : in_links) {
+                if (!t->inferred)
                     fprintf(out, "- `[%s]` ← %s\n",
-                            in_links.triples[i].predicate,
-                            in_links.triples[i].subject);
+                            t->predicate.c_str(), t->subject.c_str());
             }
             fprintf(out, "\n");
         }
-
-        triplet_store_list_free(out_links);
-        triplet_store_list_free(in_links);
     }
 
     fprintf(out, "---\n\n");
@@ -161,7 +151,7 @@ static void html_bullet_list(FILE *out, const char *label,
 }
 
 static void html_write_entity(FILE *out, const Entity *e,
-                               const TripletStore *store)
+                               const vibe::TripletStore *store)
 {
     fprintf(out, "<section class=\"entity\" id=\"");
     html_escape(out, e->identity.id.c_str());
@@ -234,39 +224,32 @@ static void html_write_entity(FILE *out, const Entity *e,
     }
 
     if (store) {
-        CTripleList out_links = triplet_store_find_by_subject(store,
-                                                              e->identity.id.c_str());
-        CTripleList in_links  = triplet_store_find_by_object(store,
-                                                             e->identity.id.c_str());
-        int has_out = 0, has_in = 0;
-        for (size_t i = 0; i < out_links.count; i++)
-            if (!out_links.triples[i].inferred) { has_out = 1; break; }
-        for (size_t i = 0; i < in_links.count; i++)
-            if (!in_links.triples[i].inferred) { has_in = 1; break; }
+        auto out_links = store->find_by_subject(e->identity.id);
+        auto in_links  = store->find_by_object(e->identity.id);
+        bool has_out = false, has_in = false;
+        for (const auto *t : out_links) if (!t->inferred) { has_out = true; break; }
+        for (const auto *t : in_links)  if (!t->inferred) { has_in  = true; break; }
 
         if (has_out || has_in) {
             fprintf(out, "<p><strong>Traceability:</strong></p>\n<ul>\n");
-            for (size_t i = 0; i < out_links.count; i++) {
-                if (!out_links.triples[i].inferred) {
+            for (const auto *t : out_links) {
+                if (!t->inferred) {
                     fprintf(out, "<li>[%s] → <a href=\"#%s\">%s</a></li>\n",
-                            out_links.triples[i].predicate,
-                            out_links.triples[i].object,
-                            out_links.triples[i].object);
+                            t->predicate.c_str(),
+                            t->object.c_str(),
+                            t->object.c_str());
                 }
             }
-            for (size_t i = 0; i < in_links.count; i++) {
-                if (!in_links.triples[i].inferred) {
+            for (const auto *t : in_links) {
+                if (!t->inferred) {
                     fprintf(out, "<li>[%s] ← <a href=\"#%s\">%s</a></li>\n",
-                            in_links.triples[i].predicate,
-                            in_links.triples[i].subject,
-                            in_links.triples[i].subject);
+                            t->predicate.c_str(),
+                            t->subject.c_str(),
+                            t->subject.c_str());
                 }
             }
             fprintf(out, "</ul>\n");
         }
-
-        triplet_store_list_free(out_links);
-        triplet_store_list_free(in_links);
     }
 
     fprintf(out, "</section>\n\n");
@@ -281,7 +264,7 @@ static const char HTML_CSS[] =
     "a{color:#0366d6}";
 
 static void report_write_md(FILE *out, const EntityList *list,
-                             const TripletStore *store)
+                             const vibe::TripletStore *store)
 {
     fprintf(out, "# Requirements Report\n\n");
 
@@ -313,7 +296,7 @@ static void report_write_md(FILE *out, const EntityList *list,
 }
 
 static void report_write_html(FILE *out, const EntityList *list,
-                               const TripletStore *store)
+                               const vibe::TripletStore *store)
 {
     fprintf(out, "<!DOCTYPE html>\n"
                  "<html lang=\"en\">\n"
@@ -359,7 +342,7 @@ static void report_write_html(FILE *out, const EntityList *list,
 }
 
 void report_write(FILE *out, const EntityList *list,
-                  const TripletStore *store, ReportFormat fmt)
+                  const vibe::TripletStore *store, ReportFormat fmt)
 {
     if (fmt == REPORT_FORMAT_HTML)
         report_write_html(out, list, store);
