@@ -130,10 +130,8 @@ TEST(ReportMdTest, DescriptionAndRationaleRendered)
     EntityList list;
 
     Entity e = make_entity("REQ-002", "Title", ENTITY_KIND_REQUIREMENT);
-    strncpy(e.text.description, "The system must do X.",
-            sizeof(e.text.description) - 1);
-    strncpy(e.text.rationale, "Because of Y.",
-            sizeof(e.text.rationale) - 1);
+    e.text.description = "The system must do X.";
+    e.text.rationale   = "Because of Y.";
     list.push_back(e);
 
     std::string out = capture_report(&list, nullptr);
@@ -208,12 +206,9 @@ TEST(ReportMdTest, UserStoryRendered)
 
     Entity e = make_entity("STORY-001", "User login story",
                             ENTITY_KIND_STORY);
-    strncpy(e.user_story.role,   "registered user",
-            sizeof(e.user_story.role)   - 1);
-    strncpy(e.user_story.goal,   "log in with my email",
-            sizeof(e.user_story.goal)   - 1);
-    strncpy(e.user_story.reason, "access the dashboard",
-            sizeof(e.user_story.reason) - 1);
+    e.user_story.role   = "registered user";
+    e.user_story.goal   = "log in with my email";
+    e.user_story.reason = "access the dashboard";
     list.push_back(e);
 
     std::string out = capture_report(&list, nullptr, REPORT_FORMAT_MARKDOWN);
@@ -230,8 +225,8 @@ TEST(ReportMdTest, TagsRendered)
 
     Entity e = make_entity("REQ-020", "Tagged req",
                             ENTITY_KIND_REQUIREMENT);
-    strncpy(e.tags.tags, "auth\nsecurity", sizeof(e.tags.tags) - 1);
-    e.(int)tags.size() = 2;
+    e.tags.tags.push_back("auth");
+    e.tags.tags.push_back("security");
     list.push_back(e);
 
     std::string out = capture_report(&list, nullptr, REPORT_FORMAT_MARKDOWN);

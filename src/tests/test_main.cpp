@@ -131,7 +131,7 @@ TEST(BuildEntityRelationStoreTest, EmptyListReturnsEmptyStore)
     ASSERT_NE(store, nullptr);
 
     CTripleList all = triplet_store_find_all(store);
-    EXPECT_EQ((int)all.size(), 0u);
+    EXPECT_EQ((int)all.count, 0u);
     triplet_store_list_free(all);
 
     triplet_store_destroy(store);
@@ -143,9 +143,7 @@ TEST(BuildEntityRelationStoreTest, EntityWithLinksPopulatesStore)
 
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
     /* Add a declared traceability entry: REQ-001 verified-by TC-001 */
-    strncpy(req.traceability.entries, "TC-001\tverified-by\n",
-            sizeof(req.traceability.entries) - 1);
-    req.(int)traceability.size() = 1;
+    req.traceability.entries.push_back({"TC-001", "verified-by"});
     list.push_back(req);
 
     TripletStore *store = build_entity_relation_store(&list);
@@ -154,7 +152,7 @@ TEST(BuildEntityRelationStoreTest, EntityWithLinksPopulatesStore)
     CTripleList by_subj = triplet_store_find_by_subject(store, "REQ-001");
     /* At least one declared triple for REQ-001. */
     int declared = 0;
-    for (size_t i = 0; i < (int)by_subj.size(); i++) {
+    for (size_t i = 0; i < by_subj.count; i++) {
         if (!by_subj.triples[i].inferred)
             declared++;
     }
@@ -169,9 +167,7 @@ TEST(BuildEntityRelationStoreTest, InverseRelationsAreInferred)
     EntityList list;
 
     Entity req = make_entity("REQ-001", "Login", ENTITY_KIND_REQUIREMENT);
-    strncpy(req.traceability.entries, "TC-001\tverified-by\n",
-            sizeof(req.traceability.entries) - 1);
-    req.(int)traceability.size() = 1;
+    req.traceability.entries.push_back({"TC-001", "verified-by"});
     list.push_back(req);
 
     TripletStore *store = build_entity_relation_store(&list);
@@ -180,7 +176,7 @@ TEST(BuildEntityRelationStoreTest, InverseRelationsAreInferred)
     /* The inverse (TC-001, verifies, REQ-001) should have been inferred. */
     CTripleList by_subj = triplet_store_find_by_subject(store, "TC-001");
     int inferred_verifies = 0;
-    for (size_t i = 0; i < (int)by_subj.size(); i++) {
+    for (size_t i = 0; i < by_subj.count; i++) {
         if (by_subj.triples[i].inferred &&
             strcmp(by_subj.triples[i].predicate, "verifies") == 0 &&
             strcmp(by_subj.triples[i].object, "REQ-001") == 0)
@@ -197,14 +193,10 @@ TEST(BuildEntityRelationStoreTest, MultipleEntitiesAllLinksPresent)
     EntityList list;
 
     Entity req = make_entity("REQ-010", "Feature", ENTITY_KIND_REQUIREMENT);
-    strncpy(req.traceability.entries, "TC-010\tverified-by\n",
-            sizeof(req.traceability.entries) - 1);
-    req.(int)traceability.size() = 1;
+    req.traceability.entries.push_back({"TC-010", "verified-by"});
 
     Entity tc = make_entity("TC-010", "Test feature", ENTITY_KIND_TEST_CASE);
-    strncpy(tc.traceability.entries, "REQ-010\tverifies\n",
-            sizeof(tc.traceability.entries) - 1);
-    tc.(int)traceability.size() = 1;
+    tc.traceability.entries.push_back({"REQ-010", "verifies"});
 
     list.push_back(req);
     list.push_back(tc);
@@ -213,7 +205,7 @@ TEST(BuildEntityRelationStoreTest, MultipleEntitiesAllLinksPresent)
     ASSERT_NE(store, nullptr);
 
     CTripleList all = triplet_store_find_all(store);
-    EXPECT_GE((int)all.size(), 2u); /* at least the two declared triples */
+    EXPECT_GE((int)all.count, 2); /* at least the two declared triples */
     triplet_store_list_free(all);
 
     triplet_store_destroy(store);
@@ -226,9 +218,7 @@ TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
     /* Entity that belongs to a document. */
     Entity req = make_entity("REQ-DOC-001", "Member requirement",
                              ENTITY_KIND_REQUIREMENT);
-    strncpy(req.doc_membership.doc_ids, "SRS-MAIN-001",
-            sizeof(req.doc_membership.doc_ids) - 1);
-    req.(int)doc_membership.size() = 1;
+    req.doc_membership.doc_ids.push_back("SRS-MAIN-001");
     list.push_back(req);
 
     TripletStore *store = build_entity_relation_store(&list);
@@ -237,7 +227,7 @@ TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
     /* A declared (REQ-DOC-001, part-of, SRS-MAIN-001) triple must exist. */
     CTripleList by_subj = triplet_store_find_by_subject(store, "REQ-DOC-001");
     int part_of_declared = 0;
-    for (size_t i = 0; i < (int)by_subj.size(); i++) {
+    for (size_t i = 0; i < by_subj.count; i++) {
         if (!by_subj.triples[i].inferred &&
             strcmp(by_subj.triples[i].predicate, "part-of") == 0 &&
             strcmp(by_subj.triples[i].object, "SRS-MAIN-001") == 0)

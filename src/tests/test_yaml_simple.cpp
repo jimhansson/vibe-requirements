@@ -9,9 +9,26 @@
 
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
+#include <string>
+#include <vector>
+#include <utility>
 
 #include "yaml_simple.h"
 #include "triplet_store_c.h"
+#include "entity.h"
+
+static bool contains_in_pairs(
+    const std::vector<std::pair<std::string,std::string>> &vec,
+    const char *needle)
+{
+    for (const auto &p : vec) {
+        if (p.first.find(needle) != std::string::npos ||
+            p.second.find(needle) != std::string::npos)
+            return true;
+    }
+    return false;
+}
 
 /* -------------------------------------------------------------------------
  * Helpers — write temporary YAML files into /tmp
@@ -138,8 +155,8 @@ TEST(YamlSimpleTest, FilePathStoredPerDocument)
     yaml_parse_entities(path, &list);
     EXPECT_EQ((int)list.size(), 2);
     /* Both entities should record the same file path. */
-    EXPECT_STREQ(list[0].identity.file_path, path);
-    EXPECT_STREQ(list[1].identity.file_path, path);
+    EXPECT_STREQ(list[0].identity.file_path.c_str(), path);
+    EXPECT_STREQ(list[1].identity.file_path.c_str(), path);
 }
 
 /* -------------------------------------------------------------------------
@@ -229,12 +246,12 @@ TEST(YamlSimpleTest, LinksArtefactKey)
 
     /* Verify that each triple was stored with the correct object. */
     CTripleList list = triplet_store_find_by_subject(store, "TC-001");
-    EXPECT_EQ((int)list.size(), 3u);
+    EXPECT_EQ((int)list.count, 3u);
 
     int found_verifies          = 0;
     int found_implemented_by    = 0;
     int found_implemented_by_test = 0;
-    for (size_t i = 0; i < (int)list.size(); i++) {
+    for (size_t i = 0; i < list.count; i++) {
         const CTriple *t = &list.triples[i];
         if (strcmp(t->predicate, "verifies") == 0 &&
             strcmp(t->object, "REQ-005") == 0)
@@ -279,11 +296,11 @@ TEST(YamlSimpleTest, EntityLinksKeyAliasForTraceability)
     ASSERT_EQ(rc, 0);
 
     EXPECT_EQ(e.identity.id, std::string("TC-ALIAS-001"));
-    EXPECT_EQ(e.(int)traceability.size(), 2);
-    EXPECT_NE(strstr(e.traceability.entries, "REQ-005"),           nullptr);
-    EXPECT_NE(strstr(e.traceability.entries, "verifies"),          nullptr);
-    EXPECT_NE(strstr(e.traceability.entries, "src/tests/test_foo.cpp"), nullptr);
-    EXPECT_NE(strstr(e.traceability.entries, "implemented-by"),    nullptr);
+    EXPECT_EQ((int)e.traceability.entries.size(), 2);
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "REQ-005"));
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "verifies"));
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "src/tests/test_foo.cpp"));
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "implemented-by"));
 }
 
 TEST(YamlSimpleTest, EntityLinksKeyLoadedIntoTripletStore)
@@ -302,7 +319,7 @@ TEST(YamlSimpleTest, EntityLinksKeyLoadedIntoTripletStore)
     Entity e;
     int rc = yaml_parse_entity(path, &e);
     ASSERT_EQ(rc, 0);
-    ASSERT_EQ(e.(int)traceability.size(), 1);
+    ASSERT_EQ((int)e.traceability.entries.size(), 1);
 
     TripletStore *store = triplet_store_create();
     ASSERT_NE(store, nullptr);
@@ -311,7 +328,7 @@ TEST(YamlSimpleTest, EntityLinksKeyLoadedIntoTripletStore)
     EXPECT_EQ(added, 1);
 
     CTripleList list = triplet_store_find_by_subject(store, "TC-ALIAS-002");
-    ASSERT_EQ((int)list.size(), 1u);
+    ASSERT_EQ((int)list.count, 1u);
     EXPECT_STREQ(list.triples[0].subject,   "TC-ALIAS-002");
     EXPECT_STREQ(list.triples[0].predicate, "verifies");
     EXPECT_STREQ(list.triples[0].object,    "REQ-010");
