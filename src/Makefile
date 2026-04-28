@@ -19,7 +19,7 @@ YAML_OBJS = $(BUILD_DIR)/yaml/yaml_link_parser.o \
             $(BUILD_DIR)/yaml/entity_parser.o
 
 # Main binary sources (C++)
-CPP_SRCS = config.cpp triplet_store.cpp entity.cpp discovery.cpp coverage.cpp list_cmd.cpp new_cmd.cpp report.cpp main.cpp cli_args.cpp
+CPP_SRCS = config.cpp triplet_store.cpp entity.cpp discovery.cpp coverage.cpp list_cmd.cpp new_cmd.cpp report.cpp validate.cpp main.cpp cli_args.cpp
 CPP_OBJS = $(addprefix $(BUILD_DIR)/,$(CPP_SRCS:.cpp=.o))
 OBJS     = $(CPP_OBJS) $(YAML_OBJS)
 
@@ -77,6 +77,12 @@ TEST_MAIN_OBJS   = $(BUILD_DIR)/tests/test_main.o \
                    $(BUILD_DIR)/entity.o $(YAML_OBJS) \
                    $(BUILD_DIR)/triplet_store.o
 
+TEST_VALIDATE_TARGET = $(BIN_DIR)/tests/test_validate
+TEST_VALIDATE_OBJS   = $(BUILD_DIR)/tests/test_validate.o \
+                       $(BUILD_DIR)/validate.o \
+                       $(BUILD_DIR)/entity.o $(YAML_OBJS) \
+                       $(BUILD_DIR)/triplet_store.o
+
 .PHONY: all clean test check-compiler
 
 all: $(TARGET)
@@ -121,7 +127,10 @@ $(TEST_CLI_ARGS_TARGET): $(TEST_CLI_ARGS_OBJS) | $(BIN_DIR)/tests
 $(TEST_MAIN_TARGET): $(TEST_MAIN_OBJS) | $(BIN_DIR)/tests
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
 
-test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET) $(TEST_ENTITY_TARGET) $(TEST_REPORT_TARGET) $(TEST_NEW_CMD_TARGET) $(TEST_COVERAGE_TARGET) $(TEST_CLI_ARGS_TARGET) $(TEST_MAIN_TARGET)
+$(TEST_VALIDATE_TARGET): $(TEST_VALIDATE_OBJS) | $(BIN_DIR)/tests
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(GTEST_LDFLAGS)
+
+test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DISCOVERY_TARGET) $(TEST_ENTITY_TARGET) $(TEST_REPORT_TARGET) $(TEST_NEW_CMD_TARGET) $(TEST_COVERAGE_TARGET) $(TEST_CLI_ARGS_TARGET) $(TEST_MAIN_TARGET) $(TEST_VALIDATE_TARGET)
 	./$(TEST_TRIPLET_TARGET)
 	./$(TEST_CONFIG_TARGET)
 	./$(TEST_YAML_TARGET)
@@ -132,6 +141,7 @@ test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DI
 	./$(TEST_COVERAGE_TARGET)
 	./$(TEST_CLI_ARGS_TARGET)
 	./$(TEST_MAIN_TARGET)
+	./$(TEST_VALIDATE_TARGET)
 
 $(BUILD_DIR)/yaml/%.o: yaml/%.cpp | $(BUILD_DIR)/yaml
 	$(CXX) $(CXXFLAGS) -MMD -MP -c -o $@ $<
@@ -157,7 +167,8 @@ $(BIN_DIR) $(BIN_DIR)/tests $(BUILD_DIR) $(BUILD_DIR)/tests $(BUILD_DIR)/yaml:
          $(TEST_NEW_CMD_OBJS:.o=.d) \
          $(TEST_COVERAGE_OBJS:.o=.d) \
          $(TEST_CLI_ARGS_OBJS:.o=.d) \
-         $(TEST_MAIN_OBJS:.o=.d)
+         $(TEST_MAIN_OBJS:.o=.d) \
+         $(TEST_VALIDATE_OBJS:.o=.d)
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
