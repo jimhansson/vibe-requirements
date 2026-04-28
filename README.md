@@ -5,7 +5,7 @@
 **vibe-requirements** is a "requirements as code" tool that stores all project
 requirements, user stories, test cases, assumptions, constraints, and design
 documents as plain YAML files inside a version-controlled repository.  A
-companion CLI provides listing, filtering, traceability, coverage, and
+companion CLI provides listing, filtering, traceability, status, coverage, and
 orphan-detection commands.
 
 ---
@@ -19,6 +19,7 @@ orphan-detection commands.
   - [list / entities](#list--entities)
   - [doc \<doc-id\>](#doc-doc-id)
   - [trace \<id\>](#trace-id)
+  - [status](#status)
   - [coverage](#coverage)
   - [orphan](#orphan)
   - [links](#links)
@@ -95,6 +96,9 @@ cd src && make
 
 # Check how many requirements are covered by tests / code
 ./vibe-req coverage
+
+# Summarize entity counts by lifecycle metadata and kind
+./vibe-req status
 
 # Find requirements and test cases with no links at all
 ./vibe-req orphan
@@ -271,6 +275,48 @@ Unlinked requirements:
 +---------------+------------------------------+--------+
 | REQ-AUTH-003  | Password reset flow          | draft  |
 …
+```
+
+### status
+
+Summarizes all discovered entities by lifecycle status, lifecycle priority, and
+entity kind.
+
+```
+vibe-req status [directory]
+```
+
+**Example:**
+
+```bash
+$ vibe-req status
+Status Summary
+==============
+Total entities: 10
+
+By status:
++----------+-------+
+| Status   | Count |
++----------+-------+
+| approved |     4 |
+| draft    |     6 |
++----------+-------+
+
+By priority:
++----------+-------+
+| Priority | Count |
++----------+-------+
+| must     |     6 |
+| should   |     4 |
++----------+-------+
+
+By kind:
++-------------+-------+
+| Kind        | Count |
++-------------+-------+
+| requirement |     7 |
+| test-case   |     3 |
++-------------+-------+
 ```
 
 ### orphan

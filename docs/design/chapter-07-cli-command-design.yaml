@@ -26,6 +26,7 @@ body: |
   | *(default)* | List all entities using the legacy Requirement struct (id, title, type, status, priority) |
   | `list` | List all entities (ECS model) with optional filters. Alias: `entities` |
   | `trace <id>` | Show entity metadata, outgoing links, and incoming links for a given ID |
+  | `status` | Print counts by status, priority, and kind |
   | `coverage` | Report how many requirements have traceability links to tests or code |
   | `orphan` | List requirements and test cases with no traceability links in either direction |
   | `links` | Print all relations as a Subject → Relation → Object table |
@@ -86,7 +87,6 @@ body: |
   |---|---|
   | `init` | Initialize a new vibe-req project in the current directory |
   | `validate` | Validate all files: schema, IDs, links |
-  | `status` | Print counts by status and priority |
   | `export <format>` | Export to CSV or ReqIF |
 traceability:
   part-of: DESIGN-CH-7

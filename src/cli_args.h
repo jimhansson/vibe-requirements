@@ -48,6 +48,9 @@ typedef struct {
     /** Non-zero when 'coverage' subcommand was requested. */
     int         show_coverage;
 
+    /** Non-zero when 'status' subcommand was requested. */
+    int         show_status;
+
     /** Non-zero when 'orphan' subcommand was requested. */
     int         show_orphan;
 
