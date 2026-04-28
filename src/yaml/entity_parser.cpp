@@ -4,7 +4,6 @@
  */
 
 #include "../yaml_simple.h"
-#include "yaml_helpers.h"
 #include "../entity.h"
 #include <yaml.h>
 #include <cstdio>

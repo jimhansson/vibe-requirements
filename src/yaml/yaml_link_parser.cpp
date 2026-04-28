@@ -1,16 +1,16 @@
 /*
- * @file yaml_link_parser.c
- * @brief YAML link / traceability parsing implementation.
+ * @file yaml_link_parser.cpp
+ * @brief YAML link / traceability parsing implementation (C++ edition).
  *
  * Implements yaml_parse_links() declared in yaml_simple.h.
  * The static helper add_link_triple() is internal to this translation unit.
  */
 
 #include "../yaml_simple.h"
-#include "yaml_helpers.h"
 #include <yaml.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
+#include <string>
 
 /*
  * Walk one link mapping node and add a (subject, relation, target) triple
@@ -27,8 +27,8 @@ static int add_link_triple(yaml_document_t *doc, yaml_node_t *link_map,
     if (!link_map || link_map->type != YAML_MAPPING_NODE)
         return 0;
 
-    char target[LINK_TARGET_LEN]     = {0};
-    char relation[LINK_RELATION_LEN] = {0};
+    std::string target;
+    std::string relation;
 
     yaml_node_pair_t *pair = link_map->data.mapping.pairs.start;
     yaml_node_pair_t *end  = link_map->data.mapping.pairs.top;
@@ -40,20 +40,23 @@ static int add_link_triple(yaml_document_t *doc, yaml_node_t *link_map,
         if (!key_node || key_node->type != YAML_SCALAR_NODE) continue;
         if (!val_node || val_node->type != YAML_SCALAR_NODE) continue;
 
-        const char *key = (const char *)key_node->data.scalar.value;
-        const char *val = (const char *)val_node->data.scalar.value;
+        const char *key = reinterpret_cast<const char *>(
+            key_node->data.scalar.value);
+        const char *val = reinterpret_cast<const char *>(
+            val_node->data.scalar.value);
 
         if (strcmp(key, "id") == 0 || strcmp(key, "artefact") == 0) {
-            strncpy(target, val, sizeof(target) - 1);
+            target = val;
         } else if (strcmp(key, "relation") == 0) {
-            strncpy(relation, val, sizeof(relation) - 1);
+            relation = val;
         }
     }
 
-    if (target[0] == '\0' || relation[0] == '\0')
+    if (target.empty() || relation.empty())
         return 0;
 
-    size_t id = triplet_store_add(store, subject_id, relation, target);
+    size_t id = triplet_store_add(store, subject_id, relation.c_str(),
+                                  target.c_str());
     return (id != TRIPLE_ID_INVALID) ? 1 : 0;
 }
 
@@ -73,7 +76,7 @@ int yaml_parse_links(const char *path, const char *subject_id,
 
     int added = 0;
 
-    while (1) {
+    while (true) {
         yaml_document_t doc;
         if (!yaml_parser_load(&parser, &doc))
             break; /* parse error — stop, keep any links already added */
@@ -90,7 +93,7 @@ int yaml_parse_links(const char *path, const char *subject_id,
              * different requirement.  Only process the "links" sequence
              * of the document whose top-level "id" matches subject_id.
              */
-            const char *doc_id = NULL;
+            const char *doc_id = nullptr;
             yaml_node_pair_t *pair = root->data.mapping.pairs.start;
             yaml_node_pair_t *end  = root->data.mapping.pairs.top;
 
@@ -98,10 +101,13 @@ int yaml_parse_links(const char *path, const char *subject_id,
                 yaml_node_t *key_node = yaml_document_get_node(&doc, pair->key);
                 if (!key_node || key_node->type != YAML_SCALAR_NODE)
                     continue;
-                if (strcmp((const char *)key_node->data.scalar.value, "id") == 0) {
-                    yaml_node_t *val_node = yaml_document_get_node(&doc, pair->value);
+                if (strcmp(reinterpret_cast<const char *>(
+                        key_node->data.scalar.value), "id") == 0) {
+                    yaml_node_t *val_node = yaml_document_get_node(&doc,
+                                                                   pair->value);
                     if (val_node && val_node->type == YAML_SCALAR_NODE)
-                        doc_id = (const char *)val_node->data.scalar.value;
+                        doc_id = reinterpret_cast<const char *>(
+                            val_node->data.scalar.value);
                     break;
                 }
             }
@@ -121,11 +127,13 @@ int yaml_parse_links(const char *path, const char *subject_id,
                 if (!key_node || key_node->type != YAML_SCALAR_NODE)
                     continue;
 
-                const char *key = (const char *)key_node->data.scalar.value;
+                const char *key = reinterpret_cast<const char *>(
+                    key_node->data.scalar.value);
                 if (strcmp(key, "links") != 0)
                     continue;
 
-                yaml_node_t *links_node = yaml_document_get_node(&doc, pair->value);
+                yaml_node_t *links_node = yaml_document_get_node(&doc,
+                                                                  pair->value);
                 if (!links_node || links_node->type != YAML_SEQUENCE_NODE)
                     break;
 

@@ -17,8 +17,7 @@ GTEST_LDFLAGS = -L$(GTEST_PREFIX)/lib -Wl,-rpath,$(GTEST_PREFIX)/lib \
                 -lgtest_main -lgtest -lgmock -pthread
 
 # yaml/ sub-module objects (replaces the old monolithic yaml_simple.o)
-YAML_OBJS = $(BUILD_DIR)/yaml/yaml_helpers.o \
-            $(BUILD_DIR)/yaml/yaml_link_parser.o \
+YAML_OBJS = $(BUILD_DIR)/yaml/yaml_link_parser.o \
             $(BUILD_DIR)/yaml/entity_parser.o
 
 # Main binary sources (C and C++)
