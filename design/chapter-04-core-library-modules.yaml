@@ -41,8 +41,7 @@ body: |
   file walker.  Validation of IDs, kinds, and link targets is the
   responsibility of the linker/validator layer.
 traceability:
-  - id: DESIGN-CH-4
-    relation: part-of
+  part-of: DESIGN-CH-4
 ---
 id: DESIGN-CH-4-2
 title: "Parser Module"
@@ -71,8 +70,7 @@ body: |
   Key normalisation (converting `_` separators to `-`) is now handled directly
   inside `entity_parser.cpp`.
 traceability:
-  - id: DESIGN-CH-4
-    relation: part-of
+  part-of: DESIGN-CH-4
 ---
 id: DESIGN-CH-4-3
 title: "Linker / TripletStore Module"
@@ -102,8 +100,7 @@ body: |
   full populate-then-infer sequence and is the recommended way to obtain a
   ready-to-query store from an `EntityList`.
 traceability:
-  - id: DESIGN-CH-4
-    relation: part-of
+  part-of: DESIGN-CH-4
 ---
 id: DESIGN-CH-4-4
 title: "Reporter Module"
@@ -123,8 +120,7 @@ body: |
   Two output formats are supported: `REPORT_FORMAT_MARKDOWN` (default) and
   `REPORT_FORMAT_HTML` (self-contained document with inline CSS).
 traceability:
-  - id: DESIGN-CH-4
-    relation: part-of
+  part-of: DESIGN-CH-4
 ---
 id: DESIGN-CH-4-5
 title: "Coverage Module"
@@ -144,5 +140,4 @@ body: |
   2. **Renderers** — `cmd_coverage(elist, store)` and `cmd_orphan(elist, store)` —
      print tabular results to stdout and are called directly from `main.c`.
 traceability:
-  - id: DESIGN-CH-4
-    relation: part-of
+  part-of: DESIGN-CH-4

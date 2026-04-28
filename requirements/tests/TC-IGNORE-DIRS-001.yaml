@@ -24,9 +24,6 @@ expected_results:
   - The tool exits without error.
 verification_method: test
 links:
-  - id: REQ-005
-    relation: verifies
-  - artefact: src/tests/test_discovery_ignore.cpp
-    relation: implemented-by
-  - artefact: src/tests/test_discovery_ignore.cpp#DiscoveryIgnoreTest.IgnoredDirNotScanned
-    relation: implemented-by-test
+  verifies: REQ-005
+  implemented-by: src/tests/test_discovery_ignore.cpp
+  implemented-by-test: src/tests/test_discovery_ignore.cpp#DiscoveryIgnoreTest.IgnoredDirNotScanned

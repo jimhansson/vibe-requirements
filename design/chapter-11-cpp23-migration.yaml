@@ -36,8 +36,7 @@ body: |
   all of these issues via RAII.  The C-compatible ABI is preserved in
   `triplet_store_c.h` via `extern "C"` for external consumers.
 traceability:
-  - id: DESIGN-CH-11
-    relation: part-of
+  part-of: DESIGN-CH-11
 ---
 id: DESIGN-CH-11-2
 title: "Key C++23 Idiom Changes"
@@ -84,8 +83,7 @@ body: |
   | `std::optional` | TripletStore slot storage (tombstone pattern) |
   | `std::unordered_map` | TripletStore subject/predicate/object indexes |
 traceability:
-  - id: DESIGN-CH-11
-    relation: part-of
+  part-of: DESIGN-CH-11
 ---
 id: DESIGN-CH-11-3
 title: "Toolchain Requirements for C++23"
@@ -117,5 +115,4 @@ body: |
   `if consteval`, `static operator()`, `auto(x)` decay-copy, and the
   multidimensional subscript operator.
 traceability:
-  - id: DESIGN-CH-11
-    relation: part-of
+  part-of: DESIGN-CH-11

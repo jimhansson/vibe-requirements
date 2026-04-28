@@ -29,15 +29,11 @@ expected_results:
     non-matches and null inputs.
 verification_method: test
 links:
-  - id: REQ-005
-    relation: verifies
-  - id: DESIGN-CH-1
-    relation: verifies
-  - artefact: src/tests/test_config.cpp
-    relation: implemented-by
-  - artefact: src/tests/test_config.cpp#ConfigTest.LoadSingleIgnoreDir
-    relation: implemented-by-test
-  - artefact: src/tests/test_config.cpp#ConfigTest.LoadMultipleIgnoreDirs
-    relation: implemented-by-test
-  - artefact: src/tests/test_config.cpp#ConfigTest.IsIgnoredDirMatch
-    relation: implemented-by-test
+  verifies:
+    - REQ-005
+    - DESIGN-CH-1
+  implemented-by: src/tests/test_config.cpp
+  implemented-by-test:
+    - src/tests/test_config.cpp#ConfigTest.LoadSingleIgnoreDir
+    - src/tests/test_config.cpp#ConfigTest.LoadMultipleIgnoreDirs
+    - src/tests/test_config.cpp#ConfigTest.IsIgnoredDirMatch

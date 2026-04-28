@@ -42,8 +42,7 @@ body: |
   most heap allocations for short fields, and the occasional large body or
   description field allocates exactly as much as it needs.
 traceability:
-  - id: DESIGN-CH-9
-    relation: part-of
+  part-of: DESIGN-CH-9
 ---
 id: DESIGN-CH-9-2
 title: "Multi-Valued Fields: std::vector"
@@ -72,8 +71,7 @@ body: |
   `char[]` array) was entirely removed.  Iteration is a standard range-based
   for loop; no buffer-splitting or `count` bookkeeping is required.
 traceability:
-  - id: DESIGN-CH-9
-    relation: part-of
+  part-of: DESIGN-CH-9
 ---
 id: DESIGN-CH-9-3
 title: "TripletStore Slot-Based Storage"
@@ -96,5 +94,4 @@ body: |
     IDs are in use.  In the current CLI implementation no long-lived IDs are held after a
     bulk load, so lazy compaction is safe.
 traceability:
-  - id: DESIGN-CH-9
-    relation: part-of
+  part-of: DESIGN-CH-9

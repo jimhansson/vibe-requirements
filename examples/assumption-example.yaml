@@ -21,5 +21,4 @@ tags:
   - connectivity
   - risk
 links:
-  - id: REQ-SYS-012
-    relation: constrains
+  constrains: REQ-SYS-012

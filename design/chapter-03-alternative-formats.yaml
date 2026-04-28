@@ -18,5 +18,4 @@ body: |
   so that additional formats can be added by implementing a format-specific
   reader/writer module.
 traceability:
-  - id: REQ-003
-    relation: elaborates
+  elaborates: REQ-003

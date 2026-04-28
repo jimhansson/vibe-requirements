@@ -46,9 +46,7 @@ body: |
                       └─────────┘
   ```
 traceability:
-  - id: REQ-001
-    relation: elaborates
-  - id: REQ-005
-    relation: elaborates
-  - id: REQ-006
-    relation: elaborates
+  elaborates:
+    - REQ-001
+    - REQ-005
+    - REQ-006

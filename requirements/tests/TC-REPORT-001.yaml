@@ -37,17 +37,12 @@ expected_results:
     attributes pointing to the target ID.
 verification_method: test
 links:
-  - id: REQ-035
-    relation: verifies
-  - id: REQ-053
-    relation: verifies
-  - id: DESIGN-CH-7-2
-    relation: verifies
-  - artefact: src/tests/test_report.cpp
-    relation: implemented-by
-  - artefact: src/tests/test_report.cpp#ReportMdTest.TraceabilityLinksRendered
-    relation: implemented-by-test
-  - artefact: src/tests/test_report.cpp#ReportMdTest.InferredLinksNotRendered
-    relation: implemented-by-test
-  - artefact: src/tests/test_report.cpp#ReportHtmlTest.HtmlSpecialCharsEscaped
-    relation: implemented-by-test
+  verifies:
+    - REQ-035
+    - REQ-053
+    - DESIGN-CH-7-2
+  implemented-by: src/tests/test_report.cpp
+  implemented-by-test:
+    - src/tests/test_report.cpp#ReportMdTest.TraceabilityLinksRendered
+    - src/tests/test_report.cpp#ReportMdTest.InferredLinksNotRendered
+    - src/tests/test_report.cpp#ReportHtmlTest.HtmlSpecialCharsEscaped

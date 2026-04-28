@@ -42,8 +42,7 @@ body: |
      Every `Entity` in `EntityList.items[]` is independently owned and must be
      freed individually (done by `entity_list_free()`).
 traceability:
-  - id: DESIGN-CH-10
-    relation: part-of
+  part-of: DESIGN-CH-10
 ---
 id: DESIGN-CH-10-2
 title: "TripletStore Invariants"
@@ -74,8 +73,7 @@ body: |
      to CLI callers; they interact with the store through query functions that
      return value-copied `CTripleList` results, so they never hold raw IDs.
 traceability:
-  - id: DESIGN-CH-10
-    relation: part-of
+  part-of: DESIGN-CH-10
 ---
 id: DESIGN-CH-10-3
 title: "Parser / Entity Coupling"
@@ -101,8 +99,7 @@ body: |
   `entity_free()`, `entity_copy()`, and `entity_list_*` (which are
   implementation files for the struct itself).
 traceability:
-  - id: DESIGN-CH-10
-    relation: part-of
+  part-of: DESIGN-CH-10
 ---
 id: DESIGN-CH-10-4
 title: "Discovery / Parser Coupling"
@@ -122,5 +119,4 @@ body: |
   passed by the caller.  Both modules treat it as an append-only output
   parameter; neither reads entries already in the list.
 traceability:
-  - id: DESIGN-CH-10
-    relation: part-of
+  part-of: DESIGN-CH-10

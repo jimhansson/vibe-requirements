@@ -168,11 +168,9 @@ TEST(YamlSimpleTest, LinksSingleDocument)
     const char *path = write_yaml("test_links_single.yaml",
         "id: REQ-001\n"
         "title: Has links\n"
-        "links:\n"
-        "  - id: REQ-002\n"
-        "    relation: implements\n"
-        "  - id: REQ-003\n"
-        "    relation: refines\n");
+        "traceability:\n"
+        "  implements: REQ-002\n"
+        "  refines: REQ-003\n");
     ASSERT_NE(path, nullptr);
 
     TripletStore *store = triplet_store_create();
@@ -193,9 +191,8 @@ TEST(YamlSimpleTest, LinksMultiDocumentCorrectSubject)
         "---\n"
         "id: REQ-002\n"
         "title: Has links\n"
-        "links:\n"
-        "  - id: REQ-003\n"
-        "    relation: implements\n");
+        "traceability:\n"
+        "  implements: REQ-003\n");
     ASSERT_NE(path, nullptr);
 
     TripletStore *store = triplet_store_create();
@@ -225,17 +222,15 @@ TEST(YamlSimpleTest, LinksNonexistentFile)
 
 TEST(YamlSimpleTest, LinksArtefactKey)
 {
-    /* Artefact-based links use "artefact" instead of "id" as the target key. */
+    /* Traceability with multiple targets per relation and artefact paths. */
     const char *path = write_yaml("test_links_artefact.yaml",
         "id: TC-001\n"
         "title: Test case with artefact links\n"
-        "links:\n"
-        "  - id: REQ-005\n"
-        "    relation: verifies\n"
-        "  - artefact: src/tests/test_foo.cpp\n"
-        "    relation: implemented-by\n"
-        "  - artefact: src/tests/test_foo.cpp#Suite.Test\n"
-        "    relation: implemented-by-test\n");
+        "traceability:\n"
+        "  verifies: REQ-005\n"
+        "  implemented-by:\n"
+        "    - src/tests/test_foo.cpp\n"
+        "    - src/tests/test_foo.cpp#Suite.Test\n");
     ASSERT_NE(path, nullptr);
 
     TripletStore *store = triplet_store_create();
@@ -259,7 +254,7 @@ TEST(YamlSimpleTest, LinksArtefactKey)
         if (strcmp(t->predicate, "implemented-by") == 0 &&
             strcmp(t->object, "src/tests/test_foo.cpp") == 0)
             found_implemented_by = 1;
-        if (strcmp(t->predicate, "implemented-by-test") == 0 &&
+        if (strcmp(t->predicate, "implemented-by") == 0 &&
             strcmp(t->object, "src/tests/test_foo.cpp#Suite.Test") == 0)
             found_implemented_by_test = 1;
     }
@@ -285,10 +280,8 @@ TEST(YamlSimpleTest, EntityLinksKeyAliasForTraceability)
         "type: test-case\n"
         "status: draft\n"
         "links:\n"
-        "  - id: REQ-005\n"
-        "    relation: verifies\n"
-        "  - artefact: src/tests/test_foo.cpp\n"
-        "    relation: implemented-by\n");
+        "  verifies: REQ-005\n"
+        "  implemented-by: src/tests/test_foo.cpp\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
@@ -312,8 +305,7 @@ TEST(YamlSimpleTest, EntityLinksKeyLoadedIntoTripletStore)
         "title: Test entity traceability via links key\n"
         "type: test-case\n"
         "links:\n"
-        "  - id: REQ-010\n"
-        "    relation: verifies\n");
+        "  verifies: REQ-010\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
