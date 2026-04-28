@@ -636,7 +636,7 @@ and `entity_has_component()` predicate).
 ## Documentation
 
 - [Requirements](docs/REQUIREMENTS.md) — functional and non-functional requirements, constraints, and roadmap
-- [Design](docs/DESIGN.md) — high-level architecture, ECS domain model, and file format specification
+- [Design (wiki)](https://github.com/jimhansson/vibe-requirements/wiki) — high-level architecture, ECS domain model, and file format specification
 - [CLI Reference](docs/CLI.md) — complete CLI command reference
 - [Porting Guide](docs/PORTING.md) — migration instructions from pre-C++23 versions for contributors and packagers
 - [Scripting](docs/SCRIPTING.md) — research on embedded scripting and programmability approaches

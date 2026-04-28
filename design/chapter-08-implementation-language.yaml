@@ -1,19 +1,33 @@
 id: DESIGN-CH-8
-title: "Implementation Language Trade-offs"
+title: "Implementation Language: C++23"
 type: design-note
 status: approved
 tags:
   - implementation
   - language
+  - cpp23
 body: |
-  | Language | Distribution | Ecosystem | Known to author | Suitability |
-  |---|---|---|---|---|
-  | **C / C++** | Single binary | libyaml / RapidYAML; GTK / Qt for GUI | Yes | Good; GUI is straightforward with Qt |
-  | **Common Lisp** | Single binary (SBCL `--save-lisp-and-die`) | cl-yaml; McCLIM for GUI | Yes | Excellent for DSL; GUI ecosystem is limited |
-  | **Rust** | Single static binary | `serde_yaml`; `egui` / GTK for GUI | To explore | Excellent distribution story; memory safety |
-  | **Go** | Single static binary | `gopkg.in/yaml.v3`; Fyne / `gio` for GUI | To explore | Very easy cross-compilation; moderate GUI |
+  The implementation language is **C++23**.  All source files (`.cpp`) are
+  compiled with `-std=c++23`.  There are no C (`.c`) files; the C-wrapper
+  layer (`triplet_store_c.cpp`) uses `extern "C"` linkage but is itself
+  compiled as C++.
 
-  **Recommendation for evaluation:** Prototype the core parser and CLI in both
-  Rust and Go, compare ergonomics and binary size, then decide. The GUI can be
-  deferred to a later phase and use whichever GUI toolkit fits the chosen
-  language.
+  **Rationale:** C++ was chosen for its single-binary distribution story,
+  mature YAML library (libyaml), familiar standard library, and the ability
+  to expose a C-compatible API for external consumers without a separate
+  language runtime.  C++23 specifically was chosen to leverage `std::string`,
+  `std::vector`, `std::optional`, and `std::unordered_map` throughout the
+  entity and graph model, eliminating all manual memory management that the
+  earlier C11 implementation required.
+
+  **Minimum compiler versions:**
+
+  | Compiler | Minimum version | Notes |
+  |---|---|---|
+  | GCC | 13 | Ships in Ubuntu 24.04 LTS |
+  | Clang | 17 | Ships in LLVM 17 release |
+  | MSVC | 19.38 (VS 2022 17.8) | `/std:c++latest` or `/std:c++23` |
+
+  Run `make check-compiler` (compiles `compat/cxx23_check.cpp`) to verify
+  that the configured toolchain supports the required C++23 features before
+  building.

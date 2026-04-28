@@ -1,5 +1,5 @@
 id: DESIGN-CH-9
-title: "Memory Layout and Design Decisions"
+title: "Memory Layout and Ownership"
 type: design-note
 status: approved
 tags:
@@ -7,13 +7,14 @@ tags:
   - memory
   - implementation
 body: |
-  The `Entity` struct is the central data container of vibe-req.  Its memory
-  layout is deliberately split into two classes — inline fixed-size fields and
-  heap-allocated pointer fields — to balance cache efficiency against memory
-  footprint for rare/large components.
+  Since the C++23 migration all `Entity` component fields use C++ value-type
+  containers (`std::string`, `std::vector`).  There are no fixed-size `char[]`
+  arrays or heap-allocated `char *` pointer fields in the entity structs.  RAII
+  handles all lifetime management; there is no `entity_free()` or
+  `entity_copy()`.
 ---
 id: DESIGN-CH-9-1
-title: "Fixed-Size Inline Fields vs. Heap Pointers"
+title: "Entity Struct: std::string and std::vector Fields"
 type: design-note
 status: approved
 tags:
@@ -21,36 +22,31 @@ tags:
   - entity
   - implementation
 body: |
-  The `Entity` struct uses two distinct memory strategies for its component fields:
+  Every component field in `Entity` is either a `std::string` (single-valued)
+  or a `std::vector<std::string>` / `std::vector<std::pair<std::string,std::string>>`
+  (multi-valued).  C++ default construction initialises all fields to empty;
+  there is no "absent vs. empty" distinction at the struct level — emptiness
+  is the sentinel for absence.
 
-  **Inline (fixed-size) char arrays** are used for all fields that are:
-  - Present on the vast majority of entities (identity, lifecycle, text, tags,
-    traceability, sources, assumption, constraint, …).
-  - Bounded by a well-understood maximum that fits within a few kilobytes.
+  This design:
+  - Removes all fixed-size field-length limits from the previous C
+    implementation (no more 64-byte IDs, 256-byte titles, etc.).
+  - Eliminates `memcpy`-based entity copying: `EntityList = std::vector<Entity>`
+    uses copy-construction automatically.
+  - Makes `entity_apply_filter()` iterate a `std::vector<Entity>` with
+    range-based for loops rather than raw pointer arithmetic.
 
-  Keeping these fields inline means the entire `Entity` (roughly 10–12 KB) can
-  be stack-allocated or stored in a contiguous `malloc`'d array without pointer
-  indirection.  This enables cache-friendly batch operations: `entity_list_add()`
-  copies a whole entity with a single `memcpy`; `entity_apply_filter()` iterates
-  the array without pointer chasing; `qsort()` via `entity_cmp_by_id()` moves
-  full records in place.
-
-  **Heap-allocated (`char *`) fields** are used for the four large/rare components:
-  - `DocumentBodyComponent.body` — free-form body text (up to 64 KB)
-  - `TestProcedureComponent.{preconditions, steps, expected_result}` — structured test data
-  - `ClauseCollectionComponent.clauses` — list of normative clauses (up to 8 KB)
-  - `AttachmentComponent.attachments` — list of file references (up to 2 KB)
-
-  A `NULL` pointer means "absent" with no memory cost.  Deep-copy semantics
-  are preserved by `entity_copy()` (calls `strdup`) and `entity_list_add()`.
-  `entity_free()` must be called before discarding any `Entity` that may have
-  been populated by the parser.
+  The tradeoff is that each `std::string` carries a small-string-optimisation
+  (SSO) buffer plus potential heap allocation.  For the typical entity sizes
+  in vibe-req (IDs ≤ 64 chars, descriptions in the KB range) the SSO avoids
+  most heap allocations for short fields, and the occasional large body or
+  description field allocates exactly as much as it needs.
 traceability:
   - id: DESIGN-CH-9
     relation: part-of
 ---
 id: DESIGN-CH-9-2
-title: "Flat Newline-Separated Buffers"
+title: "Multi-Valued Fields: std::vector"
 type: design-note
 status: approved
 tags:
@@ -58,24 +54,23 @@ tags:
   - entity
   - implementation
 body: |
-  Instead of embedded linked lists or variable-length arrays, multi-valued
-  component fields use a **flat newline-separated string** pattern:
+  Multi-valued component fields use `std::vector`:
 
-  - `TagComponent.tags` — one tag per line
-  - `TraceabilityComponent.entries` — one `"target\trelation"` pair per line
-  - `SourceComponent.sources` — one source reference per line
-  - `AcceptanceCriteriaComponent.criteria` — one criterion per line
-  - `DocumentMembershipComponent.doc_ids` — one document entity ID per line
+  | Component field | C++ type |
+  |---|---|
+  | `TagComponent.tags` | `std::vector<std::string>` |
+  | `AcceptanceCriteriaComponent.criteria` | `std::vector<std::string>` |
+  | `DocumentMembershipComponent.doc_ids` | `std::vector<std::string>` |
+  | `SourceComponent.sources` | `std::vector<std::string>` |
+  | `TraceabilityComponent.entries` | `std::vector<std::pair<std::string,std::string>>` |
+  | `TestProcedureComponent.preconditions` | `std::vector<std::string>` |
+  | `TestProcedureComponent.steps` | `std::vector<std::pair<std::string,std::string>>` |
+  | `ClauseCollectionComponent.clauses` | `std::vector<std::pair<std::string,std::string>>` |
+  | `AttachmentComponent.attachments` | `std::vector<std::pair<std::string,std::string>>` |
 
-  The corresponding `count` field records the number of entries.
-  `yaml_append_to_flat()` (in `yaml_helpers.c`) handles appending with
-  truncation when the buffer is full; `yaml_append_pair_entry()` handles tab-
-  separated pairs.
-
-  This design avoids heap allocation for these multi-valued fields while still
-  allowing iteration by splitting on `'\n'`.  The tradeoff is that individual
-  entries cannot exceed the field's array size, and edits to individual entries
-  require reconstructing the whole buffer.
+  The previous flat newline-separated buffer pattern (`count` field, fixed-size
+  `char[]` array) was entirely removed.  Iteration is a standard range-based
+  for loop; no buffer-splitting or `count` bookkeeping is required.
 traceability:
   - id: DESIGN-CH-9
     relation: part-of
