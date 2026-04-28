@@ -1,0 +1,121 @@
+id: DESIGN-CH-11
+title: "C++23 Migration: Rationale and Idioms"
+type: design-note
+status: approved
+tags:
+  - cpp23
+  - migration
+  - implementation
+body: |
+  The codebase was migrated from a mixed C11/C++17 implementation to a pure
+  C++23 codebase.  This chapter records the rationale, the key idiom changes,
+  and the toolchain requirements that resulted from that migration.
+---
+id: DESIGN-CH-11-1
+title: "Migration Rationale"
+type: design-note
+status: approved
+tags:
+  - cpp23
+  - migration
+body: |
+  The original implementation mixed C11 (`.c` files with fixed-size `char[]`
+  structs) and C++17 (`.cpp` files for TripletStore) and required manual memory
+  management (`entity_free`, `entity_copy`, `entity_list_free`).  This led to:
+
+  - Fixed field-length limits (e.g. 64-byte IDs, 256-byte titles) that silently
+    truncated long values.
+  - A flat newline-separated buffer pattern for multi-valued fields that
+    required buffer arithmetic and a `count` field alongside each array.
+  - A heap-allocated `char *` pattern for large/rare fields that required
+    `strdup`/`free` discipline and was a source of potential leaks.
+  - A `yaml_helpers.c` utility module that became dead code as the parser was
+    incrementally rewritten.
+
+  Moving to C++23 with `std::string` and `std::vector` throughout eliminated
+  all of these issues via RAII.  The C-compatible ABI is preserved in
+  `triplet_store_c.h` via `extern "C"` for external consumers.
+traceability:
+  - id: DESIGN-CH-11
+    relation: part-of
+---
+id: DESIGN-CH-11-2
+title: "Key C++23 Idiom Changes"
+type: design-note
+status: approved
+tags:
+  - cpp23
+  - migration
+  - idioms
+body: |
+  **Entity string fields: `char[]` → `std::string`**
+
+  Before: `char id[64]`, `char title[256]`, etc.
+  After: `std::string id`, `std::string title`, etc.
+
+  No length limits; no `strncpy`; assignment is direct: `e.identity.id = "REQ-SW-001"`.
+
+  **Entity list: manual array → `std::vector<Entity>`**
+
+  Before: `EntityList { Entity *items; size_t count; }` with `entity_list_add()` / `entity_list_free()`.
+  After: `using EntityList = std::vector<Entity>;`
+
+  Push with `list.push_back(e)`; no explicit free.
+
+  **Multi-valued fields: flat newline buffers → `std::vector<std::string>`**
+
+  Before: `char tags[1024]` with `count` field and `yaml_append_to_flat()`.
+  After: `std::vector<std::string> tags;` — push with `tags.push_back(tag)`.
+
+  **Memory management: manual → RAII**
+
+  `entity_free()`, `entity_copy()`, and `entity_list_free()` were removed.
+  Destructors handle all cleanup automatically when `Entity` or `EntityList`
+  values go out of scope.
+
+  **C++23 language features used**
+
+  | Feature | Usage |
+  |---|---|
+  | `if consteval` | `compat/cxx23_check.cpp` compile-time probe |
+  | `static operator()` | `compat/cxx23_check.cpp` compile-time probe |
+  | `auto(x)` decay-copy | `compat/cxx23_check.cpp` compile-time probe |
+  | Multidimensional `operator[]` | `compat/cxx23_check.cpp` compile-time probe |
+  | `std::optional` | TripletStore slot storage (tombstone pattern) |
+  | `std::unordered_map` | TripletStore subject/predicate/object indexes |
+traceability:
+  - id: DESIGN-CH-11
+    relation: part-of
+---
+id: DESIGN-CH-11-3
+title: "Toolchain Requirements for C++23"
+type: design-note
+status: approved
+tags:
+  - cpp23
+  - toolchain
+  - build
+body: |
+  | Component | Minimum version | Notes |
+  |---|---|---|
+  | C++ compiler | GCC ≥ 13 / Clang ≥ 17 / MSVC 19.38+ | Full C++23 language support |
+  | libyaml | any recent release | Runtime YAML parsing |
+  | Google Test / Google Mock | 1.12+ | Unit tests only |
+  | GNU Make | 4.x | Build system |
+
+  The `CC` and `CFLAGS` Make variables were removed because no C source files
+  remain.  The link step always uses `g++` (or `clang++`) because the C++
+  runtime is required.
+
+  Verify C++23 support before building:
+
+  ```
+  cd src && make check-compiler
+  ```
+
+  The `check-compiler` target compiles `compat/cxx23_check.cpp` which probes
+  `if consteval`, `static operator()`, `auto(x)` decay-copy, and the
+  multidimensional subscript operator.
+traceability:
+  - id: DESIGN-CH-11
+    relation: part-of
