@@ -1,6 +1,4 @@
-CC       = gcc
 CXX      = g++
-CFLAGS   = -std=c11 -Wall -Wextra -Wpedantic -O2 -I.
 CXXFLAGS = -std=c++23 -Wall -Wextra -O2
 LDLIBS   = -lyaml
 
@@ -20,12 +18,10 @@ GTEST_LDFLAGS = -L$(GTEST_PREFIX)/lib -Wl,-rpath,$(GTEST_PREFIX)/lib \
 YAML_OBJS = $(BUILD_DIR)/yaml/yaml_link_parser.o \
             $(BUILD_DIR)/yaml/entity_parser.o
 
-# Main binary sources (C and C++)
-C_SRCS   = config.c
-CPP_SRCS = triplet_store.cpp triplet_store_c.cpp entity.cpp discovery.cpp coverage.cpp list_cmd.cpp new_cmd.cpp report.cpp main.cpp cli_args.cpp
-C_OBJS   = $(addprefix $(BUILD_DIR)/,$(C_SRCS:.c=.o))
+# Main binary sources (C++)
+CPP_SRCS = config.cpp triplet_store.cpp triplet_store_c.cpp entity.cpp discovery.cpp coverage.cpp list_cmd.cpp new_cmd.cpp report.cpp main.cpp cli_args.cpp
 CPP_OBJS = $(addprefix $(BUILD_DIR)/,$(CPP_SRCS:.cpp=.o))
-OBJS     = $(C_OBJS) $(CPP_OBJS) $(YAML_OBJS)
+OBJS     = $(CPP_OBJS) $(YAML_OBJS)
 
 # Test binaries (sources live in tests/)
 TEST_TRIPLET_TARGET = $(BIN_DIR)/tests/test_triplet_store
@@ -136,12 +132,6 @@ test: $(TEST_TRIPLET_TARGET) $(TEST_CONFIG_TARGET) $(TEST_YAML_TARGET) $(TEST_DI
 	./$(TEST_COVERAGE_TARGET)
 	./$(TEST_CLI_ARGS_TARGET)
 	./$(TEST_MAIN_TARGET)
-
-$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
-
-$(BUILD_DIR)/yaml/%.o: yaml/%.c | $(BUILD_DIR)/yaml
-	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
 
 $(BUILD_DIR)/yaml/%.o: yaml/%.cpp | $(BUILD_DIR)/yaml
 	$(CXX) $(CXXFLAGS) -MMD -MP -c -o $@ $<

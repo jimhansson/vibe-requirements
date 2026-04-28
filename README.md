@@ -40,13 +40,11 @@ orphan-detection commands.
 
 ## Toolchain Requirements
 
-The C++ sources are compiled with **C++23** (`-std=c++23`).  The C sources use
-**C11** (`-std=c11`).
+All sources are compiled as **C++23** (`-std=c++23`).
 
 | Component | Minimum version | Notes |
 |---|---|---|
 | C++ compiler | GCC ≥ 13 / Clang ≥ 17 / MSVC 19.38+ | Full C++23 language support required |
-| C compiler | GCC ≥ 7 / Clang ≥ 6 | C11 support |
 | libyaml | any recent release | Runtime YAML parsing |
 | Google Test / Google Mock | 1.12+ | Unit tests only |
 | GNU Make | 4.x | Build system |
@@ -54,7 +52,7 @@ The C++ sources are compiled with **C++23** (`-std=c++23`).  The C sources use
 **Ubuntu / Debian** (the CI target):
 
 ```bash
-sudo apt-get install gcc g++ make libyaml-dev libgtest-dev libgmock-dev
+sudo apt-get install g++ make libyaml-dev libgtest-dev libgmock-dev
 ```
 
 GCC 13 ships in Ubuntu 24.04 LTS and Ubuntu 23.10. On older Ubuntu releases
@@ -63,8 +61,8 @@ install it via the `ubuntu-toolchain-r/test` PPA:
 ```bash
 sudo add-apt-repository ppa:ubuntu-toolchain-r/test
 sudo apt-get update
-sudo apt-get install gcc-13 g++-13
-export CC=gcc-13 CXX=g++-13
+sudo apt-get install g++-13
+export CXX=g++-13
 ```
 
 **macOS** (Homebrew):
