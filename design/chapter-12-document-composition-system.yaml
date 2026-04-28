@@ -30,8 +30,7 @@ body: |
   specific documents by selecting different schemas — without
   duplicating requirement content.
 traceability:
-  - id: DESIGN-CH-6
-    relation: refines
+  refines: DESIGN-CH-6
 ---
 id: DESIGN-CH-12-1
 title: "document-schema Entity Kind"
@@ -69,8 +68,7 @@ body: |
   and carries the same lifecycle fields (`status`, `priority`, `owner`,
   `version`) as any other entity kind.
 traceability:
-  - id: DESIGN-CH-12
-    relation: part-of
+  part-of: DESIGN-CH-12
 ---
 id: DESIGN-CH-12-2
 title: "AppliesToComponent"
@@ -117,8 +115,7 @@ body: |
   vibe-req list --component applies-to
   ```
 traceability:
-  - id: DESIGN-CH-12
-    relation: part-of
+  part-of: DESIGN-CH-12
 ---
 id: DESIGN-CH-12-3
 title: "VariantProfileComponent"
@@ -162,8 +159,7 @@ body: |
   **`entity_has_component()` key:** `"variant-profile"`
   (present when either `customer` or `product` is non-empty)
 traceability:
-  - id: DESIGN-CH-12
-    relation: part-of
+  part-of: DESIGN-CH-12
 ---
 id: DESIGN-CH-12-4
 title: "CompositionProfileComponent"
@@ -210,8 +206,7 @@ body: |
   vibe-req list --component composition-profile
   ```
 traceability:
-  - id: DESIGN-CH-12
-    relation: part-of
+  part-of: DESIGN-CH-12
 ---
 id: DESIGN-CH-12-5
 title: "RenderProfileComponent"
@@ -247,8 +242,7 @@ body: |
   **`entity_has_component()` key:** `"render-profile"`
   (present when `format` is non-empty)
 traceability:
-  - id: DESIGN-CH-12
-    relation: part-of
+  part-of: DESIGN-CH-12
 ---
 id: DESIGN-CH-12-6
 title: "Section Entities and Narrative Content"
@@ -285,18 +279,16 @@ body: |
   body: |
     This section enumerates all functional requirements …
   traceability:
-    - id: REQ-SW-001
-      relation: elaborates
-    - id: REQ-SW-002
-      relation: elaborates
+    elaborates:
+      - REQ-SW-001
+      - REQ-SW-002
   ```
 
   Any section that is not referenced by a `composition-profile.order`
   sequence will appear as an orphan in `vibe-req orphan` output,
   which helps catch stale or unlinked sections.
 traceability:
-  - id: DESIGN-CH-12
-    relation: part-of
+  part-of: DESIGN-CH-12
 ---
 id: DESIGN-CH-12-7
 title: "Full Authoring Example: Variant-Aware SRS"
@@ -335,10 +327,9 @@ body: |
   body: |
     See the individual requirement entities linked below.
   traceability:
-    - id: REQ-SW-001
-      relation: elaborates
-    - id: REQ-SW-002
-      relation: elaborates
+    elaborates:
+      - REQ-SW-001
+      - REQ-SW-002
   ```
 
   **Acme-specific schema** (`schemas/schema-srs-acme.yaml`):
@@ -360,8 +351,7 @@ body: |
   render-profile:
     format: markdown
   traceability:
-    - id: SRS-ACME-001
-      relation: part-of
+    part-of: SRS-ACME-001
   ```
 
   **BMW-specific schema** (`schemas/schema-srs-bmw.yaml`):
@@ -382,8 +372,7 @@ body: |
   render-profile:
     format: html
   traceability:
-    - id: SRS-BMW-001
-      relation: part-of
+    part-of: SRS-BMW-001
   ```
 
   **CLI commands to inspect the schemas:**
@@ -402,8 +391,7 @@ body: |
   vibe-req doc SRS-ACME-001 --format md --output srs-acme.md
   ```
 traceability:
-  - id: DESIGN-CH-12
-    relation: part-of
+  part-of: DESIGN-CH-12
 ---
 id: DESIGN-CH-12-8
 title: "ECS Integration of Document Composition Components"
@@ -445,7 +433,5 @@ body: |
   `document-schema` entities — consistent with the ECS principle of
   attaching only the components relevant to a given entity.
 traceability:
-  - id: DESIGN-CH-12
-    relation: part-of
-  - id: DESIGN-CH-6
-    relation: refines
+  part-of: DESIGN-CH-12
+  refines: DESIGN-CH-6

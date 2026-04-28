@@ -139,34 +139,6 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 }
                 continue;
             }
-            if (strcmp(key, "traceability") == 0 ||
-                strcmp(key, "links") == 0) {
-                for (yaml_node_item_t *it = val_node->data.sequence.items.start;
-                     it < val_node->data.sequence.items.top; ++it) {
-                    yaml_node_t *link_map = yaml_document_get_node(doc, *it);
-                    if (!link_map || link_map->type != YAML_MAPPING_NODE)
-                        continue;
-                    std::string target, relation;
-                    for (yaml_node_pair_t *sp =
-                             link_map->data.mapping.pairs.start;
-                         sp < link_map->data.mapping.pairs.top; ++sp) {
-                        yaml_node_t *sk = yaml_document_get_node(doc, sp->key);
-                        yaml_node_t *sv = yaml_document_get_node(doc, sp->value);
-                        if (!sk || sk->type != YAML_SCALAR_NODE) continue;
-                        if (!sv || sv->type != YAML_SCALAR_NODE) continue;
-                        const char *skey = reinterpret_cast<const char *>(
-                            sk->data.scalar.value);
-                        if (strcmp(skey, "id") == 0 ||
-                            strcmp(skey, "artefact") == 0)
-                            target = scalar_value(sv);
-                        else if (strcmp(skey, "relation") == 0)
-                            relation = scalar_value(sv);
-                    }
-                    if (!target.empty() && !relation.empty())
-                        out->traceability.entries.push_back({target, relation});
-                }
-                continue;
-            }
             if (strcmp(key, "preconditions") == 0) {
                 collect_sequence_to_vector(doc, val_node,
                                            out->test_procedure.preconditions);
@@ -257,6 +229,43 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
 
         /* --- Mapping fields ------------------------------------------ */
         if (val_node && val_node->type == YAML_MAPPING_NODE) {
+            if (strcmp(key, "traceability") == 0 ||
+                strcmp(key, "links") == 0) {
+                /* New relation-keyed schema:
+                 *   traceability:
+                 *     <relation>: <target>          # scalar
+                 *     <relation>:                   # sequence
+                 *       - <target1>
+                 *       - <target2>
+                 */
+                for (yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
+                     sp < val_node->data.mapping.pairs.top; ++sp) {
+                    yaml_node_t *rk = yaml_document_get_node(doc, sp->key);
+                    yaml_node_t *rv = yaml_document_get_node(doc, sp->value);
+                    if (!rk || rk->type != YAML_SCALAR_NODE) continue;
+                    if (!rv) continue;
+                    std::string relation = scalar_value(rk);
+                    if (relation.empty()) continue;
+                    if (rv->type == YAML_SCALAR_NODE) {
+                        std::string target = scalar_value(rv);
+                        if (!target.empty())
+                            out->traceability.entries.push_back({target, relation});
+                    } else if (rv->type == YAML_SEQUENCE_NODE) {
+                        for (yaml_node_item_t *it =
+                                 rv->data.sequence.items.start;
+                             it < rv->data.sequence.items.top; ++it) {
+                            yaml_node_t *item = yaml_document_get_node(doc, *it);
+                            if (!item || item->type != YAML_SCALAR_NODE)
+                                continue;
+                            std::string target = scalar_value(item);
+                            if (!target.empty())
+                                out->traceability.entries.push_back(
+                                    {target, relation});
+                        }
+                    }
+                }
+                continue;
+            }
             if (strcmp(key, "assumption") == 0) {
                 for (yaml_node_pair_t *sp = val_node->data.mapping.pairs.start;
                      sp < val_node->data.mapping.pairs.top; ++sp) {

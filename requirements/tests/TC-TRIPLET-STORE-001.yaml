@@ -33,17 +33,11 @@ expected_results:
   - No memory errors on destroy.
 verification_method: test
 links:
-  - id: DESIGN-CH-5
-    relation: verifies
-  - id: DESIGN-CH-5-1
-    relation: verifies
-  - id: REQ-030
-    relation: verifies
-  - id: REQ-031
-    relation: verifies
-  - id: REQ-032
-    relation: verifies
-  - id: REQ-034
-    relation: verifies
-  - artefact: src/tests/test_triplet_store.cpp
-    relation: implemented-by
+  verifies:
+    - DESIGN-CH-5
+    - DESIGN-CH-5-1
+    - REQ-030
+    - REQ-031
+    - REQ-032
+    - REQ-034
+  implemented-by: src/tests/test_triplet_store.cpp

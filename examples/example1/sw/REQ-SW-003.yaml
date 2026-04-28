@@ -15,5 +15,4 @@ tags:
   - cli
   - listing
 links:
-  - id: REQ-SW-002
-    relation: depends-on
+  depends-on: REQ-SW-002

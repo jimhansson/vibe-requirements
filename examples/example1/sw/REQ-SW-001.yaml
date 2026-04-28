@@ -14,5 +14,4 @@ tags:
   - format
   - yaml
 links:
-  - id: REQ-SYS-001
-    relation: implements
+  implements: REQ-SYS-001

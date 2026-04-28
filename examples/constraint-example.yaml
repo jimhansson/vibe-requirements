@@ -21,7 +21,6 @@ tags:
   - tls
   - regulatory
 links:
-  - id: REQ-SEC-005
-    relation: constrains
-  - id: STORY-SW-001
-    relation: constrains
+  constrains:
+    - REQ-SEC-005
+    - STORY-SW-001

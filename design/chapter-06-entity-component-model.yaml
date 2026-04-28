@@ -19,8 +19,7 @@ tags:
 body: |
   `Entity` is a stable ID (`REQ-SW-001`, `TC-SW-001`, `EXT-MACH-DIR`, etc.).
 traceability:
-  - id: DESIGN-CH-6
-    relation: part-of
+  part-of: DESIGN-CH-6
 ---
 id: DESIGN-CH-6-2
 title: "Common Components (Regular Size)"
@@ -41,8 +40,7 @@ body: |
   These components cover most entities and are suitable for cache-friendly
   storage and batch queries.
 traceability:
-  - id: DESIGN-CH-6
-    relation: part-of
+  part-of: DESIGN-CH-6
 ---
 id: DESIGN-CH-6-3
 title: "Irregular Components (Variable Size)"
@@ -109,8 +107,7 @@ body: |
 
   This separation keeps the hot path small while allowing rich per-entity data.
 traceability:
-  - id: DESIGN-CH-6
-    relation: part-of
+  part-of: DESIGN-CH-6
 ---
 id: DESIGN-CH-6-4
 title: "Traceability Component"
@@ -130,16 +127,17 @@ body: |
   }
   ```
 
-  **YAML key:** `traceability` — a sequence of `{id|artefact, relation}` mappings:
+  **YAML key:** `traceability` — a relation-keyed mapping where each key is a
+  relation type and each value is a single target ID (scalar) or a list of
+  target IDs (sequence):
 
   ```yaml
   traceability:
-    - id: REQ-SYS-005
-      relation: derived-from
-    - id: TC-SW-001
-      relation: verified-by
-    - artefact: src/auth/login.c
-      relation: implemented-in
+    derived-from: REQ-SYS-005
+    verified-by:
+      - TC-SW-001
+      - TC-SW-002
+    implemented-in: src/auth/login.c
   ```
 
   **Relation types** are free-form strings (e.g. `"implements"`, `"verifies"`,
@@ -162,8 +160,7 @@ body: |
     are served by `triplet_store_find_by_object()`; per-entity forward reads are
     served by the component directly.
 traceability:
-  - id: DESIGN-CH-6
-    relation: part-of
+  part-of: DESIGN-CH-6
 ---
 id: DESIGN-CH-6-5
 title: "Source Component"
@@ -199,8 +196,7 @@ body: |
 
   Any entity kind can carry this component.
 traceability:
-  - id: DESIGN-CH-6
-    relation: part-of
+  part-of: DESIGN-CH-6
 ---
 id: DESIGN-CH-6-6
 title: "Why ECS-Like Here"
@@ -216,8 +212,7 @@ body: |
     needed components.
   - Helps separate regular and irregular data for better memory behavior.
 traceability:
-  - id: DESIGN-CH-6
-    relation: part-of
+  part-of: DESIGN-CH-6
 ---
 id: DESIGN-CH-6-7
 title: "ECS Mutation API (Disk-Synchronized)"
@@ -246,5 +241,4 @@ body: |
   - GUI should call only these repository APIs, not direct component table
     setters.
 traceability:
-  - id: DESIGN-CH-6
-    relation: part-of
+  part-of: DESIGN-CH-6

@@ -38,21 +38,14 @@ expected_results:
   - No file is created on error.
 verification_method: test
 links:
-  - id: REQ-051
-    relation: verifies
-  - id: REQ-010
-    relation: verifies
-  - id: REQ-011
-    relation: verifies
-  - id: REQ-013
-    relation: verifies
-  - id: REQ-015
-    relation: verifies
-  - id: DESIGN-CH-7-1
-    relation: verifies
-  - artefact: src/tests/test_new_cmd.cpp
-    relation: implemented-by
-  - artefact: src/tests/test_new_cmd.cpp#NewCmdScaffoldTest.CreatesFileWithCorrectContent
-    relation: implemented-by-test
-  - artefact: src/tests/test_new_cmd.cpp#NewCmdContentTest.TestCaseHasPreconditionsAndSteps
-    relation: implemented-by-test
+  verifies:
+    - REQ-051
+    - REQ-010
+    - REQ-011
+    - REQ-013
+    - REQ-015
+    - DESIGN-CH-7-1
+  implemented-by: src/tests/test_new_cmd.cpp
+  implemented-by-test:
+    - src/tests/test_new_cmd.cpp#NewCmdScaffoldTest.CreatesFileWithCorrectContent
+    - src/tests/test_new_cmd.cpp#NewCmdContentTest.TestCaseHasPreconditionsAndSteps

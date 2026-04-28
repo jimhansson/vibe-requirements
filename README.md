@@ -356,12 +356,9 @@ tags:
   - security
   - authentication
 traceability:
-  - id: REQ-SYS-005
-    relation: derived-from
-  - id: TC-SW-001
-    relation: verified-by
-  - artefact: src/auth/login.c
-    relation: implemented-in
+  derived-from: REQ-SYS-005
+  verified-by: TC-SW-001
+  implemented-in: src/auth/login.c
 ```
 
 > **Note:** Both `traceability:` and `links:` YAML keys are recognised;
@@ -384,8 +381,7 @@ acceptance_criteria:
   - Submitting valid credentials redirects the user to the dashboard.
   - Submitting invalid credentials displays a clear error message.
 traceability:
-  - id: REQ-AUTH-001
-    relation: implements
+  implements: REQ-AUTH-001
 ```
 
 ### Assumption
@@ -429,8 +425,7 @@ priority: must
 description: |
   Steps to verify that a registered user can log in successfully.
 traceability:
-  - id: REQ-SW-001
-    relation: verifies
+  verifies: REQ-SW-001
 ```
 
 ### Document (SRS / SDD)
@@ -515,18 +510,17 @@ for the full design documentation.
 ### Traceability links
 
 Traceability entries may appear under `traceability:` **or** `links:` — both
-are parsed identically.  Each entry is a mapping with either an `id` key (for
-entity links) or an `artefact` key (for file/artefact links), plus a
-`relation` key:
+are parsed identically.  The value is a relation-keyed mapping where each key
+is a relation type and each value is either a single target ID (scalar) or a
+list of target IDs (sequence):
 
 ```yaml
 traceability:
-  - id: REQ-SYS-005
-    relation: derived-from
-  - id: TC-SW-001
-    relation: verified-by
-  - artefact: src/auth/login.c
-    relation: implemented-in
+  derived-from: REQ-SYS-005
+  verified-by:
+    - TC-SW-001
+    - TC-SW-002
+  implemented-in: src/auth/login.c
 ```
 
 Relation types are free-form strings.  Common conventions:
@@ -623,7 +617,7 @@ queryable through the same indexed graph API as all other relations.
 | `DocumentMetaComponent` | `doc_meta` (mapping) | `title`, `doc_type`, `version`, `client`, `status` | Document-level metadata |
 | `DocumentMembershipComponent` | `documents` (sequence) | `doc_ids` (`std::vector<std::string>`) | Parent document entity IDs |
 | `DocumentBodyComponent` | `body` | `body` | Free-form body text (design notes, sections) |
-| `TraceabilityComponent` | `traceability` or `links` (sequence) | `entries` (`std::vector<std::pair<std::string,std::string>>`) | Outgoing directed relation links |
+| `TraceabilityComponent` | `traceability` or `links` (mapping) | `entries` (`std::vector<std::pair<std::string,std::string>>`) | Outgoing directed relation links |
 | `SourceComponent` | `sources` (sequence) | `sources` (`std::vector<std::string>`) | Normative source references (external standards, requirement IDs) |
 | `AppliesToComponent` | `applies-to` (scalar or sequence) | `applies_to` (`std::vector<std::string>`) | Document IDs or variant identifiers that a `document-schema` applies to |
 | `VariantProfileComponent` | `variant-profile` (mapping) | `customer`, `product` | Customer and product/delivery identifiers for a document variant |
@@ -685,7 +679,7 @@ table so `infer_inverses()` always creates the reverse direction automatically.
 
 **Migration note for teams using `part-of` in `traceability:` blocks**
 
-Teams that have already written explicit `traceability: [{id: SRS-X, relation: part-of}]`
+Teams that have already written explicit `traceability: {part-of: SRS-X}`
 entries do not need to migrate.  Those entries continue to work and are loaded
 into the TripletStore via the regular `entity_traceability_to_triplets()` path.
 The `documents:` key is preferred for new content because it also populates the
@@ -697,7 +691,7 @@ and `entity_has_component()` predicate).
 | Approach | Pros | Cons |
 |---|---|---|
 | `documents:` key (ECS component) | Self-contained per entity; fast `entity_has_component()` check; filter CLI support | Not visible in the TripletStore without the projection step |
-| `traceability: [{relation: part-of}]` | Unified with all other links; TripletStore-queryable natively | Does not populate `DocumentMembershipComponent`; `--component doc-membership` filter won't match |
+| `traceability: {part-of: SRS-X}` | Unified with all other links; TripletStore-queryable natively | Does not populate `DocumentMembershipComponent`; `--component doc-membership` filter won't match |
 | TripletStore projection (current approach) | Both APIs work; no migration needed; covers both authoring styles | Membership appears twice (component + store); duplication is harmless but may be surprising |
 
 ---

@@ -71,8 +71,7 @@ body: |
   - In write-through mode, update YAML files atomically as part of the same
     operation.
 traceability:
-  - id: DESIGN-CH-5
-    relation: part-of
+  part-of: DESIGN-CH-5
 ---
 id: DESIGN-CH-5-2
 title: "Persistence Strategy"
@@ -92,8 +91,7 @@ body: |
   - Sort links by `(relation, target)` before writing.
   - Avoid rewriting untouched files.
 traceability:
-  - id: DESIGN-CH-5
-    relation: part-of
+  part-of: DESIGN-CH-5
 ---
 id: DESIGN-CH-5-3
 title: "Entity Origin Tracking (File Provenance)"
@@ -137,8 +135,7 @@ body: |
     entity's YAML document.
   - Rename/move operations must update origin indexes transactionally.
 traceability:
-  - id: DESIGN-CH-5
-    relation: part-of
+  part-of: DESIGN-CH-5
 ---
 id: DESIGN-CH-5-4
 title: "Repository API (Write-Through First)"
@@ -180,5 +177,4 @@ body: |
   - Return structured errors with file path and operation context.
   - Never leave memory and disk diverged after a failed write-through call.
 traceability:
-  - id: DESIGN-CH-5
-    relation: part-of
+  part-of: DESIGN-CH-5

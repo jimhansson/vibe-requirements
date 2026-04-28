@@ -3,7 +3,6 @@
  * @brief YAML link / traceability parsing implementation (C++ edition).
  *
  * Implements yaml_parse_links() declared in yaml_simple.h.
- * The static helper add_link_triple() is internal to this translation unit.
  */
 
 #include "../yaml_simple.h"
@@ -13,51 +12,69 @@
 #include <string>
 
 /*
- * Walk one link mapping node and add a (subject, relation, target) triple
- * to store.
+ * Walk a relation-keyed traceability mapping node and add
+ * (subject, relation, target) triples to store.
  *
- * Each link entry is expected to have either an "id" or "artefact" key
- * (the object) plus a "relation" key (the predicate).
+ * The mapping format is:
+ *   <relation>: <target>          # scalar
+ *   <relation>:                   # sequence
+ *     - <target1>
+ *     - <target2>
  *
- * Returns 1 if a triple was added, 0 otherwise.
+ * Returns the number of triples added.
  */
-static int add_link_triple(yaml_document_t *doc, yaml_node_t *link_map,
-                            const char *subject_id, TripletStore *store)
+static int add_traceability_triples(yaml_document_t *doc,
+                                     yaml_node_t *map,
+                                     const char *subject_id,
+                                     TripletStore *store)
 {
-    if (!link_map || link_map->type != YAML_MAPPING_NODE)
+    if (!map || map->type != YAML_MAPPING_NODE)
         return 0;
 
-    std::string target;
-    std::string relation;
+    int added = 0;
 
-    yaml_node_pair_t *pair = link_map->data.mapping.pairs.start;
-    yaml_node_pair_t *end  = link_map->data.mapping.pairs.top;
+    yaml_node_pair_t *pair = map->data.mapping.pairs.start;
+    yaml_node_pair_t *end  = map->data.mapping.pairs.top;
 
     for (; pair < end; pair++) {
-        yaml_node_t *key_node = yaml_document_get_node(doc, pair->key);
-        yaml_node_t *val_node = yaml_document_get_node(doc, pair->value);
+        yaml_node_t *rk = yaml_document_get_node(doc, pair->key);
+        yaml_node_t *rv = yaml_document_get_node(doc, pair->value);
 
-        if (!key_node || key_node->type != YAML_SCALAR_NODE) continue;
-        if (!val_node || val_node->type != YAML_SCALAR_NODE) continue;
+        if (!rk || rk->type != YAML_SCALAR_NODE) continue;
+        if (!rv) continue;
 
-        const char *key = reinterpret_cast<const char *>(
-            key_node->data.scalar.value);
-        const char *val = reinterpret_cast<const char *>(
-            val_node->data.scalar.value);
+        const char *relation = reinterpret_cast<const char *>(
+            rk->data.scalar.value);
+        if (!relation || relation[0] == '\0') continue;
 
-        if (strcmp(key, "id") == 0 || strcmp(key, "artefact") == 0) {
-            target = val;
-        } else if (strcmp(key, "relation") == 0) {
-            relation = val;
+        if (rv->type == YAML_SCALAR_NODE) {
+            const char *target = reinterpret_cast<const char *>(
+                rv->data.scalar.value);
+            if (target && target[0] != '\0') {
+                size_t id = triplet_store_add(store, subject_id, relation,
+                                              target);
+                if (id != TRIPLE_ID_INVALID)
+                    added++;
+            }
+        } else if (rv->type == YAML_SEQUENCE_NODE) {
+            yaml_node_item_t *it  = rv->data.sequence.items.start;
+            yaml_node_item_t *top = rv->data.sequence.items.top;
+            for (; it < top; it++) {
+                yaml_node_t *item = yaml_document_get_node(doc, *it);
+                if (!item || item->type != YAML_SCALAR_NODE) continue;
+                const char *target = reinterpret_cast<const char *>(
+                    item->data.scalar.value);
+                if (target && target[0] != '\0') {
+                    size_t id = triplet_store_add(store, subject_id, relation,
+                                                  target);
+                    if (id != TRIPLE_ID_INVALID)
+                        added++;
+                }
+            }
         }
     }
 
-    if (target.empty() || relation.empty())
-        return 0;
-
-    size_t id = triplet_store_add(store, subject_id, relation.c_str(),
-                                  target.c_str());
-    return (id != TRIPLE_ID_INVALID) ? 1 : 0;
+    return added;
 }
 
 int yaml_parse_links(const char *path, const char *subject_id,
@@ -90,8 +107,9 @@ int yaml_parse_links(const char *path, const char *subject_id,
         if (root->type == YAML_MAPPING_NODE) {
             /*
              * In a multi-document file each document may belong to a
-             * different requirement.  Only process the "links" sequence
-             * of the document whose top-level "id" matches subject_id.
+             * different requirement.  Only process the "traceability" or
+             * "links" mapping of the document whose top-level "id" matches
+             * subject_id.
              */
             const char *doc_id = nullptr;
             yaml_node_pair_t *pair = root->data.mapping.pairs.start;
@@ -118,7 +136,7 @@ int yaml_parse_links(const char *path, const char *subject_id,
                 continue;
             }
 
-            /* Found the right document — extract its links. */
+            /* Found the right document — extract its traceability links. */
             pair = root->data.mapping.pairs.start;
             end  = root->data.mapping.pairs.top;
 
@@ -129,21 +147,14 @@ int yaml_parse_links(const char *path, const char *subject_id,
 
                 const char *key = reinterpret_cast<const char *>(
                     key_node->data.scalar.value);
-                if (strcmp(key, "links") != 0)
+                if (strcmp(key, "traceability") != 0 &&
+                    strcmp(key, "links") != 0)
                     continue;
 
                 yaml_node_t *links_node = yaml_document_get_node(&doc,
                                                                   pair->value);
-                if (!links_node || links_node->type != YAML_SEQUENCE_NODE)
-                    break;
-
-                yaml_node_item_t *item = links_node->data.sequence.items.start;
-                yaml_node_item_t *top  = links_node->data.sequence.items.top;
-
-                for (; item < top; item++) {
-                    yaml_node_t *link_map = yaml_document_get_node(&doc, *item);
-                    added += add_link_triple(&doc, link_map, subject_id, store);
-                }
+                added += add_traceability_triples(&doc, links_node,
+                                                  subject_id, store);
                 break;
             }
         }

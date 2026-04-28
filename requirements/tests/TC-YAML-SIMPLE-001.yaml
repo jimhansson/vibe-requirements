@@ -36,23 +36,15 @@ expected_results:
   - The links key is treated as an alias for traceability in entity parsing.
 verification_method: test
 links:
-  - id: REQ-002
-    relation: verifies
-  - id: REQ-007
-    relation: verifies
-  - id: REQ-030
-    relation: verifies
-  - id: REQ-031
-    relation: verifies
-  - id: REQ-032
-    relation: verifies
-  - id: DESIGN-CH-2
-    relation: verifies
-  - artefact: src/tests/test_yaml_simple.cpp
-    relation: implemented-by
-  - artefact: src/tests/test_yaml_simple.cpp#YamlSimpleTest.SingleDocument
-    relation: implemented-by-test
-  - artefact: src/tests/test_yaml_simple.cpp#YamlSimpleTest.MultiDocument
-    relation: implemented-by-test
-  - artefact: src/tests/test_yaml_simple.cpp#YamlSimpleTest.LinksArtefactKey
-    relation: implemented-by-test
+  verifies:
+    - REQ-002
+    - REQ-007
+    - REQ-030
+    - REQ-031
+    - REQ-032
+    - DESIGN-CH-2
+  implemented-by: src/tests/test_yaml_simple.cpp
+  implemented-by-test:
+    - src/tests/test_yaml_simple.cpp#YamlSimpleTest.SingleDocument
+    - src/tests/test_yaml_simple.cpp#YamlSimpleTest.MultiDocument
+    - src/tests/test_yaml_simple.cpp#YamlSimpleTest.LinksArtefactKey

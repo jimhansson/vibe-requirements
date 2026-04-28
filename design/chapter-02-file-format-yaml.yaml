@@ -28,14 +28,10 @@ body: |
   sources:
     - external: EU-2016-679:article:32   # GDPR Article 32
   links:
-    - id: REQ-SW-002
-      relation: parent
-    - id: REQ-SYS-005
-      relation: derives-from
-    - artefact: src/auth/login.c
-      relation: implemented-in
-    - artefact: tests/auth/test_login.c
-      relation: verified-by
+    parent: REQ-SW-002
+    derives-from: REQ-SYS-005
+    implemented-in: src/auth/login.c
+    verified-by: tests/auth/test_login.c
   ```
 
   The canonical format for an external source reference in any requirement
@@ -89,8 +85,7 @@ body: |
   verification: test
   status: approved
   links:
-    - id: REQ-SW-001
-      relation: verifies
+    verifies: REQ-SW-001
   ```
 
   YAML files may also contain multiple entities in one physical file using
@@ -117,9 +112,7 @@ body: |
 
   For multi-document YAML, each YAML document maps to exactly one entity.
 traceability:
-  - id: REQ-002
-    relation: elaborates
-  - id: REQ-007
-    relation: elaborates
-  - id: REQ-008
-    relation: elaborates
+  elaborates:
+    - REQ-002
+    - REQ-007
+    - REQ-008

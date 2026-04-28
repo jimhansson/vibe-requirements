@@ -26,8 +26,7 @@ description: |
   Users must be able to authenticate using a valid email address and
   a password that meets the system's complexity requirements.
 links:
-  - id: GRP-AUTH-001
-    relation: member-of
+  member-of: GRP-AUTH-001
 ---
 id: REQ-AUTH-002
 title: The system shall lock accounts after five failed login attempts
@@ -40,7 +39,5 @@ description: |
   temporarily locked.  The lock must persist for at least 15 minutes
   or until an administrator unlocks the account, whichever comes first.
 links:
-  - id: GRP-AUTH-001
-    relation: member-of
-  - id: REQ-AUTH-001
-    relation: refines
+  member-of: GRP-AUTH-001
+  refines: REQ-AUTH-001

@@ -529,12 +529,9 @@ TEST(YamlParseEntityTest, TraceabilityComponent)
         "title: A traced requirement\n"
         "type: functional\n"
         "traceability:\n"
-        "  - id: REQ-SYS-005\n"
-        "    relation: derived-from\n"
-        "  - id: TC-SW-001\n"
-        "    relation: verified-by\n"
-        "  - artefact: src/auth/login.c\n"
-        "    relation: implemented-in\n");
+        "  derived-from: REQ-SYS-005\n"
+        "  verified-by: TC-SW-001\n"
+        "  implemented-in: src/auth/login.c\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
@@ -560,8 +557,7 @@ TEST(YamlParseEntityTest, TraceabilityOnAnyEntityKind)
         "goal: submit code\n"
         "reason: features are delivered\n"
         "traceability:\n"
-        "  - id: REQ-SW-010\n"
-        "    relation: implements\n");
+        "  implements: REQ-SW-010\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
@@ -587,6 +583,35 @@ TEST(YamlParseEntityTest, TraceabilityEmptyWhenAbsent)
     EXPECT_EQ(rc, 0);
     EXPECT_EQ((int)e.traceability.entries.size(), 0);
     EXPECT_TRUE(e.traceability.entries.empty());
+}
+
+TEST(YamlParseEntityTest, TraceabilitySequenceTargetsExpandIntoEntries)
+{
+    /* A single relation key with a sequence value expands to one entry per
+     * target, each with the same relation type. */
+    const char *path = write_yaml("ent_trace_seq.yaml",
+        "id: REQ-SW-099\n"
+        "title: Multi-target traceability\n"
+        "type: functional\n"
+        "traceability:\n"
+        "  verified-by:\n"
+        "    - TC-SW-001\n"
+        "    - TC-SW-002\n"
+        "    - TC-SW-003\n"
+        "  derived-from: REQ-SYS-010\n");
+    ASSERT_NE(path, nullptr);
+
+    Entity e;
+    int rc = yaml_parse_entity(path, &e);
+    EXPECT_EQ(rc, 0);
+    /* 3 verified-by targets + 1 derived-from target = 4 entries */
+    EXPECT_EQ((int)e.traceability.entries.size(), 4);
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "TC-SW-001"));
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "TC-SW-002"));
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "TC-SW-003"));
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "REQ-SYS-010"));
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "verified-by"));
+    EXPECT_TRUE(contains_in_pairs(e.traceability.entries, "derived-from"));
 }
 
 TEST(YamlParseEntityTest, SourcesComponentMappingItems)
@@ -656,10 +681,8 @@ TEST(TraceabilityToTripletsTest, LoadsEntriesIntoStore)
         "title: Requirement with traceability\n"
         "type: functional\n"
         "traceability:\n"
-        "  - id: REQ-SYS-010\n"
-        "    relation: derived-from\n"
-        "  - id: TC-SW-020\n"
-        "    relation: verified-by\n");
+        "  derived-from: REQ-SYS-010\n"
+        "  verified-by: TC-SW-020\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;
@@ -715,8 +738,7 @@ TEST(TraceabilityToTripletsTest, DuplicatesNotAdded)
         "title: Dedup test\n"
         "type: functional\n"
         "traceability:\n"
-        "  - id: REQ-SYS-030\n"
-        "    relation: derived-from\n");
+        "  derived-from: REQ-SYS-030\n");
     ASSERT_NE(path, nullptr);
 
     Entity e;

@@ -68,8 +68,7 @@ priority: should
 description: |
   The system shall notify the account owner by email when their account is locked.
 traceability:
-  - id: REQ-SW-010
-    relation: refines
+  refines: REQ-SW-010
 ```
 
 Use the one-file-per-chapter style for design notes, grouped requirements, and
@@ -140,12 +139,9 @@ tags:
 sources:
   - external: EU-2016-679:article:32   # GDPR Article 32
 traceability:
-  - id: REQ-SYS-005
-    relation: derived-from
-  - id: TC-SW-001
-    relation: verified-by
-  - artefact: src/auth/login.c
-    relation: implemented-in
+  derived-from: REQ-SYS-005
+  verified-by: TC-SW-001
+  implemented-in: src/auth/login.c
 ```
 
 ### 4.3 User story
@@ -165,8 +161,7 @@ acceptance_criteria:
   - Submitting valid credentials redirects the user to the dashboard.
   - Submitting invalid credentials displays a clear error message.
 traceability:
-  - id: REQ-AUTH-001
-    relation: implements
+  implements: REQ-AUTH-001
 ```
 
 Legacy field names `as_a`, `i_want`, `so_that` are also accepted.
@@ -223,8 +218,7 @@ steps:
     expected_output: "The system returns the resource and HTTP 200."
 expected_result: "The user gains access to the protected resource."
 traceability:
-  - id: REQ-SW-001
-    relation: verifies
+  verifies: REQ-SW-001
 ```
 
 ### 4.7 Design note / section
@@ -241,8 +235,7 @@ body: |
   A requirement file stores one or more YAML documents. Each document
   maps to a single entity identified by its `id:` field.
 traceability:
-  - id: REQ-002
-    relation: elaborates
+  elaborates: REQ-002
 ```
 
 ### 4.8 Group
@@ -260,8 +253,7 @@ Member requirements link back to the group:
 
 ```yaml
 traceability:
-  - id: GRP-AUTH-001
-    relation: member-of
+  member-of: GRP-AUTH-001
 ```
 
 ### 4.9 External normative source
@@ -333,20 +325,17 @@ sources:
 ### 5.1 Traceability block
 
 Use `traceability:` (preferred) or the alias `links:` — both are parsed
-identically.  Each entry is a mapping with:
-- `id` (for entity links) **or** `artefact` (for file/artefact links)
-- `relation` — a free-form relation type string
+identically.  The value is a relation-keyed mapping where each key is a
+relation type and each value is a single target ID (scalar) or a list of
+target IDs (sequence):
 
 ```yaml
 traceability:
-  - id: REQ-SYS-005
-    relation: derived-from
-  - id: TC-SW-001
-    relation: verified-by
-  - artefact: src/auth/login.c
-    relation: implemented-in
-  - artefact: tests/auth/test_login.c
-    relation: verified-by
+  derived-from: REQ-SYS-005
+  verified-by:
+    - TC-SW-001
+    - TC-SW-002
+  implemented-in: src/auth/login.c
 ```
 
 ### 5.2 Recommended relation types
@@ -399,7 +388,7 @@ attached to any entity kind.
 | `DocumentMetaComponent` | `doc_meta` mapping | title (≤256), doc_type (≤64), version (≤32), client (≤128), status (≤32) |
 | `DocumentMembershipComponent` | `documents` sequence | doc_ids list (≤1024 bytes) |
 | `DocumentBodyComponent` | `body` | free-form text (≤64 KB) |
-| `TraceabilityComponent` | `traceability` or `links` sequence | entries: `target\trelation` pairs (≤4096 bytes) |
+| `TraceabilityComponent` | `traceability` or `links` mapping | entries: `target\trelation` pairs (≤4096 bytes) |
 | `SourceComponent` | `sources` sequence | source refs (≤2048 bytes) |
 | `TestProcedureComponent` | `preconditions`, `steps`, `expected_result` | preconditions (≤2048), steps (≤4096), expected_result (≤1024) |
 | `ClauseCollectionComponent` | `clauses` sequence | `id\ttitle` pairs (≤8192 bytes) |

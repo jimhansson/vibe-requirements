@@ -32,8 +32,7 @@ body: |
   | `report` | Generate a Markdown or HTML report of all entities (or a filtered subset) |
   | `new <type> <id>` | Scaffold a new entity YAML file in the current (or specified) directory |
 traceability:
-  - id: DESIGN-CH-7
-    relation: part-of
+  part-of: DESIGN-CH-7
 ---
 id: DESIGN-CH-7-2
 title: "CLI Filter Flags"
@@ -73,8 +72,7 @@ body: |
   | `--strict-links` | Used with `links`: warn when a known bidirectional relation is only declared in one direction; exits non-zero if any warnings are found |
   | `-h`, `--help` | Print usage and exit |
 traceability:
-  - id: DESIGN-CH-7
-    relation: part-of
+  part-of: DESIGN-CH-7
 ---
 id: DESIGN-CH-7-3
 title: "Planned / Future CLI Commands"
@@ -91,5 +89,4 @@ body: |
   | `status` | Print counts by status and priority |
   | `export <format>` | Export to CSV or ReqIF |
 traceability:
-  - id: DESIGN-CH-7
-    relation: part-of
+  part-of: DESIGN-CH-7

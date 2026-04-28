@@ -32,27 +32,16 @@ expected_results:
   - entity_list_free() releases all allocated memory without error.
 verification_method: test
 links:
-  - id: REQ-010
-    relation: verifies
-  - id: REQ-011
-    relation: verifies
-  - id: REQ-013
-    relation: verifies
-  - id: REQ-015
-    relation: verifies
-  - id: REQ-020
-    relation: verifies
-  - id: REQ-025
-    relation: verifies
-  - id: REQ-026
-    relation: verifies
-  - id: DESIGN-CH-6
-    relation: verifies
-  - id: DESIGN-CH-6-2
-    relation: verifies
-  - id: DESIGN-CH-6-3
-    relation: verifies
-  - id: DESIGN-CH-6-4
-    relation: verifies
-  - artefact: src/tests/test_entity.cpp
-    relation: implemented-by
+  verifies:
+    - REQ-010
+    - REQ-011
+    - REQ-013
+    - REQ-015
+    - REQ-020
+    - REQ-025
+    - REQ-026
+    - DESIGN-CH-6
+    - DESIGN-CH-6-2
+    - DESIGN-CH-6-3
+    - DESIGN-CH-6-4
+  implemented-by: src/tests/test_entity.cpp
