@@ -139,7 +139,6 @@ static void extract_entity_fields(yaml_document_t *doc, yaml_node_t *map,
                 }
                 continue;
             }
-
             if (strcmp(key, "preconditions") == 0) {
                 collect_sequence_to_vector(doc, val_node,
                                            out->test_procedure.preconditions);
