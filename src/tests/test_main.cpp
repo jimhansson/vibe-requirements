@@ -239,7 +239,7 @@ TEST(BuildEntityRelationStoreTest, DocMembershipBecomesPartOfTriple)
     /* The inferred inverse (SRS-MAIN-001, contains, REQ-DOC-001) must exist. */
     CTripleList by_doc = triplet_store_find_by_subject(store, "SRS-MAIN-001");
     int contains_inferred = 0;
-    for (size_t i = 0; i < (int)by_doc.size(); i++) {
+    for (size_t i = 0; i < by_doc.count; i++) {
         if (by_doc.triples[i].inferred &&
             strcmp(by_doc.triples[i].predicate, "contains") == 0 &&
             strcmp(by_doc.triples[i].object, "REQ-DOC-001") == 0)
@@ -298,13 +298,9 @@ TEST(CollectDocumentEntitiesTest, CollectsDocumentAndMembers)
     Entity tc  = make_entity("TC-001", "Verify login", ENTITY_KIND_TEST_CASE);
     Entity ext = make_entity("EXT-001", "IEC 61508", ENTITY_KIND_EXTERNAL);
 
-    strncpy(req.doc_membership.doc_ids, "SRS-001",
-            sizeof(req.doc_membership.doc_ids) - 1);
-    req.(int)doc_membership.size() = 1;
+    req.doc_membership.doc_ids.push_back("SRS-001");
 
-    strncpy(tc.traceability.entries, "SRS-001\tpart-of\n",
-            sizeof(tc.traceability.entries) - 1);
-    tc.(int)traceability.size() = 1;
+    tc.traceability.entries.push_back({"SRS-001", "part-of"});
 
     list.push_back(doc);
     list.push_back(req);
@@ -680,7 +676,7 @@ TEST(CmdTraceEntityTest, EntityWithNoTitleOrStatusSuppressesThoseLines)
     EntityList elist;
     /* Entity with empty title and status */
     Entity e{};
-    strncpy(e.identity.id, "REQ-BARE", sizeof(e.identity.id) - 1);
+    e.identity.id   = "REQ-BARE";
     e.identity.kind = ENTITY_KIND_REQUIREMENT;
     elist.push_back(e);
 

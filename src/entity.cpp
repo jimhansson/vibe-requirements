@@ -94,11 +94,18 @@ int entity_has_component(const Entity *entity, const char *comp)
         return !entity->sources.sources.empty() ? 1 : 0;
     if (strcmp(comp, "test-procedure") == 0)
         return (!entity->test_procedure.steps.empty() ||
-                !entity->test_procedure.preconditions.empty()) ? 1 : 0;
+                !entity->test_procedure.preconditions.empty() ||
+                !entity->test_procedure.expected_result.empty()) ? 1 : 0;
     if (strcmp(comp, "clauses") == 0)
         return !entity->clause_collection.clauses.empty() ? 1 : 0;
     if (strcmp(comp, "attachments") == 0)
         return !entity->attachment.attachments.empty() ? 1 : 0;
+    if (strcmp(comp, "applies-to") == 0)
+        return !entity->applies_to.applies_to.empty() ? 1 : 0;
+    if (strcmp(comp, "composition-profile") == 0)
+        return !entity->composition_profile.order.empty() ? 1 : 0;
+    if (strcmp(comp, "render-profile") == 0)
+        return !entity->render_profile.format.empty() ? 1 : 0;
     if (strcmp(comp, "variant-profile") == 0)
         return (!entity->variant_profile.customer.empty() ||
                 !entity->variant_profile.product.empty()) ? 1 : 0;
