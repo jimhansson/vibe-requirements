@@ -70,6 +70,7 @@ void cli_print_help(const char *prog)
     printf("  --format html   Output a self-contained HTML document.\n");
     printf("  --output <file> Write report to <file> instead of stdout.\n\n");
     printf("Other options:\n");
+    printf("  --fail-fast    Stop on the first YAML parse or validation error.\n");
     printf("  --strict-links  Warn when a known relation is declared in only one\n");
     printf("                  direction (inverse not explicitly present in YAML).\n");
     printf("                  Exits with a non-zero code if any warnings are found.\n");
@@ -163,7 +164,9 @@ void cli_parse_args(int argc, char *argv[], CliOptions *opts)
     /* Step 3: scan remaining arguments for flags and directory           */
     /* ------------------------------------------------------------------ */
     for (int i = arg_idx; i < argc; i++) {
-        if (strcmp(argv[i], "--strict-links") == 0) {
+        if (strcmp(argv[i], "--fail-fast") == 0) {
+            opts->fail_fast = 1;
+        } else if (strcmp(argv[i], "--strict-links") == 0) {
             opts->strict_links = 1;
         } else if (strcmp(argv[i], "--kind") == 0) {
             if (i + 1 >= argc) {

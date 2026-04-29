@@ -141,6 +141,21 @@ TEST(YamlSimpleTest, NonexistentFile)
     EXPECT_EQ((int)list.size(), 0);
 }
 
+TEST(YamlSimpleTest, MalformedYamlReturnsError)
+{
+    const char *path = write_yaml("test_malformed.yaml",
+        "id: BROKEN-001\n"
+        "random: [\n"
+        "more junk\n");
+    ASSERT_NE(path, nullptr);
+
+    EntityList list;
+
+    int rc = yaml_parse_entities(path, &list);
+    EXPECT_EQ(rc, -1);
+    EXPECT_EQ((int)list.size(), 0);
+}
+
 TEST(YamlSimpleTest, FilePathStoredPerDocument)
 {
     const char *path = write_yaml("test_path.yaml",

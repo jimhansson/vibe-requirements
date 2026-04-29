@@ -29,6 +29,21 @@ extern "C" {
  */
 int cmd_validate(const EntityList *elist, const vibe::TripletStore *store);
 
+/**
+ * Run validation checks with optional fail-fast behavior.
+ *
+ * When fail_fast is non-zero, validation returns after the first reported
+ * problem.  When zero, all problems are reported.
+ *
+ * @param elist      The full entity list.
+ * @param store      The relation triplet store built from elist.
+ * @param fail_fast  Non-zero to stop after the first validation problem.
+ * @return           Total number of problems found before stopping.
+ */
+int cmd_validate_with_options(const EntityList *elist,
+                              const vibe::TripletStore *store,
+                              int fail_fast);
+
 #ifdef __cplusplus
 }
 #endif
