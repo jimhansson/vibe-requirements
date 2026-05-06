@@ -435,6 +435,10 @@ vibe-req new <type> auto [directory]
 
 When using `--next` without a prefix (or the `auto` shorthand), the command
 uses the default prefix for the entity type (e.g., `REQ-`, `STORY-`, `TC-`).
+If you pass `--next` with a single extra argument, the CLI treats that
+argument as a directory only when it looks like a path (contains `/`) or
+matches an existing directory. Use `auto <dir>` when you want the default
+prefix with an explicit directory.
 
 **`<type>` values:**
 

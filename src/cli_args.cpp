@@ -23,6 +23,7 @@ static int is_existing_dir(const char *path)
 
 static int looks_like_directory_arg(const char *arg)
 {
+    /* Heuristic: treat existing dirs or path-looking strings as directories. */
     if (!arg || arg[0] == '\0')
         return 0;
     if (strcmp(arg, ".") == 0 || strcmp(arg, "..") == 0)

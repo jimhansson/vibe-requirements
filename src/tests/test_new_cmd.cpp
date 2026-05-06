@@ -43,12 +43,13 @@ static std::string read_file(const char *path)
 }
 
 /** Write text content to a file, overwriting if it exists. */
-static void write_file(const std::string &path, const std::string &content)
+static bool write_file(const std::string &path, const std::string &content)
 {
     std::ofstream f(path);
     if (!f.is_open())
-        return;
+        return false;
     f << content;
+    return f.good();
 }
 
 /** Remove a file; ignore errors. */
@@ -133,18 +134,18 @@ TEST(NewCmdNextIdTest, SuggestsNextIdWithMatchingPrefix)
     std::string dir = make_temp_dir("/tmp/vibe-next-id-XXXXXX");
     ASSERT_FALSE(dir.empty());
 
-    write_file(dir + "/REQ-001.yaml",
-               "id: REQ-001\n"
-               "title: \"First\"\n"
-               "type: requirement\n"
-               "status: draft\n"
-               "priority: must\n");
-    write_file(dir + "/REQ-010.yaml",
-               "id: REQ-010\n"
-               "title: \"Second\"\n"
-               "type: requirement\n"
-               "status: draft\n"
-               "priority: must\n");
+    ASSERT_TRUE(write_file(dir + "/REQ-001.yaml",
+                           "id: REQ-001\n"
+                           "title: \"First\"\n"
+                           "type: requirement\n"
+                           "status: draft\n"
+                           "priority: must\n"));
+    ASSERT_TRUE(write_file(dir + "/REQ-010.yaml",
+                           "id: REQ-010\n"
+                           "title: \"Second\"\n"
+                           "type: requirement\n"
+                           "status: draft\n"
+                           "priority: must\n"));
 
     char out[64] = {};
     int rc = new_cmd_next_id("requirement", "REQ-", dir.c_str(), out,

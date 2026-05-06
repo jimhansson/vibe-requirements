@@ -308,6 +308,7 @@ int new_cmd_next_id(const char *type_str, const char *prefix, const char *dir,
             value = value * 10 + (*p - '0');
         size_t width = strlen(suffix);
 
+        /* Preserve zero-padding width when duplicate values differ in digits. */
         if (value > max_value || (value == max_value && width > max_width)) {
             max_value = value;
             max_width = width;
