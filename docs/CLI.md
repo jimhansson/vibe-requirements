@@ -607,8 +607,9 @@ automatically creates the inferred inverse triple.
 
 If a `.vibe-req.yaml` file is present at the root of the scanned directory the
 tool loads it before discovery.  The configuration can restrict which
-directories are scanned and optionally define allowed vocabularies for
-metadata fields (validation is case-insensitive by default).
+directories are scanned, optionally define allowed vocabularies for metadata
+fields (validation is case-insensitive by default), and declare a set of
+required metadata fields that every entity must carry.
 
 ```yaml
 # .vibe-req.yaml
@@ -623,7 +624,21 @@ vocabulary:
     - medium
     - high
   type: [feature, bug, chore]
+requiredFields: [title, status, priority]
 ```
+
+### `requiredFields`
+
+An optional sequence of field names that must be present and non-empty on
+every entity in the repository.  When any entity omits a declared required
+field (or sets it to an empty string), `vibe-req validate` reports an error
+and exits with a non-zero status.
+
+The feature is **opt-in**: if `requiredFields` is absent from the config file
+the tool behaves exactly as before.
+
+Supported field names: `title`, `type`, `status`, `priority`, `owner`,
+`version`.
 
 ---
 

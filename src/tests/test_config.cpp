@@ -171,3 +171,57 @@ TEST(ConfigTest, IsIgnoredDirEmptyList)
 
     EXPECT_EQ(config_is_ignored_dir(&cfg, "examples"), 0);
 }
+
+/* -------------------------------------------------------------------------
+ * Tests — requiredFields
+ * ---------------------------------------------------------------------- */
+
+TEST(ConfigTest, LoadRequiredFieldsSingle)
+{
+    const char *dir = "/tmp";
+    write_config(dir, "requiredFields:\n  - title\n");
+
+    VibeConfig cfg;
+    int rc = config_load(dir, &cfg);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(cfg.required_fields_count, 1);
+    EXPECT_STREQ(cfg.required_fields[0], "title");
+}
+
+TEST(ConfigTest, LoadRequiredFieldsMultiple)
+{
+    const char *dir = "/tmp";
+    write_config(dir, "requiredFields:\n  - title\n  - status\n  - priority\n");
+
+    VibeConfig cfg;
+    int rc = config_load(dir, &cfg);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(cfg.required_fields_count, 3);
+    EXPECT_STREQ(cfg.required_fields[0], "title");
+    EXPECT_STREQ(cfg.required_fields[1], "status");
+    EXPECT_STREQ(cfg.required_fields[2], "priority");
+}
+
+TEST(ConfigTest, LoadRequiredFieldsAbsentMeansZeroCount)
+{
+    const char *dir = "/tmp";
+    write_config(dir, "ignore_dirs:\n  - build\n");
+
+    VibeConfig cfg;
+    int rc = config_load(dir, &cfg);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(cfg.required_fields_count, 0);
+}
+
+TEST(ConfigTest, LoadRequiredFieldsInlineList)
+{
+    const char *dir = "/tmp";
+    write_config(dir, "requiredFields: [title, status]\n");
+
+    VibeConfig cfg;
+    int rc = config_load(dir, &cfg);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(cfg.required_fields_count, 2);
+    EXPECT_STREQ(cfg.required_fields[0], "title");
+    EXPECT_STREQ(cfg.required_fields[1], "status");
+}

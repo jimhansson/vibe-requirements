@@ -108,6 +108,34 @@ int config_load(const char *root_dir, VibeConfig *cfg)
                 continue;
             }
 
+            if (strcmp(key, "requiredFields") == 0) {
+                yaml_node_t *seq = yaml_document_get_node(&doc, pair->value);
+                if (!seq || seq->type != YAML_SEQUENCE_NODE)
+                    continue;
+
+                yaml_node_item_t *item = seq->data.sequence.items.start;
+                yaml_node_item_t *top  = seq->data.sequence.items.top;
+
+                for (; item < top &&
+                       cfg->required_fields_count < CONFIG_REQUIRED_FIELDS_MAX;
+                     item++) {
+                    yaml_node_t *entry = yaml_document_get_node(&doc, *item);
+                    if (!entry || entry->type != YAML_SCALAR_NODE)
+                        continue;
+
+                    const char *val =
+                        reinterpret_cast<const char *>(entry->data.scalar.value);
+                    if (!val || val[0] == '\0')
+                        continue;
+                    strncpy(cfg->required_fields[cfg->required_fields_count],
+                            val, CONFIG_REQUIRED_FIELD_LEN - 1);
+                    cfg->required_fields[cfg->required_fields_count]
+                                        [CONFIG_REQUIRED_FIELD_LEN - 1] = '\0';
+                    cfg->required_fields_count++;
+                }
+                continue;
+            }
+
             if (strcmp(key, "vocabulary") == 0) {
                 yaml_node_t *vocab = yaml_document_get_node(&doc, pair->value);
                 if (!vocab || vocab->type != YAML_MAPPING_NODE)

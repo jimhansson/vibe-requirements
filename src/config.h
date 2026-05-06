@@ -5,10 +5,12 @@
 #define CONFIG_IGNORE_DIRS_MAX  32
 #define CONFIG_IGNORE_DIR_LEN   256
 #define CONFIG_PATH_BUF_LEN     512
-#define CONFIG_VOCAB_FIELDS_MAX 32
-#define CONFIG_VOCAB_FIELD_LEN  64
-#define CONFIG_VOCAB_VALUES_MAX 64
-#define CONFIG_VOCAB_VALUE_LEN  64
+#define CONFIG_VOCAB_FIELDS_MAX    32
+#define CONFIG_VOCAB_FIELD_LEN     64
+#define CONFIG_VOCAB_VALUES_MAX    64
+#define CONFIG_VOCAB_VALUE_LEN     64
+#define CONFIG_REQUIRED_FIELDS_MAX 32
+#define CONFIG_REQUIRED_FIELD_LEN  64
 
 typedef struct {
     char field[CONFIG_VOCAB_FIELD_LEN];
@@ -24,6 +26,8 @@ typedef struct {
     int  ignore_dirs_count;
     VibeVocabulary vocabulary[CONFIG_VOCAB_FIELDS_MAX];
     int  vocabulary_count;
+    char required_fields[CONFIG_REQUIRED_FIELDS_MAX][CONFIG_REQUIRED_FIELD_LEN];
+    int  required_fields_count;
 } VibeConfig;
 
 /*

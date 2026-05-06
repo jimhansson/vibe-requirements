@@ -160,5 +160,30 @@ int cmd_validate_with_options(const EntityList *elist,
         }
     }
 
+    /* ------------------------------------------------------------------
+     * Check 4: required fields (opt-in via config requiredFields)
+     * ------------------------------------------------------------------ */
+    if (cfg && cfg->required_fields_count > 0) {
+        for (const auto &e : *elist) {
+            for (int i = 0; i < cfg->required_fields_count; i++) {
+                const char *field = cfg->required_fields[i];
+                if (field[0] == '\0')
+                    continue;
+                const std::string *value = find_entity_field_value(e, field);
+                if (!value || value->empty()) {
+                    fprintf(stderr,
+                            "error: entity '%s' in %s is missing required "
+                            "field '%s'\n",
+                            e.identity.id.c_str(),
+                            e.identity.file_path.c_str(),
+                            field);
+                    ++problems;
+                    if (fail_fast)
+                        return finish_validation(problems);
+                }
+            }
+        }
+    }
+
     return finish_validation(problems);
 }
