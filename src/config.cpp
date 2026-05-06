@@ -1,21 +1,9 @@
 #include "config.h"
 #include <yaml.h>
-#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include "yaml/yaml_error_utils.h"
-
-static int str_eq_ci(const char *a, const char *b)
-{
-    if (!a || !b)
-        return 0;
-    for (; *a && *b; a++, b++) {
-        if (std::tolower(static_cast<unsigned char>(*a)) !=
-            std::tolower(static_cast<unsigned char>(*b)))
-            return 0;
-    }
-    return *a == '\0' && *b == '\0';
-}
+#include "string_utils.h"
 
 static int find_vocab_index(const VibeConfig *cfg, const char *field)
 {

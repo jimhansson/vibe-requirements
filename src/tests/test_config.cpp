@@ -11,6 +11,7 @@
 #include <cstring>
 
 #include "config.h"
+#include "string_utils.h"
 
 /* -------------------------------------------------------------------------
  * Helpers
@@ -34,7 +35,7 @@ static int find_vocab_field(const VibeConfig *cfg, const char *field)
     if (!cfg || !field)
         return -1;
     for (int i = 0; i < cfg->vocabulary_count; i++) {
-        if (strcmp(cfg->vocabulary[i].field, field) == 0)
+        if (str_eq_ci(cfg->vocabulary[i].field, field))
             return i;
     }
     return -1;
