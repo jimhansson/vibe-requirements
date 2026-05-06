@@ -9,22 +9,11 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include "yaml_error_utils.h"
 
 /* -------------------------------------------------------------------------
  * Internal helpers
  * ---------------------------------------------------------------------- */
-
-static void report_yaml_error(const char *path, const yaml_parser_t *parser)
-{
-    if (!path || !parser)
-        return;
-
-    const char *problem = parser->problem ? parser->problem : "yaml parse error";
-    size_t line = parser->problem_mark.line + 1;
-    size_t column = parser->problem_mark.column + 1;
-
-    fprintf(stderr, "error: %s:%zu:%zu: %s\n", path, line, column, problem);
-}
 
 static std::string scalar_value(yaml_node_t *node)
 {
@@ -417,7 +406,7 @@ int yaml_parse_entity(const char *path, Entity *out)
         yaml_document_delete(&doc);
         rc = !out->identity.id.empty() ? 0 : -1;
     } else {
-        report_yaml_error(path, &parser);
+        yaml_report_parse_error(path, &parser);
     }
 
     yaml_parser_delete(&parser);
@@ -445,7 +434,7 @@ int yaml_parse_entities(const char *path, EntityList *list)
     while (true) {
         yaml_document_t doc;
         if (!yaml_parser_load(&parser, &doc)) {
-            report_yaml_error(path, &parser);
+            yaml_report_parse_error(path, &parser);
             parse_error = 1;
             break;
         }

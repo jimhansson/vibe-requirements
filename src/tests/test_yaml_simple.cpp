@@ -157,7 +157,7 @@ TEST(YamlSimpleTest, MalformedYamlReturnsError)
     EXPECT_EQ(rc, -1);
     EXPECT_EQ((int)list.size(), 0);
     EXPECT_THAT(err, testing::HasSubstr(path));
-    EXPECT_THAT(err, testing::MatchesRegex(".*:[0-9]+:[0-9]+:.*"));
+    EXPECT_THAT(err, testing::MatchesRegex("error: .+:[0-9]+:[0-9]+: .*"));
 }
 
 TEST(YamlSimpleTest, FilePathStoredPerDocument)

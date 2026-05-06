@@ -10,18 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
-
-static void report_yaml_error(const char *path, const yaml_parser_t *parser)
-{
-    if (!path || !parser)
-        return;
-
-    const char *problem = parser->problem ? parser->problem : "yaml parse error";
-    size_t line = parser->problem_mark.line + 1;
-    size_t column = parser->problem_mark.column + 1;
-
-    fprintf(stderr, "error: %s:%zu:%zu: %s\n", path, line, column, problem);
-}
+#include "yaml_error_utils.h"
 
 /*
  * Walk a relation-keyed traceability mapping node and add
@@ -106,7 +95,7 @@ int yaml_parse_links(const char *path, const char *subject_id,
     while (true) {
         yaml_document_t doc;
         if (!yaml_parser_load(&parser, &doc)) {
-            report_yaml_error(path, &parser);
+            yaml_report_parse_error(path, &parser);
             break; /* parse error — stop, keep any links already added */
         }
 
