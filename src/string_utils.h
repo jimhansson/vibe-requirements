@@ -3,14 +3,14 @@
 
 #include <cctype>
 
-static inline int str_equal_ci(const char *a, const char *b)
+static inline bool str_equal_ci(const char *a, const char *b)
 {
     if (!a || !b)
-        return 0;
+        return false;
     for (; *a && *b; a++, b++) {
         if (std::tolower(static_cast<unsigned char>(*a)) !=
             std::tolower(static_cast<unsigned char>(*b)))
-            return 0;
+            return false;
     }
     return *a == '\0' && *b == '\0';
 }

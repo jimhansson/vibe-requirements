@@ -44,8 +44,8 @@ static std::string format_allowed_values(const VibeVocabulary &vocab)
     return out;
 }
 
-static const std::string *lookup_field_value(const Entity &entity,
-                                             const char *field)
+static const std::string *find_entity_field_value(const Entity &entity,
+                                                  const char *field)
 {
     if (!field)
         return nullptr;
@@ -139,18 +139,18 @@ int cmd_validate_with_options(const EntityList *elist,
                 const VibeVocabulary &vocab = cfg->vocabulary[i];
                 if (vocab.field[0] == '\0')
                     continue;
-                const std::string *value = lookup_field_value(e, vocab.field);
+                const std::string *value = find_entity_field_value(e, vocab.field);
                 if (!value || value->empty())
                     continue;
                 if (!value_allowed(*value, vocab)) {
                     std::string allowed = format_allowed_values(vocab);
                     fprintf(stderr,
-                            "error: '%s' (%s) has invalid %s value '%s' "
-                            "(allowed: %s)\n",
+                            "error: entity '%s' in %s has invalid value '%s' "
+                            "for field '%s'; allowed values are: %s\n",
                             e.identity.id.c_str(),
                             e.identity.file_path.c_str(),
-                            vocab.field,
                             value->c_str(),
+                            vocab.field,
                             allowed.c_str());
                     ++problems;
                     if (fail_fast)
