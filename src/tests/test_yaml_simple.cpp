@@ -151,9 +151,13 @@ TEST(YamlSimpleTest, MalformedYamlReturnsError)
 
     EntityList list;
 
+    testing::internal::CaptureStderr();
     int rc = yaml_parse_entities(path, &list);
+    std::string err = testing::internal::GetCapturedStderr();
     EXPECT_EQ(rc, -1);
     EXPECT_EQ((int)list.size(), 0);
+    EXPECT_THAT(err, testing::HasSubstr(path));
+    EXPECT_THAT(err, testing::MatchesRegex(".*:[0-9]+:[0-9]+:.*"));
 }
 
 TEST(YamlSimpleTest, FilePathStoredPerDocument)
