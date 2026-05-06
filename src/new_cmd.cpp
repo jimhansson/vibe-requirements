@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cstring>
 #include <cctype>
+#include <cerrno>
+#include <cstdlib>
 #include <sys/stat.h>
 
 #include "new_cmd.h"
@@ -303,9 +305,11 @@ int new_cmd_next_id(const char *type_str, const char *prefix, const char *dir,
         if (!is_numeric_suffix(suffix))
             continue;
 
-        long long value = 0;
-        for (const char *p = suffix; *p; ++p)
-            value = value * 10 + (*p - '0');
+        errno = 0;
+        char *end = nullptr;
+        long long value = std::strtoll(suffix, &end, 10);
+        if (errno == ERANGE || !end || *end != '\0' || value < 0)
+            continue;
         size_t width = strlen(suffix);
 
         /* Preserve zero-padding width when duplicate values differ in digits. */

@@ -78,6 +78,9 @@ void cli_print_help(const char *prog)
     printf("                  Example: %s new requirement REQ-AUTH-003\n", prog);
     printf("                  Example: %s new requirement --next REQ-AUTH-\n", prog);
     printf("                  Example: %s new story auto\n\n", prog);
+    printf("                  With --next and one extra argument, path-like\n");
+    printf("                  values are treated as the directory. Use 'auto <dir>'\n");
+    printf("                  for the default prefix with an explicit directory.\n\n");
     printf("  next-id <type> <prefix> [dir]\n");
     printf("                  Print the next unused numeric ID for a prefix.\n");
     printf("                  Example: %s next-id requirement REQ-AUTH-\n\n", prog);

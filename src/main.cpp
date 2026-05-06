@@ -122,10 +122,9 @@ int main(int argc, char *argv[])
                     opts.new_dir, id);
             return 1;
         }
+        printf("Created %s/%s.yaml\n", opts.new_dir, id);
         if (opts.new_use_next)
-            printf("Created %s/%s.yaml (id: %s)\n", opts.new_dir, id, id);
-        else
-            printf("Created %s/%s.yaml\n", opts.new_dir, id);
+            printf("Selected ID: %s\n", id);
         return 0;
     }
 
