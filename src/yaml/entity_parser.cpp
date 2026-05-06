@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include "yaml_error_utils.h"
 
 /* -------------------------------------------------------------------------
  * Internal helpers
@@ -404,6 +405,8 @@ int yaml_parse_entity(const char *path, Entity *out)
         extract_entity_fields(&doc, root, out);
         yaml_document_delete(&doc);
         rc = !out->identity.id.empty() ? 0 : -1;
+    } else {
+        yaml_report_parse_error(path, &parser);
     }
 
     yaml_parser_delete(&parser);
@@ -431,6 +434,7 @@ int yaml_parse_entities(const char *path, EntityList *list)
     while (true) {
         yaml_document_t doc;
         if (!yaml_parser_load(&parser, &doc)) {
+            yaml_report_parse_error(path, &parser);
             parse_error = 1;
             break;
         }

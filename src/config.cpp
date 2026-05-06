@@ -2,6 +2,7 @@
 #include <yaml.h>
 #include <cstdio>
 #include <cstring>
+#include "yaml/yaml_error_utils.h"
 
 int config_load(const char *root_dir, VibeConfig *cfg)
 {
@@ -27,6 +28,7 @@ int config_load(const char *root_dir, VibeConfig *cfg)
     yaml_parser_set_input_file(&parser, f);
 
     if (!yaml_parser_load(&parser, &doc)) {
+        yaml_report_parse_error(path, &parser);
         yaml_parser_delete(&parser);
         fclose(f);
         return -1;

@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include "yaml_error_utils.h"
 
 /*
  * Walk a relation-keyed traceability mapping node and add
@@ -93,8 +94,10 @@ int yaml_parse_links(const char *path, const char *subject_id,
 
     while (true) {
         yaml_document_t doc;
-        if (!yaml_parser_load(&parser, &doc))
+        if (!yaml_parser_load(&parser, &doc)) {
+            yaml_report_parse_error(path, &parser);
             break; /* parse error — stop, keep any links already added */
+        }
 
         yaml_node_t *root = yaml_document_get_root_node(&doc);
         if (!root) {
