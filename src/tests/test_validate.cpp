@@ -103,6 +103,7 @@ static Entity make_entity(const char *id, const char *file_path = "req.yaml",
     return e;
 }
 
+/* Build a config with a single vocabulary constraint for the given field. */
 static VibeConfig make_vocab_config(const char *field,
                                     std::initializer_list<const char *> values)
 {

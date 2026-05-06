@@ -26,7 +26,7 @@ static bool value_allowed(const std::string &value,
                           const VibeVocabulary &vocab)
 {
     for (int i = 0; i < vocab.value_count; i++) {
-        if (str_eq_ci(value.c_str(), vocab.values[i]))
+        if (str_equal_ci(value.c_str(), vocab.values[i]))
             return true;
     }
     return false;
@@ -49,19 +49,19 @@ static const std::string *lookup_field_value(const Entity &entity,
 {
     if (!field)
         return nullptr;
-    if (str_eq_ci(field, "id"))
+    if (str_equal_ci(field, "id"))
         return &entity.identity.id;
-    if (str_eq_ci(field, "title"))
+    if (str_equal_ci(field, "title"))
         return &entity.identity.title;
-    if (str_eq_ci(field, "type"))
+    if (str_equal_ci(field, "type"))
         return &entity.identity.type_raw;
-    if (str_eq_ci(field, "status"))
+    if (str_equal_ci(field, "status"))
         return &entity.lifecycle.status;
-    if (str_eq_ci(field, "priority"))
+    if (str_equal_ci(field, "priority"))
         return &entity.lifecycle.priority;
-    if (str_eq_ci(field, "owner"))
+    if (str_equal_ci(field, "owner"))
         return &entity.lifecycle.owner;
-    if (str_eq_ci(field, "version"))
+    if (str_equal_ci(field, "version"))
         return &entity.lifecycle.version;
     return nullptr;
 }

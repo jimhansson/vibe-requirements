@@ -3,7 +3,7 @@
 
 #include <cctype>
 
-static inline int str_eq_ci(const char *a, const char *b)
+static inline int str_equal_ci(const char *a, const char *b)
 {
     if (!a || !b)
         return 0;
