@@ -257,7 +257,7 @@ int main(int argc, char *argv[])
             return 1;
         }
         int problems = cmd_validate_with_options(&elist, store,
-                                                 opts.fail_fast);
+                                                 opts.fail_fast, &cfg);
         delete store;
         return problems > 0 ? 1 : 0;
     }

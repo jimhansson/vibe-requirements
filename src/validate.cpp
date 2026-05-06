@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "string_utils.h"
 
 static int finish_validation(int problems)
 {
@@ -21,14 +22,61 @@ static int finish_validation(int problems)
     return problems;
 }
 
-int cmd_validate(const EntityList *elist, const vibe::TripletStore *store)
+static bool value_allowed(const std::string &value,
+                          const VibeVocabulary &vocab)
 {
-    return cmd_validate_with_options(elist, store, 0);
+    for (int i = 0; i < vocab.value_count; i++) {
+        if (str_equal_ci(value.c_str(), vocab.values[i]))
+            return true;
+    }
+    return false;
+}
+
+static std::string format_allowed_values(const VibeVocabulary &vocab)
+{
+    std::string out = "[";
+    for (int i = 0; i < vocab.value_count; i++) {
+        if (i > 0)
+            out += ", ";
+        out += vocab.values[i];
+    }
+    out += "]";
+    return out;
+}
+
+static const std::string *find_entity_field_value(const Entity &entity,
+                                                  const char *field)
+{
+    if (!field)
+        return nullptr;
+    if (str_equal_ci(field, "id"))
+        return &entity.identity.id;
+    if (str_equal_ci(field, "title"))
+        return &entity.identity.title;
+    if (str_equal_ci(field, "type"))
+        return &entity.identity.type_raw;
+    if (str_equal_ci(field, "status"))
+        return &entity.lifecycle.status;
+    if (str_equal_ci(field, "priority"))
+        return &entity.lifecycle.priority;
+    if (str_equal_ci(field, "owner"))
+        return &entity.lifecycle.owner;
+    if (str_equal_ci(field, "version"))
+        return &entity.lifecycle.version;
+    return nullptr;
+}
+
+int cmd_validate(const EntityList *elist,
+                 const vibe::TripletStore *store,
+                 const VibeConfig *cfg)
+{
+    return cmd_validate_with_options(elist, store, 0, cfg);
 }
 
 int cmd_validate_with_options(const EntityList *elist,
                               const vibe::TripletStore *store,
-                              int fail_fast)
+                              int fail_fast,
+                              const VibeConfig *cfg)
 {
     int problems = 0;
 
@@ -79,6 +127,36 @@ int cmd_validate_with_options(const EntityList *elist,
             ++problems;
             if (fail_fast)
                 return finish_validation(problems);
+        }
+    }
+
+    /* ------------------------------------------------------------------
+     * Check 3: field vocabulary constraints (opt-in via config)
+     * ------------------------------------------------------------------ */
+    if (cfg && cfg->vocabulary_count > 0) {
+        for (const auto &e : *elist) {
+            for (int i = 0; i < cfg->vocabulary_count; i++) {
+                const VibeVocabulary &vocab = cfg->vocabulary[i];
+                if (vocab.field[0] == '\0')
+                    continue;
+                const std::string *value = find_entity_field_value(e, vocab.field);
+                if (!value || value->empty())
+                    continue;
+                if (!value_allowed(*value, vocab)) {
+                    std::string allowed = format_allowed_values(vocab);
+                    fprintf(stderr,
+                            "error: entity '%s' in %s has invalid value '%s' "
+                            "for field '%s'; allowed values are: %s\n",
+                            e.identity.id.c_str(),
+                            e.identity.file_path.c_str(),
+                            value->c_str(),
+                            vocab.field,
+                            allowed.c_str());
+                    ++problems;
+                    if (fail_fast)
+                        return finish_validation(problems);
+                }
+            }
         }
     }
 

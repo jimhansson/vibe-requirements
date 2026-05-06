@@ -607,7 +607,8 @@ automatically creates the inferred inverse triple.
 
 If a `.vibe-req.yaml` file is present at the root of the scanned directory the
 tool loads it before discovery.  The configuration can restrict which
-directories are scanned and how entity IDs are prefixed.
+directories are scanned and optionally define allowed vocabularies for
+metadata fields (validation is case-insensitive by default).
 
 ```yaml
 # .vibe-req.yaml
@@ -615,6 +616,13 @@ ignore_dirs:
   - node_modules
   - .git
   - build
+vocabulary:
+  status: [todo, in-progress, done]
+  priority:
+    - low
+    - medium
+    - high
+  type: [feature, bug, chore]
 ```
 
 ---
