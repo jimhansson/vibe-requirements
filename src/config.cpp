@@ -1,8 +1,59 @@
 #include "config.h"
 #include <yaml.h>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include "yaml/yaml_error_utils.h"
+
+static int str_eq_ci(const char *a, const char *b)
+{
+    if (!a || !b)
+        return 0;
+    for (; *a && *b; a++, b++) {
+        if (std::tolower(static_cast<unsigned char>(*a)) !=
+            std::tolower(static_cast<unsigned char>(*b)))
+            return 0;
+    }
+    return *a == '\0' && *b == '\0';
+}
+
+static int find_vocab_index(const VibeConfig *cfg, const char *field)
+{
+    if (!cfg || !field)
+        return -1;
+    for (int i = 0; i < cfg->vocabulary_count; i++) {
+        if (str_eq_ci(cfg->vocabulary[i].field, field))
+            return i;
+    }
+    return -1;
+}
+
+static void add_vocab_value(VibeConfig *cfg,
+                            const char *field,
+                            const char *value)
+{
+    if (!cfg || !field || field[0] == '\0' || !value || value[0] == '\0')
+        return;
+
+    int idx = find_vocab_index(cfg, field);
+    if (idx < 0) {
+        if (cfg->vocabulary_count >= CONFIG_VOCAB_FIELDS_MAX)
+            return;
+        idx = cfg->vocabulary_count++;
+        strncpy(cfg->vocabulary[idx].field, field,
+                CONFIG_VOCAB_FIELD_LEN - 1);
+        cfg->vocabulary[idx].field[CONFIG_VOCAB_FIELD_LEN - 1] = '\0';
+        cfg->vocabulary[idx].value_count = 0;
+    }
+
+    if (cfg->vocabulary[idx].value_count >= CONFIG_VOCAB_VALUES_MAX)
+        return;
+
+    int value_idx = cfg->vocabulary[idx].value_count++;
+    strncpy(cfg->vocabulary[idx].values[value_idx], value,
+            CONFIG_VOCAB_VALUE_LEN - 1);
+    cfg->vocabulary[idx].values[value_idx][CONFIG_VOCAB_VALUE_LEN - 1] = '\0';
+}
 
 int config_load(const char *root_dir, VibeConfig *cfg)
 {
@@ -45,30 +96,57 @@ int config_load(const char *root_dir, VibeConfig *cfg)
                 continue;
 
             const char *key = reinterpret_cast<const char *>(key_node->data.scalar.value);
-            if (strcmp(key, "ignore_dirs") != 0)
-                continue;
-
-            yaml_node_t *seq = yaml_document_get_node(&doc, pair->value);
-            if (!seq || seq->type != YAML_SEQUENCE_NODE)
-                break;
-
-            yaml_node_item_t *item = seq->data.sequence.items.start;
-            yaml_node_item_t *top  = seq->data.sequence.items.top;
-
-            for (; item < top && cfg->ignore_dirs_count < CONFIG_IGNORE_DIRS_MAX;
-                 item++) {
-                yaml_node_t *entry = yaml_document_get_node(&doc, *item);
-                if (!entry || entry->type != YAML_SCALAR_NODE)
+            if (strcmp(key, "ignore_dirs") == 0) {
+                yaml_node_t *seq = yaml_document_get_node(&doc, pair->value);
+                if (!seq || seq->type != YAML_SEQUENCE_NODE)
                     continue;
 
-                const char *val = reinterpret_cast<const char *>(entry->data.scalar.value);
-                strncpy(cfg->ignore_dirs[cfg->ignore_dirs_count],
-                        val, CONFIG_IGNORE_DIR_LEN - 1);
-                cfg->ignore_dirs[cfg->ignore_dirs_count]
-                                [CONFIG_IGNORE_DIR_LEN - 1] = '\0';
-                cfg->ignore_dirs_count++;
+                yaml_node_item_t *item = seq->data.sequence.items.start;
+                yaml_node_item_t *top  = seq->data.sequence.items.top;
+
+                for (; item < top && cfg->ignore_dirs_count < CONFIG_IGNORE_DIRS_MAX;
+                     item++) {
+                    yaml_node_t *entry = yaml_document_get_node(&doc, *item);
+                    if (!entry || entry->type != YAML_SCALAR_NODE)
+                        continue;
+
+                    const char *val = reinterpret_cast<const char *>(entry->data.scalar.value);
+                    strncpy(cfg->ignore_dirs[cfg->ignore_dirs_count],
+                            val, CONFIG_IGNORE_DIR_LEN - 1);
+                    cfg->ignore_dirs[cfg->ignore_dirs_count]
+                                    [CONFIG_IGNORE_DIR_LEN - 1] = '\0';
+                    cfg->ignore_dirs_count++;
+                }
+                continue;
             }
-            break;
+
+            if (strcmp(key, "vocabulary") == 0) {
+                yaml_node_t *vocab = yaml_document_get_node(&doc, pair->value);
+                if (!vocab || vocab->type != YAML_MAPPING_NODE)
+                    continue;
+
+                for (yaml_node_pair_t *vp = vocab->data.mapping.pairs.start;
+                     vp < vocab->data.mapping.pairs.top; ++vp) {
+                    yaml_node_t *vk = yaml_document_get_node(&doc, vp->key);
+                    yaml_node_t *vv = yaml_document_get_node(&doc, vp->value);
+                    if (!vk || vk->type != YAML_SCALAR_NODE)
+                        continue;
+                    const char *field =
+                        reinterpret_cast<const char *>(vk->data.scalar.value);
+                    if (!vv || vv->type != YAML_SEQUENCE_NODE)
+                        continue;
+                    for (yaml_node_item_t *it = vv->data.sequence.items.start;
+                         it < vv->data.sequence.items.top; ++it) {
+                        yaml_node_t *entry = yaml_document_get_node(&doc, *it);
+                        if (!entry || entry->type != YAML_SCALAR_NODE)
+                            continue;
+                        const char *val =
+                            reinterpret_cast<const char *>(entry->data.scalar.value);
+                        add_vocab_value(cfg, field, val);
+                    }
+                }
+                continue;
+            }
         }
     }
 

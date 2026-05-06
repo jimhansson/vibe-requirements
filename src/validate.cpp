@@ -6,6 +6,7 @@
 #include "validate.h"
 
 #include <cstdio>
+#include <cctype>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -21,14 +22,74 @@ static int finish_validation(int problems)
     return problems;
 }
 
-int cmd_validate(const EntityList *elist, const vibe::TripletStore *store)
+static int str_eq_ci(const std::string &a, const char *b)
 {
-    return cmd_validate_with_options(elist, store, 0);
+    if (!b)
+        return 0;
+    const char *ap = a.c_str();
+    for (; *ap && *b; ap++, b++) {
+        if (std::tolower(static_cast<unsigned char>(*ap)) !=
+            std::tolower(static_cast<unsigned char>(*b)))
+            return 0;
+    }
+    return *ap == '\0' && *b == '\0';
+}
+
+static bool value_allowed(const std::string &value,
+                          const VibeVocabulary &vocab)
+{
+    for (int i = 0; i < vocab.value_count; i++) {
+        if (str_eq_ci(value, vocab.values[i]))
+            return true;
+    }
+    return false;
+}
+
+static std::string format_allowed_values(const VibeVocabulary &vocab)
+{
+    std::string out = "[";
+    for (int i = 0; i < vocab.value_count; i++) {
+        if (i > 0)
+            out += ", ";
+        out += vocab.values[i];
+    }
+    out += "]";
+    return out;
+}
+
+static const std::string *lookup_field_value(const Entity &entity,
+                                             const char *field)
+{
+    if (!field)
+        return nullptr;
+    if (str_eq_ci("id", field))
+        return &entity.identity.id;
+    if (str_eq_ci("title", field))
+        return &entity.identity.title;
+    if (str_eq_ci("type", field))
+        return &entity.identity.type_raw;
+    if (str_eq_ci("status", field))
+        return &entity.lifecycle.status;
+    if (str_eq_ci("priority", field))
+        return &entity.lifecycle.priority;
+    if (str_eq_ci("owner", field))
+        return &entity.lifecycle.owner;
+    if (str_eq_ci("version", field))
+        return &entity.lifecycle.version;
+    return nullptr;
+}
+
+int cmd_validate(const EntityList *elist,
+                 const vibe::TripletStore *store,
+                 const VibeConfig *cfg)
+{
+    return cmd_validate_with_options(elist, store, 0, cfg);
 }
 
 int cmd_validate_with_options(const EntityList *elist,
                               const vibe::TripletStore *store,
-                              int fail_fast)
+                              int fail_fast,
+                              const VibeConfig *cfg)
 {
     int problems = 0;
 
@@ -79,6 +140,36 @@ int cmd_validate_with_options(const EntityList *elist,
             ++problems;
             if (fail_fast)
                 return finish_validation(problems);
+        }
+    }
+
+    /* ------------------------------------------------------------------
+     * Check 3: field vocabulary constraints (opt-in via config)
+     * ------------------------------------------------------------------ */
+    if (cfg && cfg->vocabulary_count > 0) {
+        for (const auto &e : *elist) {
+            for (int i = 0; i < cfg->vocabulary_count; i++) {
+                const VibeVocabulary &vocab = cfg->vocabulary[i];
+                if (vocab.field[0] == '\0')
+                    continue;
+                const std::string *value = lookup_field_value(e, vocab.field);
+                if (!value || value->empty())
+                    continue;
+                if (!value_allowed(*value, vocab)) {
+                    std::string allowed = format_allowed_values(vocab);
+                    fprintf(stderr,
+                            "error: '%s' (%s) has invalid %s value '%s' "
+                            "(allowed: %s)\n",
+                            e.identity.id.c_str(),
+                            e.identity.file_path.c_str(),
+                            vocab.field,
+                            value->c_str(),
+                            allowed.c_str());
+                    ++problems;
+                    if (fail_fast)
+                        return finish_validation(problems);
+                }
+            }
         }
     }
 

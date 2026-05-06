@@ -12,6 +12,7 @@
 
 #include "entity.h"
 #include "triplet_store.hpp"
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,7 +28,9 @@ extern "C" {
  * @param store  The relation triplet store built from elist.
  * @return       Total number of problems found (0 = clean).
  */
-int cmd_validate(const EntityList *elist, const vibe::TripletStore *store);
+int cmd_validate(const EntityList *elist,
+                 const vibe::TripletStore *store,
+                 const VibeConfig *cfg);
 
 /**
  * Run validation checks with optional fail-fast behavior.
@@ -42,7 +45,8 @@ int cmd_validate(const EntityList *elist, const vibe::TripletStore *store);
  */
 int cmd_validate_with_options(const EntityList *elist,
                               const vibe::TripletStore *store,
-                              int fail_fast);
+                              int fail_fast,
+                              const VibeConfig *cfg);
 
 #ifdef __cplusplus
 }

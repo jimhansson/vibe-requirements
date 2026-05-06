@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <initializer_list>
 #include <string>
 
 #include "entity.h"
@@ -102,6 +103,28 @@ static Entity make_entity(const char *id, const char *file_path = "req.yaml",
     return e;
 }
 
+static VibeConfig make_vocab_config(const char *field,
+                                    std::initializer_list<const char *> values)
+{
+    VibeConfig cfg{};
+    if (!field)
+        return cfg;
+    strncpy(cfg.vocabulary[0].field, field, CONFIG_VOCAB_FIELD_LEN - 1);
+    cfg.vocabulary[0].field[CONFIG_VOCAB_FIELD_LEN - 1] = '\0';
+    int idx = 0;
+    for (const char *value : values) {
+        if (idx >= CONFIG_VOCAB_VALUES_MAX)
+            break;
+        strncpy(cfg.vocabulary[0].values[idx], value,
+                CONFIG_VOCAB_VALUE_LEN - 1);
+        cfg.vocabulary[0].values[idx][CONFIG_VOCAB_VALUE_LEN - 1] = '\0';
+        idx++;
+    }
+    cfg.vocabulary[0].value_count = idx;
+    cfg.vocabulary_count = 1;
+    return cfg;
+}
+
 /* =========================================================================
  * Tests — clean repository
  * ======================================================================= */
@@ -113,7 +136,7 @@ TEST(CmdValidateTest, EmptyListReturnsZero)
 
     int out = 0;
     std::string stdout_out = capture_stdout([&]() {
-        out = cmd_validate(&elist, &store);
+        out = cmd_validate(&elist, &store, nullptr);
     });
 
     EXPECT_EQ(out, 0);
@@ -130,7 +153,7 @@ TEST(CmdValidateTest, UniqueIdsAndNoLinksReturnsZero)
 
     int out = 0;
     std::string stdout_out = capture_stdout([&]() {
-        out = cmd_validate(&elist, &store);
+        out = cmd_validate(&elist, &store, nullptr);
     });
 
     EXPECT_EQ(out, 0);
@@ -148,7 +171,7 @@ TEST(CmdValidateTest, ValidLinkToKnownEntityReturnsZero)
 
     int out = 0;
     std::string stdout_out = capture_stdout([&]() {
-        out = cmd_validate(&elist, &store);
+        out = cmd_validate(&elist, &store, nullptr);
     });
 
     EXPECT_EQ(out, 0);
@@ -170,7 +193,7 @@ TEST(CmdValidateTest, DuplicateIdReturnsNonZero)
     int out = 0;
     std::string err_out = capture_stderr([&]() {
         capture_stdout([&]() {
-            out = cmd_validate(&elist, &store);
+            out = cmd_validate(&elist, &store, nullptr);
         });
     });
 
@@ -188,7 +211,7 @@ TEST(CmdValidateTest, DuplicateIdMentionsBothFilePaths)
     vibe::TripletStore store;
 
     std::string err_out = capture_stderr([&]() {
-        capture_stdout([&]() { cmd_validate(&elist, &store); });
+        capture_stdout([&]() { cmd_validate(&elist, &store, nullptr); });
     });
 
     EXPECT_THAT(err_out, HasSubstr("first/req.yaml"));
@@ -204,7 +227,7 @@ TEST(CmdValidateTest, NoDuplicatesNoErrorMessage)
     vibe::TripletStore store;
 
     std::string err_out = capture_stderr([&]() {
-        capture_stdout([&]() { cmd_validate(&elist, &store); });
+        capture_stdout([&]() { cmd_validate(&elist, &store, nullptr); });
     });
 
     EXPECT_THAT(err_out, Not(HasSubstr("duplicate")));
@@ -225,7 +248,7 @@ TEST(CmdValidateTest, LinkToUnknownEntityReturnsNonZero)
     int out = 0;
     std::string err_out = capture_stderr([&]() {
         capture_stdout([&]() {
-            out = cmd_validate(&elist, &store);
+            out = cmd_validate(&elist, &store, nullptr);
         });
     });
 
@@ -243,7 +266,7 @@ TEST(CmdValidateTest, LinkToUnknownEntityMentionsRelation)
     store.add("REQ-001", "verified-by", "TC-GHOST");
 
     std::string err_out = capture_stderr([&]() {
-        capture_stdout([&]() { cmd_validate(&elist, &store); });
+        capture_stdout([&]() { cmd_validate(&elist, &store, nullptr); });
     });
 
     EXPECT_THAT(err_out, HasSubstr("verified-by"));
@@ -260,7 +283,7 @@ TEST(CmdValidateTest, FilePathObjectIsNotFlaggedAsBrokenLink)
     int out = 0;
     std::string err_out = capture_stderr([&]() {
         capture_stdout([&]() {
-            out = cmd_validate(&elist, &store);
+            out = cmd_validate(&elist, &store, nullptr);
         });
     });
 
@@ -279,7 +302,7 @@ TEST(CmdValidateTest, WindowsPathObjectIsNotFlaggedAsBrokenLink)
     int out = 0;
     capture_stderr([&]() {
         capture_stdout([&]() {
-            out = cmd_validate(&elist, &store);
+            out = cmd_validate(&elist, &store, nullptr);
         });
     });
 
@@ -297,7 +320,7 @@ TEST(CmdValidateTest, UrlObjectIsNotFlaggedAsBrokenLink)
     int out = 0;
     capture_stderr([&]() {
         capture_stdout([&]() {
-            out = cmd_validate(&elist, &store);
+            out = cmd_validate(&elist, &store, nullptr);
         });
     });
 
@@ -316,11 +339,59 @@ TEST(CmdValidateTest, InferredTripleIsNotCheckedForBrokenLink)
     int out = 0;
     capture_stderr([&]() {
         capture_stdout([&]() {
-            out = cmd_validate(&elist, &store);
+            out = cmd_validate(&elist, &store, nullptr);
         });
     });
 
     EXPECT_EQ(out, 0);
+}
+
+/* =========================================================================
+ * Tests — vocabulary validation
+ * ======================================================================= */
+
+TEST(CmdValidateTest, VocabularyViolationReportsFieldAndAllowedValues)
+{
+    EntityList elist;
+    Entity e = make_entity("REQ-001", "req.yaml");
+    e.lifecycle.status = "blocked";
+    elist.push_back(e);
+
+    vibe::TripletStore store;
+    VibeConfig cfg = make_vocab_config("status", {"draft", "approved"});
+
+    int out = 0;
+    std::string err_out = capture_stderr([&]() {
+        capture_stdout([&]() {
+            out = cmd_validate(&elist, &store, &cfg);
+        });
+    });
+
+    EXPECT_GT(out, 0);
+    EXPECT_THAT(err_out, HasSubstr("status"));
+    EXPECT_THAT(err_out, HasSubstr("blocked"));
+    EXPECT_THAT(err_out, HasSubstr("draft"));
+}
+
+TEST(CmdValidateTest, VocabularyMatchIsCaseInsensitive)
+{
+    EntityList elist;
+    Entity e = make_entity("REQ-001", "req.yaml");
+    e.lifecycle.status = "Draft";
+    elist.push_back(e);
+
+    vibe::TripletStore store;
+    VibeConfig cfg = make_vocab_config("status", {"draft", "approved"});
+
+    int out = 0;
+    std::string err_out = capture_stderr([&]() {
+        capture_stdout([&]() {
+            out = cmd_validate(&elist, &store, &cfg);
+        });
+    });
+
+    EXPECT_EQ(out, 0);
+    EXPECT_THAT(err_out, Not(HasSubstr("error:")));
 }
 
 /* =========================================================================
@@ -339,7 +410,7 @@ TEST(CmdValidateTest, MultipleProblemsAreAllCounted)
     int out = 0;
     capture_stderr([&]() {
         capture_stdout([&]() {
-            out = cmd_validate(&elist, &store);
+            out = cmd_validate(&elist, &store, nullptr);
         });
     });
 
@@ -358,7 +429,7 @@ TEST(CmdValidateTest, FailFastStopsAfterFirstProblem)
     int out = 0;
     capture_stderr([&]() {
         capture_stdout([&]() {
-            out = cmd_validate_with_options(&elist, &store, 1);
+            out = cmd_validate_with_options(&elist, &store, 1, nullptr);
         });
     });
 
@@ -374,7 +445,7 @@ TEST(CmdValidateTest, SummaryLinePrintedToStderrOnProblems)
     vibe::TripletStore store;
 
     std::string err_out = capture_stderr([&]() {
-        capture_stdout([&]() { cmd_validate(&elist, &store); });
+        capture_stdout([&]() { cmd_validate(&elist, &store, nullptr); });
     });
 
     EXPECT_THAT(err_out, HasSubstr("problem"));
