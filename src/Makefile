@@ -57,7 +57,8 @@ TEST_REPORT_OBJS   = $(BUILD_DIR)/tests/test_report.o $(BUILD_DIR)/report.o \
 TEST_NEW_CMD_TARGET = $(BIN_DIR)/tests/test_new_cmd
 TEST_NEW_CMD_OBJS   = $(BUILD_DIR)/tests/test_new_cmd.o $(BUILD_DIR)/new_cmd.o \
                       $(BUILD_DIR)/entity.o $(YAML_OBJS) \
-                      $(BUILD_DIR)/triplet_store.o
+                      $(BUILD_DIR)/triplet_store.o \
+                      $(BUILD_DIR)/config.o $(BUILD_DIR)/discovery.o
 
 TEST_COVERAGE_TARGET = $(BIN_DIR)/tests/test_coverage
 TEST_COVERAGE_OBJS   = $(BUILD_DIR)/tests/test_coverage.o \

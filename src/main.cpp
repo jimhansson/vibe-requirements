@@ -29,7 +29,14 @@ int main(int argc, char *argv[])
     if (opts.parse_error) {
         fprintf(stderr, "%s\n", opts.error_msg);
         if (opts.is_new_cmd)
-            fprintf(stderr, "usage: %s new <type> <id> [directory]\n", argv[0]);
+            fprintf(stderr,
+                    "usage: %s new <type> <id> [directory]\n"
+                    "       %s new <type> --next [prefix] [directory]\n"
+                    "       %s new <type> auto [directory]\n",
+                    argv[0], argv[0], argv[0]);
+        if (opts.is_next_id_cmd)
+            fprintf(stderr, "usage: %s next-id <type> <prefix> [directory]\n",
+                    argv[0]);
         if (opts.is_doc_cmd)
             fprintf(stderr,
                     "usage: %s doc <doc-id> [--format md|html] "
@@ -38,8 +45,64 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if (opts.is_next_id_cmd) {
+        char next_id[128];
+        int rc = new_cmd_next_id(opts.next_id_type, opts.next_id_prefix,
+                                 opts.next_id_dir, next_id, sizeof(next_id));
+        if (rc == -3) {
+            fprintf(stderr, "error: unrecognised entity type '%s'\n"
+                    "Valid types: requirement, group, story, design-note,\n"
+                    "             section, assumption, constraint, test-case,\n"
+                    "             external, document, srs, sdd,\n"
+                    "             document-schema\n",
+                    opts.next_id_type);
+            return 1;
+        }
+        if (rc == -4) {
+            fprintf(stderr,
+                    "error: no default prefix for '%s'; specify a prefix\n",
+                    opts.next_id_type);
+            return 1;
+        }
+        if (rc != 0) {
+            fprintf(stderr, "error: cannot scan directory '%s'\n",
+                    opts.next_id_dir);
+            return 1;
+        }
+        printf("%s\n", next_id);
+        return 0;
+    }
+
     if (opts.is_new_cmd) {
-        int rc = new_cmd_scaffold(opts.new_type, opts.new_id, opts.new_dir);
+        const char *id = opts.new_id;
+        char auto_id[128];
+        if (opts.new_use_next) {
+            int rc = new_cmd_next_id(opts.new_type, opts.new_prefix,
+                                     opts.new_dir, auto_id, sizeof(auto_id));
+            if (rc == -3) {
+                fprintf(stderr, "error: unrecognised entity type '%s'\n"
+                        "Valid types: requirement, group, story, design-note,\n"
+                        "             section, assumption, constraint, test-case,\n"
+                        "             external, document, srs, sdd,\n"
+                        "             document-schema\n",
+                        opts.new_type);
+                return 1;
+            }
+            if (rc == -4) {
+                fprintf(stderr,
+                        "error: no default prefix for '%s'; specify a prefix\n",
+                        opts.new_type);
+                return 1;
+            }
+            if (rc != 0) {
+                fprintf(stderr, "error: cannot scan directory '%s'\n",
+                        opts.new_dir);
+                return 1;
+            }
+            id = auto_id;
+        }
+
+        int rc = new_cmd_scaffold(opts.new_type, id, opts.new_dir);
         if (rc == -3) {
             fprintf(stderr, "error: unrecognised entity type '%s'\n"
                     "Valid types: requirement, group, story, design-note,\n"
@@ -56,10 +119,12 @@ int main(int argc, char *argv[])
         }
         if (rc == -2) {
             fprintf(stderr, "error: cannot create '%s/%s.yaml'\n",
-                    opts.new_dir, opts.new_id);
+                    opts.new_dir, id);
             return 1;
         }
-        printf("Created %s/%s.yaml\n", opts.new_dir, opts.new_id);
+        printf("Created %s/%s.yaml\n", opts.new_dir, id);
+        if (opts.new_use_next)
+            printf("Selected ID: %s\n", id);
         return 0;
     }
 

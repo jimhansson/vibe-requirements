@@ -235,9 +235,65 @@ TEST(CliParseArgsTest, NewSubcommandWithDirectory)
     EXPECT_STREQ(opts.new_dir, "requirements/");
 }
 
+TEST(CliParseArgsTest, NewSubcommandAutoUsesDefaultPrefix)
+{
+    Argv a{"vibe-req", "new", "story", "auto"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.is_new_cmd, 1);
+    EXPECT_EQ(opts.new_use_next, 1);
+    EXPECT_EQ(opts.new_prefix, nullptr);
+    EXPECT_STREQ(opts.new_dir, ".");
+}
+
+TEST(CliParseArgsTest, NewSubcommandNextWithPrefix)
+{
+    Argv a{"vibe-req", "new", "requirement", "--next", "REQ-AUTH-"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.is_new_cmd, 1);
+    EXPECT_EQ(opts.new_use_next, 1);
+    EXPECT_STREQ(opts.new_prefix, "REQ-AUTH-");
+    EXPECT_STREQ(opts.new_dir, ".");
+}
+
+TEST(CliParseArgsTest, NewSubcommandNextWithDirectory)
+{
+    Argv a{"vibe-req", "new", "requirement", "--next", "requirements/"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.is_new_cmd, 1);
+    EXPECT_EQ(opts.new_use_next, 1);
+    EXPECT_EQ(opts.new_prefix, nullptr);
+    EXPECT_STREQ(opts.new_dir, "requirements/");
+}
+
 TEST(CliParseArgsTest, NewSubcommandMissingArgsGivesParseError)
 {
     Argv a{"vibe-req", "new", "requirement"}; /* missing id */
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_NE(opts.parse_error, 0);
+}
+
+TEST(CliParseArgsTest, NextIdSubcommandSetsFields)
+{
+    Argv a{"vibe-req", "next-id", "requirement", "REQ-", "docs/"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.is_next_id_cmd, 1);
+    EXPECT_STREQ(opts.next_id_type, "requirement");
+    EXPECT_STREQ(opts.next_id_prefix, "REQ-");
+    EXPECT_STREQ(opts.next_id_dir, "docs/");
+}
+
+TEST(CliParseArgsTest, NextIdMissingArgsGivesParseError)
+{
+    Argv a{"vibe-req", "next-id", "requirement"};
     CliOptions opts;
     cli_parse_args(a.argc(), a.argv(), &opts);
     EXPECT_NE(opts.parse_error, 0);
