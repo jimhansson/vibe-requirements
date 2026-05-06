@@ -156,9 +156,21 @@ int main(int argc, char *argv[])
             entity_apply_filter(&elist, &filtered,
                                 opts.filter_kind, opts.filter_comp,
                                 opts.filter_status, opts.filter_priority);
-            list_entities(&filtered);
+            if (opts.report_format == REPORT_FORMAT_JSON) {
+                vibe::TripletStore *store = build_entity_relation_store(&elist);
+                report_write(stdout, &filtered, store, REPORT_FORMAT_JSON);
+                delete store;
+            } else {
+                list_entities(&filtered);
+            }
         } else {
-            list_entities(&elist);
+            if (opts.report_format == REPORT_FORMAT_JSON) {
+                vibe::TripletStore *store = build_entity_relation_store(&elist);
+                report_write(stdout, &elist, store, REPORT_FORMAT_JSON);
+                delete store;
+            } else {
+                list_entities(&elist);
+            }
         }
         return 0;
     }

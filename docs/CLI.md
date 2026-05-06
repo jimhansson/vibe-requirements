@@ -45,11 +45,12 @@ List all entities using the ECS model with optional filters.  The alias
 `entities` behaves identically.
 
 ```bash
-vibe-req list [--kind <kind>] [--component <comp>] [--status <status>] [--priority <prio>] [directory]
+vibe-req list [--kind <kind>] [--component <comp>] [--status <status>] [--priority <prio>] [--format json] [directory]
 vibe-req entities [<same flags>] [directory]
 ```
 
-When no filter flags are given every entity is shown.
+When no filter flags are given every entity is shown.  Add `--format json`
+to receive a machine-readable JSON array instead of the default ASCII table.
 
 #### Filter flags
 
@@ -59,6 +60,7 @@ When no filter flags are given every entity is shown.
 | `--component <comp>` | Show only entities that carry the named ECS component (see table below) |
 | `--status <status>` | Show only entities whose `status` field equals the given value |
 | `--priority <prio>` | Show only entities whose `priority` field equals the given value |
+| `--format json` | Output a JSON array instead of the default ASCII table |
 
 **`--kind` values:**
 
@@ -110,6 +112,9 @@ vibe-req list --component acceptance-criteria
 
 # All draft user stories
 vibe-req list --kind story --status draft
+
+# JSON output for script consumption
+vibe-req list --format json
 
 # Scan a specific directory
 vibe-req list requirements/
@@ -303,14 +308,15 @@ No orphaned requirements or test cases found.
 
 ### report
 
-Generate a human-readable Markdown or HTML report of all entities (or a
-filtered subset).  Entities are grouped by kind.  Each entity section
-includes its metadata (kind, status, priority, owner), description,
-rationale, tags, sources, acceptance criteria, user-story fields, and all
-traceability links (outgoing and incoming).
+Generate a Markdown, HTML, or JSON report of all entities (or a
+filtered subset).  Entities are grouped by kind in Markdown/HTML output.
+Each entity section includes its metadata (kind, status, priority, owner),
+description, rationale, tags, sources, acceptance criteria, user-story
+fields, and all traceability links (outgoing and incoming).  JSON output
+produces a machine-readable array of entity objects.
 
 ```bash
-vibe-req report [--format md|html] [--output <file>] \
+vibe-req report [--format md|html|json] [--output <file>] \
                 [--kind <kind>] [--status <status>] [--priority <prio>] \
                 [--component <comp>] [directory]
 ```
@@ -321,6 +327,7 @@ vibe-req report [--format md|html] [--output <file>] \
 |--------|-------------|
 | `--format md` | Output Markdown (default) |
 | `--format html` | Output a self-contained HTML document with inline CSS |
+| `--format json` | Output a JSON array (machine-readable, suitable for scripts) |
 | `--output <file>` | Write the report to `<file>` instead of stdout |
 | `--kind <kind>` | Include only entities of the given kind |
 | `--status <status>` | Include only entities with the given lifecycle status |
@@ -338,6 +345,12 @@ vibe-req report --output report.md
 
 # HTML report to a file
 vibe-req report --format html --output report.html
+
+# JSON report to stdout (machine-readable)
+vibe-req report --format json
+
+# JSON list of all approved requirements
+vibe-req report --format json --kind requirement --status approved
 
 # Report only requirements
 vibe-req report --kind requirement
