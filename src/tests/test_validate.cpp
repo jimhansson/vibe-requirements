@@ -451,3 +451,154 @@ TEST(CmdValidateTest, SummaryLinePrintedToStderrOnProblems)
 
     EXPECT_THAT(err_out, HasSubstr("problem"));
 }
+
+/* =========================================================================
+ * Tests — required fields validation
+ * ======================================================================= */
+
+/* Helper — build a config with a requiredFields list. */
+static VibeConfig make_required_fields_config(
+    std::initializer_list<const char *> fields)
+{
+    VibeConfig cfg{};
+    int idx = 0;
+    for (const char *field : fields) {
+        if (idx >= CONFIG_REQUIRED_FIELDS_MAX)
+            break;
+        strncpy(cfg.required_fields[idx], field, CONFIG_REQUIRED_FIELD_LEN - 1);
+        cfg.required_fields[idx][CONFIG_REQUIRED_FIELD_LEN - 1] = '\0';
+        idx++;
+    }
+    cfg.required_fields_count = idx;
+    return cfg;
+}
+
+TEST(CmdValidateTest, RequiredFieldMissingReturnsNonZero)
+{
+    EntityList elist;
+    /* Entity has no status set (make_entity only populates id, title, kind, file_path) */
+    elist.push_back(make_entity("REQ-001", "req.yaml"));
+
+    vibe::TripletStore store;
+    VibeConfig cfg = make_required_fields_config({"status"});
+
+    int out = 0;
+    capture_stderr([&]() {
+        capture_stdout([&]() {
+            out = cmd_validate(&elist, &store, &cfg);
+        });
+    });
+
+    EXPECT_GT(out, 0);
+}
+
+TEST(CmdValidateTest, RequiredFieldMissingMentionsEntityAndField)
+{
+    EntityList elist;
+    Entity e{};
+    e.identity.id        = "REQ-001";
+    e.identity.file_path = "req.yaml";
+    /* title deliberately left empty */
+    elist.push_back(e);
+
+    vibe::TripletStore store;
+    VibeConfig cfg = make_required_fields_config({"title"});
+
+    std::string err_out = capture_stderr([&]() {
+        capture_stdout([&]() { cmd_validate(&elist, &store, &cfg); });
+    });
+
+    EXPECT_THAT(err_out, HasSubstr("REQ-001"));
+    EXPECT_THAT(err_out, HasSubstr("title"));
+}
+
+TEST(CmdValidateTest, RequiredFieldEmptyStringCountsAsMissing)
+{
+    EntityList elist;
+    Entity e{};
+    e.identity.id        = "REQ-002";
+    e.identity.file_path = "req.yaml";
+    e.lifecycle.status   = "";          /* empty */
+    elist.push_back(e);
+
+    vibe::TripletStore store;
+    VibeConfig cfg = make_required_fields_config({"status"});
+
+    int out = 0;
+    capture_stderr([&]() {
+        capture_stdout([&]() {
+            out = cmd_validate(&elist, &store, &cfg);
+        });
+    });
+
+    EXPECT_GT(out, 0);
+}
+
+TEST(CmdValidateTest, RequiredFieldPresentPassesValidation)
+{
+    EntityList elist;
+    Entity e{};
+    e.identity.id        = "REQ-003";
+    e.identity.title     = "My title";
+    e.identity.file_path = "req.yaml";
+    e.lifecycle.status   = "approved";
+    e.lifecycle.priority = "must";
+    elist.push_back(e);
+
+    vibe::TripletStore store;
+    VibeConfig cfg = make_required_fields_config({"title", "status", "priority"});
+
+    int out = 0;
+    std::string err_out = capture_stderr([&]() {
+        capture_stdout([&]() {
+            out = cmd_validate(&elist, &store, &cfg);
+        });
+    });
+
+    EXPECT_EQ(out, 0);
+    EXPECT_THAT(err_out, Not(HasSubstr("error:")));
+}
+
+TEST(CmdValidateTest, NoRequiredFieldsConfiguredPassesValidation)
+{
+    EntityList elist;
+    /* Entity with only id — no title, status, etc. */
+    elist.push_back(make_entity("REQ-004", "req.yaml"));
+
+    vibe::TripletStore store;
+    VibeConfig cfg{};  /* requiredFields not configured */
+
+    int out = 0;
+    capture_stderr([&]() {
+        capture_stdout([&]() {
+            out = cmd_validate(&elist, &store, &cfg);
+        });
+    });
+
+    EXPECT_EQ(out, 0);
+}
+
+TEST(CmdValidateTest, MultipleRequiredFieldsReportsEachMissing)
+{
+    EntityList elist;
+    Entity e{};
+    e.identity.id        = "REQ-005";
+    e.identity.file_path = "req.yaml";
+    /* title, status, priority all empty */
+    elist.push_back(e);
+
+    vibe::TripletStore store;
+    VibeConfig cfg = make_required_fields_config({"title", "status", "priority"});
+
+    int out = 0;
+    std::string err_out = capture_stderr([&]() {
+        capture_stdout([&]() {
+            out = cmd_validate(&elist, &store, &cfg);
+        });
+    });
+
+    EXPECT_GE(out, 3);
+    EXPECT_THAT(err_out, HasSubstr("title"));
+    EXPECT_THAT(err_out, HasSubstr("status"));
+    EXPECT_THAT(err_out, HasSubstr("priority"));
+}
