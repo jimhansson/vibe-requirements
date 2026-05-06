@@ -1,0 +1,660 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "vibe-requirements CLI",
+    "version": "1.0.0",
+    "description": "OpenAPI tool definitions for the vibe-req CLI. Each operation maps to a CLI command and returns the captured stdout/stderr and exit code."
+  },
+  "servers": [
+    {
+      "url": "http://localhost"
+    }
+  ],
+  "tags": [
+    {
+      "name": "cli",
+      "description": "vibe-req command wrappers"
+    }
+  ],
+  "paths": {
+    "/entities": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "listEntities",
+        "summary": "List entities",
+        "description": "CLI: vibe-req list [--kind] [--component] [--status] [--priority] [directory]",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "Filter by entity kind.",
+            "schema": {
+              "$ref": "#/components/schemas/EntityKind"
+            }
+          },
+          {
+            "name": "component",
+            "in": "query",
+            "description": "Filter by ECS component.",
+            "schema": {
+              "$ref": "#/components/schemas/EntityComponent"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by lifecycle status.",
+            "schema": {
+              "$ref": "#/components/schemas/EntityStatus"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "description": "Filter by lifecycle priority.",
+            "schema": {
+              "$ref": "#/components/schemas/EntityPriority"
+            }
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/trace/{id}": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "traceEntity",
+        "summary": "Trace an entity",
+        "description": "CLI: vibe-req trace <id> [directory]",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Entity ID to trace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/coverage": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "coverageReport",
+        "summary": "Report requirement coverage",
+        "description": "CLI: vibe-req coverage [directory]",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "statusSummary",
+        "summary": "Summarize entity status",
+        "description": "CLI: vibe-req status [directory]",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/orphan": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "orphanReport",
+        "summary": "List orphaned requirements/tests",
+        "description": "CLI: vibe-req orphan [directory]",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/links": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "listLinks",
+        "summary": "List traceability links",
+        "description": "CLI: vibe-req links [--strict-links] [directory]",
+        "parameters": [
+          {
+            "name": "strict_links",
+            "in": "query",
+            "description": "Warn on missing inverse links.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/validate": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "validateRepository",
+        "summary": "Validate entity set",
+        "description": "CLI: vibe-req validate [--fail-fast] [directory]",
+        "parameters": [
+          {
+            "name": "fail_fast",
+            "in": "query",
+            "description": "Stop on the first validation error.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/report": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "reportEntities",
+        "summary": "Generate a report",
+        "description": "CLI: vibe-req report [--format] [--output] [filters] [directory]",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Report format.",
+            "schema": {
+              "$ref": "#/components/schemas/ReportFormat"
+            }
+          },
+          {
+            "name": "output",
+            "in": "query",
+            "description": "Write report to a file instead of stdout.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "Filter by entity kind.",
+            "schema": {
+              "$ref": "#/components/schemas/EntityKind"
+            }
+          },
+          {
+            "name": "component",
+            "in": "query",
+            "description": "Filter by ECS component.",
+            "schema": {
+              "$ref": "#/components/schemas/EntityComponent"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by lifecycle status.",
+            "schema": {
+              "$ref": "#/components/schemas/EntityStatus"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "description": "Filter by lifecycle priority.",
+            "schema": {
+              "$ref": "#/components/schemas/EntityPriority"
+            }
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/doc/{id}": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "renderDocument",
+        "summary": "Render a document entity",
+        "description": "CLI: vibe-req doc <doc-id> [--format] [--output] [directory]",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Document entity ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Report format.",
+            "schema": {
+              "$ref": "#/components/schemas/ReportFormat"
+            }
+          },
+          {
+            "name": "output",
+            "in": "query",
+            "description": "Write document to a file instead of stdout.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/new": {
+      "post": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "createEntity",
+        "summary": "Scaffold a new entity file",
+        "description": "CLI: vibe-req new <type> <id> [dir] | new <type> --next [prefix] [dir] | new <type> auto [dir]",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewEntityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    },
+    "/next-id": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "operationId": "nextEntityId",
+        "summary": "Suggest next unused ID",
+        "description": "CLI: vibe-req next-id <type> <prefix> [directory]",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": true,
+            "description": "Entity type (e.g., requirement, story, test-case).",
+            "schema": {
+              "$ref": "#/components/schemas/EntityType"
+            }
+          },
+          {
+            "name": "prefix",
+            "in": "query",
+            "required": true,
+            "description": "ID prefix to scan (e.g., REQ-AUTH-).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "description": "Root directory to scan (default: current directory).",
+            "schema": {
+              "type": "string",
+              "default": "."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommandOutput"
+          },
+          "default": {
+            "$ref": "#/components/responses/CommandError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EntityKind": {
+        "type": "string",
+        "enum": [
+          "requirement",
+          "group",
+          "story",
+          "design-note",
+          "section",
+          "assumption",
+          "constraint",
+          "test-case",
+          "external",
+          "document",
+          "document-schema"
+        ]
+      },
+      "EntityComponent": {
+        "type": "string",
+        "enum": [
+          "user-story",
+          "acceptance-criteria",
+          "epic",
+          "assumption",
+          "constraint",
+          "doc-meta",
+          "doc-membership",
+          "doc-body",
+          "traceability",
+          "tags",
+          "test-procedure",
+          "clause-collection",
+          "attachment",
+          "applies-to",
+          "variant-profile",
+          "composition-profile",
+          "render-profile"
+        ]
+      },
+      "EntityStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "approved",
+          "deprecated"
+        ]
+      },
+      "EntityPriority": {
+        "type": "string",
+        "enum": [
+          "must",
+          "should",
+          "could"
+        ]
+      },
+      "ReportFormat": {
+        "type": "string",
+        "enum": [
+          "md",
+          "html"
+        ]
+      },
+      "EntityType": {
+        "type": "string",
+        "enum": [
+          "requirement",
+          "functional",
+          "non-functional",
+          "group",
+          "story",
+          "user-story",
+          "design-note",
+          "design",
+          "section",
+          "assumption",
+          "constraint",
+          "test-case",
+          "test",
+          "external",
+          "directive",
+          "standard",
+          "regulation",
+          "document",
+          "srs",
+          "sdd",
+          "document-schema"
+        ]
+      },
+      "NewEntityMode": {
+        "type": "string",
+        "enum": [
+          "explicit",
+          "next",
+          "auto"
+        ]
+      },
+      "NewEntityRequest": {
+        "type": "object",
+        "required": [
+          "type",
+          "mode"
+        ],
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/EntityType"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/NewEntityMode"
+          },
+          "id": {
+            "type": "string",
+            "description": "Required when mode=explicit."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Optional prefix when mode=next."
+          },
+          "directory": {
+            "type": "string",
+            "default": ".",
+            "description": "Target directory for the new file."
+          }
+        },
+        "description": "Scaffold a new entity. Use mode=explicit with an id, mode=next with an optional prefix, or mode=auto to use the default prefix."
+      },
+      "CommandResult": {
+        "type": "object",
+        "properties": {
+          "stdout": {
+            "type": "string",
+            "description": "Captured stdout from the CLI."
+          },
+          "stderr": {
+            "type": "string",
+            "description": "Captured stderr from the CLI."
+          },
+          "exit_code": {
+            "type": "integer",
+            "description": "Process exit code."
+          }
+        },
+        "required": [
+          "stdout",
+          "exit_code"
+        ]
+      }
+    },
+    "responses": {
+      "CommandOutput": {
+        "description": "CLI output.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CommandResult"
+            }
+          }
+        }
+      },
+      "CommandError": {
+        "description": "CLI error output.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CommandResult"
+            }
+          }
+        }
+      }
+    }
+  }
+}
