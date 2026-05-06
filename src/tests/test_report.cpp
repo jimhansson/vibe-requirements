@@ -475,3 +475,132 @@ TEST(ReportFilterTest, HtmlOutputAlsoRespectsStatusFilter)
     EXPECT_THAT(out, Not(HasSubstr("REQ-H02")));
 
 }
+
+/* =========================================================================
+ * Tests — JSON output
+ * ======================================================================= */
+
+TEST(ReportJsonTest, EmptyListProducesEmptyArray)
+{
+    EntityList list;
+
+    std::string out = capture_report(&list, nullptr, REPORT_FORMAT_JSON);
+
+    EXPECT_THAT(out, HasSubstr("["));
+    EXPECT_THAT(out, HasSubstr("]"));
+    /* No entity objects */
+    EXPECT_THAT(out, Not(HasSubstr("\"id\"")));
+}
+
+TEST(ReportJsonTest, SingleEntityHasIdAndKind)
+{
+    EntityList list;
+
+    Entity e = make_entity("REQ-J01", "JSON test req",
+                            ENTITY_KIND_REQUIREMENT, "approved", "must");
+    list.push_back(e);
+
+    std::string out = capture_report(&list, nullptr, REPORT_FORMAT_JSON);
+
+    EXPECT_THAT(out, HasSubstr("\"REQ-J01\""));
+    EXPECT_THAT(out, HasSubstr("\"requirement\""));
+    EXPECT_THAT(out, HasSubstr("\"JSON test req\""));
+    EXPECT_THAT(out, HasSubstr("\"approved\""));
+    EXPECT_THAT(out, HasSubstr("\"must\""));
+}
+
+TEST(ReportJsonTest, SpecialCharactersAreEscaped)
+{
+    EntityList list;
+
+    Entity e = make_entity("REQ-J02", "A \"quoted\" & escaped",
+                            ENTITY_KIND_REQUIREMENT);
+    list.push_back(e);
+
+    std::string out = capture_report(&list, nullptr, REPORT_FORMAT_JSON);
+
+    /* Raw unescaped quote must not appear inside a string value */
+    EXPECT_THAT(out, HasSubstr("\\\"quoted\\\""));
+}
+
+TEST(ReportJsonTest, TagsRenderedAsArray)
+{
+    EntityList list;
+
+    Entity e = make_entity("REQ-J03", "Tagged", ENTITY_KIND_REQUIREMENT);
+    e.tags.tags.push_back("auth");
+    e.tags.tags.push_back("security");
+    list.push_back(e);
+
+    std::string out = capture_report(&list, nullptr, REPORT_FORMAT_JSON);
+
+    EXPECT_THAT(out, HasSubstr("\"tags\""));
+    EXPECT_THAT(out, HasSubstr("\"auth\""));
+    EXPECT_THAT(out, HasSubstr("\"security\""));
+}
+
+TEST(ReportJsonTest, TraceabilityLinksIncludedWhenStoreProvided)
+{
+    EntityList list;
+
+    Entity e = make_entity("REQ-J04", "Traced", ENTITY_KIND_REQUIREMENT);
+    list.push_back(e);
+
+    vibe::TripletStore *store = new vibe::TripletStore();
+    store->add("REQ-J04", "verified-by", "TC-J01");
+
+    std::string out = capture_report(&list, store, REPORT_FORMAT_JSON);
+
+    EXPECT_THAT(out, HasSubstr("\"traceability\""));
+    EXPECT_THAT(out, HasSubstr("\"verified-by\""));
+    EXPECT_THAT(out, HasSubstr("\"TC-J01\""));
+    EXPECT_THAT(out, HasSubstr("\"outgoing\""));
+
+    delete store;
+}
+
+TEST(ReportJsonTest, MultipleEntitiesProduceValidArrayWithCommas)
+{
+    EntityList list;
+
+    Entity e1 = make_entity("REQ-J05", "First",  ENTITY_KIND_REQUIREMENT);
+    Entity e2 = make_entity("REQ-J06", "Second", ENTITY_KIND_REQUIREMENT);
+    list.push_back(e1);
+    list.push_back(e2);
+
+    std::string out = capture_report(&list, nullptr, REPORT_FORMAT_JSON);
+
+    /* Both IDs must appear */
+    EXPECT_THAT(out, HasSubstr("\"REQ-J05\""));
+    EXPECT_THAT(out, HasSubstr("\"REQ-J06\""));
+
+    /* Array must start and end with [ and ] */
+    EXPECT_EQ(out.front(), '[');
+    /* Last non-whitespace character must be ] */
+    size_t last = out.find_last_not_of(" \t\n\r");
+    ASSERT_NE(last, std::string::npos);
+    EXPECT_EQ(out[last], ']');
+}
+
+TEST(ReportJsonTest, IncomingLinksMarkedAsIncoming)
+{
+    EntityList list;
+
+    Entity req = make_entity("REQ-J07", "Linked req", ENTITY_KIND_REQUIREMENT);
+    Entity tc  = make_entity("TC-J07",  "Linked tc",  ENTITY_KIND_TEST_CASE);
+    list.push_back(req);
+    list.push_back(tc);
+
+    vibe::TripletStore *store = new vibe::TripletStore();
+    store->add("TC-J07", "verifies", "REQ-J07");
+    store->infer_inverses();
+
+    std::string out = capture_report(&list, store, REPORT_FORMAT_JSON);
+
+    /* TC-J07 has an outgoing verifies link */
+    EXPECT_THAT(out, HasSubstr("\"outgoing\""));
+    /* REQ-J07 should have an incoming link */
+    EXPECT_THAT(out, HasSubstr("\"incoming\""));
+
+    delete store;
+}

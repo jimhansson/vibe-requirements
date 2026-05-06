@@ -8,7 +8,8 @@
 /** Output format for report_write(). */
 typedef enum {
     REPORT_FORMAT_MARKDOWN = 0,
-    REPORT_FORMAT_HTML
+    REPORT_FORMAT_HTML,
+    REPORT_FORMAT_JSON
 } ReportFormat;
 
 void report_write(FILE *out, const EntityList *list,

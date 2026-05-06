@@ -439,6 +439,25 @@ TEST(CliParseArgsTest, FormatFlagMissingValueGivesParseError)
     EXPECT_NE(opts.parse_error, 0);
 }
 
+TEST(CliParseArgsTest, FormatFlagJson)
+{
+    Argv a{"vibe-req", "report", "--format", "json"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.report_format, REPORT_FORMAT_JSON);
+}
+
+TEST(CliParseArgsTest, FormatFlagJsonOnListCommand)
+{
+    Argv a{"vibe-req", "list", "--format", "json"};
+    CliOptions opts;
+    cli_parse_args(a.argc(), a.argv(), &opts);
+    EXPECT_EQ(opts.parse_error, 0);
+    EXPECT_EQ(opts.show_entities, 1);
+    EXPECT_EQ(opts.report_format, REPORT_FORMAT_JSON);
+}
+
 /* =========================================================================
  * Tests — report command with filter flags
  * ======================================================================= */

@@ -101,6 +101,7 @@ void cli_print_help(const char *prog)
     printf("Report options (for 'report' / 'doc'):\n");
     printf("  --format md     Output Markdown (default).\n");
     printf("  --format html   Output a self-contained HTML document.\n");
+    printf("  --format json   Output a JSON array (machine-readable).\n");
     printf("  --output <file> Write report to <file> instead of stdout.\n\n");
     printf("Other options:\n");
     printf("  --fail-fast    Stop on the first YAML parse or validation error.\n");
@@ -269,7 +270,7 @@ void cli_parse_args(int argc, char *argv[], CliOptions *opts)
         } else if (strcmp(argv[i], "--format") == 0) {
             if (i + 1 >= argc) {
                 opts->parse_error = 1;
-                opts->error_msg   = "error: '--format' requires 'md' or 'html'";
+                opts->error_msg   = "error: '--format' requires 'md', 'html', or 'json'";
                 return;
             }
             i++;
@@ -277,10 +278,12 @@ void cli_parse_args(int argc, char *argv[], CliOptions *opts)
                 opts->report_format = REPORT_FORMAT_HTML;
             } else if (strcmp(argv[i], "md") == 0) {
                 opts->report_format = REPORT_FORMAT_MARKDOWN;
+            } else if (strcmp(argv[i], "json") == 0) {
+                opts->report_format = REPORT_FORMAT_JSON;
             } else {
                 opts->parse_error = 1;
                 opts->error_msg   =
-                    "error: unknown format value; use 'md' or 'html'";
+                    "error: unknown format value; use 'md', 'html', or 'json'";
                 return;
             }
         } else {
