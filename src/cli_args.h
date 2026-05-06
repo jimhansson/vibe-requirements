@@ -67,8 +67,20 @@ typedef struct {
      */
     int         is_doc_cmd;
 
-    /** Non-zero when the 'validate' subcommand was requested. */
+     /** Non-zero when the 'validate' subcommand was requested. */
     int         is_validate_cmd;
+
+    /** Non-zero when the 'next-id' subcommand was requested. */
+    int         is_next_id_cmd;
+
+    /** Entity type argument for 'next-id'; valid when is_next_id_cmd is set. */
+    const char *next_id_type;
+
+    /** ID prefix argument for 'next-id'; valid when is_next_id_cmd is set. */
+    const char *next_id_prefix;
+
+    /** Directory argument for 'next-id'; defaults to "." when not provided. */
+    const char *next_id_dir;
 
     /** Document ID argument for 'doc'; valid when is_doc_cmd is set. */
     const char *doc_id;
@@ -125,8 +137,16 @@ typedef struct {
     /** Entity type argument for 'new'; valid when is_new_cmd is set. */
     const char *new_type;
 
-    /** Entity ID argument for 'new'; valid when is_new_cmd is set. */
+     /** Entity ID argument for 'new'; valid when is_new_cmd is set. */
     const char *new_id;
+
+    /**
+     * Non-zero when 'new' should auto-generate the ID from existing files.
+     */
+    int         new_use_next;
+
+    /** Optional prefix override for 'new --next'; NULL uses default prefix. */
+    const char *new_prefix;
 
     /** Directory argument for 'new'; defaults to "." when not provided. */
     const char *new_dir;

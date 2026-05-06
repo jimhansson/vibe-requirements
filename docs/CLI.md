@@ -416,10 +416,13 @@ vibe-req doc SRS-CLIENT-001 requirements/
 
 Scaffold a new entity YAML file.  Creates `<id>.yaml` in the given
 directory (default: current directory) containing a minimal template for
-the requested entity type.
+the requested entity type. Use `--next` or `auto` to have the tool pick the
+next available numeric ID automatically.
 
 ```bash
 vibe-req new <type> <id> [directory]
+vibe-req new <type> --next [<prefix>] [directory]
+vibe-req new <type> auto [directory]
 ```
 
 **Arguments:**
@@ -429,6 +432,9 @@ vibe-req new <type> <id> [directory]
 | `<type>` | Entity type (see table below) |
 | `<id>` | Entity identifier; also used as the file name (`<id>.yaml`) |
 | `directory` | Output directory (default: `.`) |
+
+When using `--next` without a prefix (or the `auto` shorthand), the command
+uses the default prefix for the entity type (e.g., `REQ-`, `STORY-`, `TC-`).
 
 **`<type>` values:**
 
@@ -458,8 +464,43 @@ vibe-req new requirement REQ-AUTH-003
 # Scaffold a user story in a specific directory
 vibe-req new story STORY-LOGIN-001 requirements/sw/
 
+# Auto-assign the next requirement ID with a specific prefix
+vibe-req new requirement --next REQ-AUTH-
+
+# Auto-assign the next story ID using the default prefix
+vibe-req new story auto
+
 # Scaffold a test case
 vibe-req new test-case TC-AUTH-001
+```
+
+---
+
+### next-id
+
+Suggest the next unused numeric ID for a given entity type and prefix,
+scanning the specified directory for existing entities.
+
+```bash
+vibe-req next-id <type> <prefix> [directory]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `<type>` | Entity type (see table above) |
+| `<prefix>` | ID prefix to match (e.g., `REQ-AUTH-`) |
+| `directory` | Root directory to scan (default: `.`) |
+
+**Examples:**
+
+```bash
+# Suggest the next requirement ID under requirements/
+vibe-req next-id requirement REQ-AUTH- requirements/
+
+# Suggest the next test-case ID using the current directory
+vibe-req next-id test-case TC-
 ```
 
 ---

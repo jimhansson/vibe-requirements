@@ -10,9 +10,11 @@
 #include <cstring>
 #include <cstdlib>
 #include <string>
+#include <vector>
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
+#include <unistd.h>
 
 extern "C" {
 #include "new_cmd.h"
@@ -40,10 +42,36 @@ static std::string read_file(const char *path)
     return ss.str();
 }
 
+/** Write text content to a file, overwriting if it exists. */
+static void write_file(const std::string &path, const std::string &content)
+{
+    std::ofstream f(path);
+    if (!f.is_open())
+        return;
+    f << content;
+}
+
 /** Remove a file; ignore errors. */
 static void remove_file(const char *path)
 {
     std::remove(path);
+}
+
+static std::string make_temp_dir(const char *template_path)
+{
+    std::string pattern = template_path;
+    std::vector<char> buffer(pattern.begin(), pattern.end());
+    buffer.push_back('\0');
+    char *result = mkdtemp(buffer.data());
+    if (!result)
+        return "";
+    return std::string(result);
+}
+
+static void remove_dir(const std::string &path)
+{
+    if (!path.empty())
+        rmdir(path.c_str());
 }
 
 /* =========================================================================
@@ -94,6 +122,52 @@ TEST(NewCmdTest, ExistingFileReturnsError)
     EXPECT_EQ(rc, -1);
 
     remove_file(path);
+}
+
+/* =========================================================================
+ * Tests — next-id helper
+ * ======================================================================= */
+
+TEST(NewCmdNextIdTest, SuggestsNextIdWithMatchingPrefix)
+{
+    std::string dir = make_temp_dir("/tmp/vibe-next-id-XXXXXX");
+    ASSERT_FALSE(dir.empty());
+
+    write_file(dir + "/REQ-001.yaml",
+               "id: REQ-001\n"
+               "title: \"First\"\n"
+               "type: requirement\n"
+               "status: draft\n"
+               "priority: must\n");
+    write_file(dir + "/REQ-010.yaml",
+               "id: REQ-010\n"
+               "title: \"Second\"\n"
+               "type: requirement\n"
+               "status: draft\n"
+               "priority: must\n");
+
+    char out[64] = {};
+    int rc = new_cmd_next_id("requirement", "REQ-", dir.c_str(), out,
+                             sizeof(out));
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(out, "REQ-011");
+
+    remove_file((dir + "/REQ-001.yaml").c_str());
+    remove_file((dir + "/REQ-010.yaml").c_str());
+    remove_dir(dir);
+}
+
+TEST(NewCmdNextIdTest, UsesDefaultPrefixWhenMissing)
+{
+    std::string dir = make_temp_dir("/tmp/vibe-next-id-XXXXXX");
+    ASSERT_FALSE(dir.empty());
+
+    char out[64] = {};
+    int rc = new_cmd_next_id("story", nullptr, dir.c_str(), out, sizeof(out));
+    EXPECT_EQ(rc, 0);
+    EXPECT_STREQ(out, "STORY-001");
+
+    remove_dir(dir);
 }
 
 /* =========================================================================

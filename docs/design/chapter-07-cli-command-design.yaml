@@ -32,6 +32,9 @@ body: |
   | `links` | Print all relations as a Subject → Relation → Object table |
   | `report` | Generate a Markdown or HTML report of all entities (or a filtered subset) |
   | `new <type> <id>` | Scaffold a new entity YAML file in the current (or specified) directory |
+  | `new <type> --next [prefix] [dir]` | Auto-assign the next unused numeric ID (optional prefix override) |
+  | `new <type> auto [dir]` | Auto-assign the next unused numeric ID using the default prefix |
+  | `next-id <type> <prefix> [dir]` | Suggest the next unused numeric ID for a type/prefix |
 traceability:
   part-of: DESIGN-CH-7
 ---
@@ -74,6 +77,28 @@ body: |
   | `-h`, `--help` | Print usage and exit |
 traceability:
   part-of: DESIGN-CH-7
+---
+id: DESIGN-CH-7-4
+title: "Auto-increment ID helper workflow"
+type: design-note
+status: approved
+tags:
+  - cli
+  - ids
+body: |
+  The CLI supports two workflows for avoiding duplicate entity IDs:
+
+  1. `next-id` prints the next unused numeric ID for a given type and prefix.
+  2. `new --next` (or `new <type> auto`) assigns the next ID automatically
+     and scaffolds the file in one step.
+
+  Both workflows scan the specified directory for existing entities of the
+  same kind and prefix before choosing the next numeric suffix.
+traceability:
+  part-of: DESIGN-CH-7
+  elaborates:
+    - REQ-051
+    - REQ-029
 ---
 id: DESIGN-CH-7-3
 title: "Planned / Future CLI Commands"

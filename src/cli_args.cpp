@@ -11,6 +11,26 @@
 
 #include <cstdio>
 #include <cstring>
+#include <sys/stat.h>
+
+static int is_existing_dir(const char *path)
+{
+    if (!path || path[0] == '\0')
+        return 0;
+    struct stat st;
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+static int looks_like_directory_arg(const char *arg)
+{
+    if (!arg || arg[0] == '\0')
+        return 0;
+    if (strcmp(arg, ".") == 0 || strcmp(arg, "..") == 0)
+        return 1;
+    if (strchr(arg, '/') || strchr(arg, '\\'))
+        return 1;
+    return is_existing_dir(arg);
+}
 
 /* -------------------------------------------------------------------------
  * Help text
@@ -46,11 +66,20 @@ void cli_print_help(const char *prog)
     printf("                  Exits with a non-zero code if any problems are found.\n");
     printf("                  Example: %s validate\n\n", prog);
     printf("  new <type> <id> Scaffold a new entity YAML file named <id>.yaml.\n");
+    printf("  new <type> --next [prefix] [dir]\n");
+    printf("                  Auto-assign the next unused numeric ID.\n");
+    printf("  new <type> auto [dir]\n");
+    printf("                  Same as --next with the default prefix.\n");
     printf("                  Types: requirement, group, story, design-note,\n");
     printf("                         section, assumption, constraint, test-case,\n");
     printf("                         external, document, srs, sdd,\n");
     printf("                         document-schema\n");
-    printf("                  Example: %s new requirement REQ-AUTH-003\n\n", prog);
+    printf("                  Example: %s new requirement REQ-AUTH-003\n", prog);
+    printf("                  Example: %s new requirement --next REQ-AUTH-\n", prog);
+    printf("                  Example: %s new story auto\n\n", prog);
+    printf("  next-id <type> <prefix> [dir]\n");
+    printf("                  Print the next unused numeric ID for a prefix.\n");
+    printf("                  Example: %s next-id requirement REQ-AUTH-\n\n", prog);
     printf("Filter options (for 'list' / 'entities' / 'report'):\n");
     printf("  --kind <kind>        Show only entities of the given kind.\n");
     printf("                       Kinds: requirement, group, story, design-note,\n");
@@ -146,16 +175,46 @@ void cli_parse_args(int argc, char *argv[], CliOptions *opts)
     } else if (strcmp(argv[1], "validate") == 0) {
         opts->is_validate_cmd = 1;
         arg_idx = 2;
+    } else if (strcmp(argv[1], "next-id") == 0) {
+        if (argc < 4) {
+            opts->parse_error = 1;
+            opts->error_msg   =
+                "error: 'next-id' requires a type and prefix argument";
+            return;
+        }
+        opts->is_next_id_cmd = 1;
+        opts->next_id_type   = argv[2];
+        opts->next_id_prefix = argv[3];
+        opts->next_id_dir    = (argc >= 5) ? argv[4] : ".";
+        return; /* no further flags to parse for 'next-id' */
     } else if (strcmp(argv[1], "new") == 0) {
         if (argc < 4) {
             opts->parse_error = 1;
-            opts->error_msg   = "error: 'new' requires a type and an ID argument";
+            opts->error_msg   =
+                "error: 'new' requires a type and an ID (or --next/auto)";
             return;
         }
         opts->is_new_cmd = 1;
         opts->new_type   = argv[2];
-        opts->new_id     = argv[3];
-        opts->new_dir    = (argc >= 5) ? argv[4] : ".";
+        if (strcmp(argv[3], "--next") == 0) {
+            opts->new_use_next = 1;
+            if (argc >= 5) {
+                if (argc == 5 && looks_like_directory_arg(argv[4])) {
+                    opts->new_dir = argv[4];
+                } else {
+                    opts->new_prefix = argv[4];
+                    opts->new_dir = (argc >= 6) ? argv[5] : ".";
+                }
+            } else {
+                opts->new_dir = ".";
+            }
+        } else if (strcmp(argv[3], "auto") == 0) {
+            opts->new_use_next = 1;
+            opts->new_dir = (argc >= 5) ? argv[4] : ".";
+        } else {
+            opts->new_id     = argv[3];
+            opts->new_dir    = (argc >= 5) ? argv[4] : ".";
+        }
         return; /* no further flags to parse for 'new' */
     }
     /* else: no recognised subcommand — treat argv[1] onward as flags/dir */
